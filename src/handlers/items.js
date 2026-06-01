@@ -15,8 +15,9 @@
 import { errorResponse, successResponse, jsonResponse, corsPreFlight } from '../utils/response.js';
 import { requireAuth } from './auth.js';
 import { createItem, validateItem, mergeUpdate } from '../data/schema.js';
-import { getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById } from '../data/store.js';
-import { addDays } from '../utils/date.js';
+import { getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById, getConfig } from '../data/store.js';
+import { addDays, daysUntil, getStatusText } from '../utils/date.js';
+import { sendTelegram } from '../services/telegram.js';
 
 export async function handleItems(request, env, path) {
   if (request.method === 'OPTIONS') return corsPreFlight();
@@ -230,10 +231,6 @@ async function importJSON(request, env) {
 }
 
 async function testNotify(env, id) {
-  const { getConfig } = await import('../data/store.js');
-  const { sendTelegram } = await import('../services/telegram.js');
-  const { daysUntil, getStatusText } = await import('../utils/date.js');
-
   const item = await getItemById(env.DB, id);
   if (!item) return errorResponse('未找到记录', 404);
 
@@ -245,7 +242,10 @@ async function testNotify(env, id) {
   } catch {}
 
   if (!tgToken || !tgChat) {
-    return errorResponse('TG 密钥未配置，无法发送测试通知');
+    const missing = [];
+    if (!tgToken) missing.push('TG_BOT_TOKEN');
+    if (!tgChat) missing.push('TG_CHAT_ID');
+    return errorResponse(`TG 密钥未配置: 缺少 ${missing.join(', ')}。请在 Workers → Settings → Variables 中添加`);
   }
 
   const diff = daysUntil(item.expireDate);

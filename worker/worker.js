@@ -1,26 +1,35 @@
-var __defProp = Object.defineProperty;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+// src/utils/response.js
+var CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
 };
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS }
+  });
+}
+function htmlResponse(html) {
+  return new Response(html, {
+    headers: { "Content-Type": "text/html;charset=UTF-8", ...CORS_HEADERS }
+  });
+}
+function errorResponse(message, status = 400) {
+  return jsonResponse({ success: false, message }, status);
+}
+function successResponse(data = null) {
+  const res = { success: true };
+  if (data)
+    Object.assign(res, data);
+  return jsonResponse(res);
+}
+function corsPreFlight() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
 
 // src/data/store.js
-var store_exports = {};
-__export(store_exports, {
-  addItem: () => addItem,
-  deleteItem: () => deleteItem,
-  getAllItems: () => getAllItems,
-  getConfig: () => getConfig,
-  getItemById: () => getItemById,
-  getItemsByType: () => getItemsByType,
-  saveAllItems: () => saveAllItems,
-  setConfig: () => setConfig,
-  updateItem: () => updateItem
-});
+var ITEMS_KEY = "items";
 async function getAllItems(db) {
   try {
     const items = await db.get(ITEMS_KEY, { type: "json" });
@@ -59,127 +68,14 @@ async function deleteItem(db, id) {
   await saveAllItems(db, filtered);
   return true;
 }
-async function getItemsByType(db, type) {
-  const items = await getAllItems(db);
-  return items.filter((item) => item.type === type);
-}
 async function getConfig(db, key) {
   return await db.get(key);
 }
 async function setConfig(db, key, value, options) {
   await db.put(key, value, options);
 }
-var ITEMS_KEY;
-var init_store = __esm({
-  "src/data/store.js"() {
-    ITEMS_KEY = "items";
-  }
-});
-
-// src/utils/date.js
-var date_exports = {};
-__export(date_exports, {
-  addDays: () => addDays,
-  daysUntil: () => daysUntil,
-  formatDate: () => formatDate,
-  getStatusText: () => getStatusText,
-  todayMidnight: () => todayMidnight,
-  todayString: () => todayString
-});
-function todayString() {
-  const now = /* @__PURE__ */ new Date();
-  const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
-  return local.toISOString().split("T")[0];
-}
-function todayMidnight() {
-  const now = /* @__PURE__ */ new Date();
-  const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
-  local.setUTCHours(0, 0, 0, 0);
-  return local;
-}
-function daysUntil(expireDate) {
-  const today = todayMidnight();
-  const exp = /* @__PURE__ */ new Date(expireDate + "T00:00:00Z");
-  return Math.ceil((exp - today) / 864e5);
-}
-function addDays(dateStr, days) {
-  const d = /* @__PURE__ */ new Date(dateStr + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().split("T")[0];
-}
-function formatDate(dateStr) {
-  if (!dateStr)
-    return "\u672A\u8BBE\u7F6E";
-  const d = /* @__PURE__ */ new Date(dateStr + "T00:00:00Z");
-  const m = d.getUTCMonth() + 1;
-  const day = d.getUTCDate();
-  return `${m}\u6708${day}\u65E5`;
-}
-function getStatusText(days) {
-  if (days < 0)
-    return `\u5DF2\u8FC7\u671F ${Math.abs(days)} \u5929`;
-  if (days === 0)
-    return "\u4ECA\u5929\u5230\u671F";
-  return `\u5269\u4F59 ${days} \u5929`;
-}
-var TZ_OFFSET;
-var init_date = __esm({
-  "src/utils/date.js"() {
-    TZ_OFFSET = 8;
-  }
-});
-
-// src/services/telegram.js
-var telegram_exports = {};
-__export(telegram_exports, {
-  sendTelegram: () => sendTelegram
-});
-async function sendTelegram(token, chatId, text) {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" })
-  });
-  return res.ok;
-}
-var init_telegram = __esm({
-  "src/services/telegram.js"() {
-  }
-});
-
-// src/utils/response.js
-var CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization"
-};
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS }
-  });
-}
-function htmlResponse(html) {
-  return new Response(html, {
-    headers: { "Content-Type": "text/html;charset=UTF-8", ...CORS_HEADERS }
-  });
-}
-function errorResponse(message, status = 400) {
-  return jsonResponse({ success: false, message }, status);
-}
-function successResponse(data = null) {
-  const res = { success: true };
-  if (data)
-    Object.assign(res, data);
-  return jsonResponse(res);
-}
-function corsPreFlight() {
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
-}
 
 // src/handlers/auth.js
-init_store();
 async function handleAuth(request, env, path) {
   if (request.method === "OPTIONS") {
     return corsPreFlight();
@@ -350,9 +246,44 @@ function mergeUpdate(existing, data) {
   return updated;
 }
 
+// src/utils/date.js
+var TZ_OFFSET = 8;
+function todayMidnight() {
+  const now = /* @__PURE__ */ new Date();
+  const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
+  local.setUTCHours(0, 0, 0, 0);
+  return local;
+}
+function daysUntil(expireDate) {
+  const today = todayMidnight();
+  const exp = /* @__PURE__ */ new Date(expireDate + "T00:00:00Z");
+  return Math.ceil((exp - today) / 864e5);
+}
+function addDays(dateStr, days) {
+  const d = /* @__PURE__ */ new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split("T")[0];
+}
+function getStatusText(days) {
+  if (days < 0)
+    return `\u5DF2\u8FC7\u671F ${Math.abs(days)} \u5929`;
+  if (days === 0)
+    return "\u4ECA\u5929\u5230\u671F";
+  return `\u5269\u4F59 ${days} \u5929`;
+}
+
+// src/services/telegram.js
+async function sendTelegram(token, chatId, text) {
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" })
+  });
+  return res.ok;
+}
+
 // src/handlers/items.js
-init_store();
-init_date();
 async function handleItems(request, env, path) {
   if (request.method === "OPTIONS")
     return corsPreFlight();
@@ -527,9 +458,6 @@ async function importJSON(request, env) {
   }
 }
 async function testNotify(env, id) {
-  const { getConfig: getConfig2 } = await Promise.resolve().then(() => (init_store(), store_exports));
-  const { sendTelegram: sendTelegram2 } = await Promise.resolve().then(() => (init_telegram(), telegram_exports));
-  const { daysUntil: daysUntil2, getStatusText: getStatusText2 } = await Promise.resolve().then(() => (init_date(), date_exports));
   const item = await getItemById(env.DB, id);
   if (!item)
     return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404);
@@ -537,16 +465,21 @@ async function testNotify(env, id) {
   let tgChat = env.TG_CHAT_ID;
   try {
     if (!tgToken)
-      tgToken = await getConfig2(env.DB, "TG_BOT_TOKEN");
+      tgToken = await getConfig(env.DB, "TG_BOT_TOKEN");
     if (!tgChat)
-      tgChat = await getConfig2(env.DB, "TG_CHAT_ID");
+      tgChat = await getConfig(env.DB, "TG_CHAT_ID");
   } catch {
   }
   if (!tgToken || !tgChat) {
-    return errorResponse("TG \u5BC6\u94A5\u672A\u914D\u7F6E\uFF0C\u65E0\u6CD5\u53D1\u9001\u6D4B\u8BD5\u901A\u77E5");
+    const missing = [];
+    if (!tgToken)
+      missing.push("TG_BOT_TOKEN");
+    if (!tgChat)
+      missing.push("TG_CHAT_ID");
+    return errorResponse(`TG \u5BC6\u94A5\u672A\u914D\u7F6E: \u7F3A\u5C11 ${missing.join(", ")}\u3002\u8BF7\u5728 Workers \u2192 Settings \u2192 Variables \u4E2D\u6DFB\u52A0`);
   }
-  const diff = daysUntil2(item.expireDate);
-  const statusText = getStatusText2(diff);
+  const diff = daysUntil(item.expireDate);
+  const statusText = getStatusText(diff);
   const emoji = diff <= 0 ? "\u{1F6A8}" : diff <= 15 ? "\u26A0\uFE0F" : "\u{1F4E2}";
   const typeLabel = item.type === "esim" ? "eSIM \u4FDD\u53F7" : "\u8BA2\u9605\u7EED\u8D39";
   const msg = [
@@ -561,7 +494,7 @@ async function testNotify(env, id) {
     "",
     "<i>\u8FD9\u662F\u4E00\u6761\u6D4B\u8BD5\u901A\u77E5\uFF0C\u786E\u8BA4\u901A\u77E5\u529F\u80FD\u6B63\u5E38\u3002</i>"
   ].filter(Boolean).join("\n");
-  const ok = await sendTelegram2(tgToken, tgChat, msg);
+  const ok = await sendTelegram(tgToken, tgChat, msg);
   if (ok)
     return successResponse();
   return errorResponse("\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5 TG \u914D\u7F6E");
@@ -653,11 +586,12 @@ function getHTML() {
         <button onclick="openModal('subscription')" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-credit-card"></i> \u8BA2\u9605
         </button>
-        <div class="relative">
-          <button onclick="toggleMenu()" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
+        <div class="relative" id="menu-trigger">
+          <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
             <i class="fa-solid fa-ellipsis-vertical"></i>
           </button>
-          <div id="dropdown-menu" class="hidden absolute right-0 top-full mt-2 glass rounded-xl p-2 min-w-[160px] z-[60]">
+        </div>
+        <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
             <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
               <i class="fa-solid fa-download mr-2 text-emerald-400"></i>\u5BFC\u51FA JSON
             </button>
@@ -759,7 +693,7 @@ function getHTML() {
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u5230\u671F\u65E5\u671F *</label>
-            <input id="form-expire" type="date" required class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
+            <input id="form-expire" type="date" required min="2020-01-01" max="2035-12-31" class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u4FDD\u53F7/\u7EED\u8D39\u5468\u671F (\u5929)</label>
@@ -1146,10 +1080,23 @@ function getFlag(num) {
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
 
-function toggleMenu() { document.getElementById('dropdown-menu').classList.toggle('hidden'); }
+function toggleMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('dropdown-menu');
+  const trigger = document.getElementById('menu-trigger');
+  if (menu.classList.contains('hidden')) {
+    const rect = trigger.getBoundingClientRect();
+    menu.style.top = (rect.bottom + 8) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    menu.classList.remove('hidden');
+  } else {
+    menu.classList.add('hidden');
+  }
+}
 document.addEventListener('click', e => {
   const menu = document.getElementById('dropdown-menu');
-  if (menu && !e.target.closest('.relative')) menu.classList.add('hidden');
+  const trigger = document.getElementById('menu-trigger');
+  if (menu && !menu.contains(e.target) && !trigger.contains(e.target)) menu.classList.add('hidden');
 });
 
 // ==================== MODAL ====================
@@ -1318,9 +1265,6 @@ async function route(request, env) {
 }
 
 // src/services/reminder.js
-init_store();
-init_telegram();
-init_date();
 var DEFAULT_REMIND_DAYS = [3, 1, 0];
 async function checkReminders(env) {
   let tgToken = env.TG_BOT_TOKEN;

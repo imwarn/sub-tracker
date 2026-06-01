@@ -89,11 +89,12 @@ export function getHTML() {
         <button onclick="openModal('subscription')" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-credit-card"></i> 订阅
         </button>
-        <div class="relative">
-          <button onclick="toggleMenu()" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
+        <div class="relative" id="menu-trigger">
+          <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
             <i class="fa-solid fa-ellipsis-vertical"></i>
           </button>
-          <div id="dropdown-menu" class="hidden absolute right-0 top-full mt-2 glass rounded-xl p-2 min-w-[160px] z-[60]">
+        </div>
+        <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
             <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
               <i class="fa-solid fa-download mr-2 text-emerald-400"></i>导出 JSON
             </button>
@@ -195,7 +196,7 @@ export function getHTML() {
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">到期日期 *</label>
-            <input id="form-expire" type="date" required class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
+            <input id="form-expire" type="date" required min="2020-01-01" max="2035-12-31" class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">保号/续费周期 (天)</label>
@@ -582,10 +583,23 @@ function getFlag(num) {
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
 
-function toggleMenu() { document.getElementById('dropdown-menu').classList.toggle('hidden'); }
+function toggleMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('dropdown-menu');
+  const trigger = document.getElementById('menu-trigger');
+  if (menu.classList.contains('hidden')) {
+    const rect = trigger.getBoundingClientRect();
+    menu.style.top = (rect.bottom + 8) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    menu.classList.remove('hidden');
+  } else {
+    menu.classList.add('hidden');
+  }
+}
 document.addEventListener('click', e => {
   const menu = document.getElementById('dropdown-menu');
-  if (menu && !e.target.closest('.relative')) menu.classList.add('hidden');
+  const trigger = document.getElementById('menu-trigger');
+  if (menu && !menu.contains(e.target) && !trigger.contains(e.target)) menu.classList.add('hidden');
 });
 
 // ==================== MODAL ====================
