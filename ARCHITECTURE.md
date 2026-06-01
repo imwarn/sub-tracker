@@ -117,10 +117,10 @@ sub-tracker/
 ## 部署方式
 
 ### 方式 1: GitHub Actions 自动部署 (推荐)
-- Fork 仓库 → 配置 GitHub Secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`)
-- 修改 `wrangler.toml` 填入 KV ID
-- Push 到 main 分支自动触发部署 (`.github/workflows/deploy.yml`)
-- Worker + Cron Triggers + KV 绑定全部自动同步
+- Fork 仓库，**不改任何文件**
+- 配置 5 个 GitHub Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `KV_NAMESPACE_ID`, `TG_BOT_TOKEN`, `TG_CHAT_ID`
+- Push 到 main 自动触发部署
+- CI 自动: 注入 KV ID 到 wrangler.toml → 设置 TG Worker Secrets → 构建 → 部署
 
 ### 方式 2: Wrangler CLI 手动部署
 ```bash

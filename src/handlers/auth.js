@@ -56,7 +56,9 @@ async function sendOTP(env) {
     if (!token) missing.push('TG_BOT_TOKEN');
     if (!chatId) missing.push('TG_CHAT_ID');
     return errorResponse(
-      `环境缺失：缺少 ${missing.join(' 和 ')}。请前往 Cloudflare 的 KV 数据库中手动添加这两个键值对！`,
+      `环境缺失：缺少 ${missing.join(' 和 ')}。可通过以下方式配置：\n` +
+      `1. Cloudflare Dashboard → Workers → Settings → Variables (推荐)\n` +
+      `2. KV 数据库中手动添加这两个键值对`,
       500
     );
   }

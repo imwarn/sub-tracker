@@ -3,7 +3,7 @@ name: Deploy to Cloudflare Workers
 on:
   push:
     branches: [main]
-  workflow_dispatch: # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -21,7 +21,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build (for Dashboard deployment)
+      # 将 GitHub Secret 中的 KV ID 写入 wrangler.toml
+      - name: Inject KV Namespace ID
+        if: ${{ secrets.KV_NAMESPACE_ID != '' }}
+        run: |
+          sed -i "s/YOUR_KV_NAMESPACE_ID/${{ secrets.KV_NAMESPACE_ID }}/g" wrangler.toml
+          echo "✅ KV Namespace ID injected"
+
+      # 将 TG 密钥设置为 Worker 环境变量 (Secrets)
+      - name: Set Worker Secrets
+        if: ${{ secrets.TG_BOT_TOKEN != '' }}
+        run: |
+          echo "${{ secrets.TG_BOT_TOKEN }}" | npx wrangler secret put TG_BOT_TOKEN --force || true
+          echo "${{ secrets.TG_CHAT_ID }}" | npx wrangler secret put TG_CHAT_ID --force || true
+          echo "✅ TG secrets set"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Build
         run: npm run build
 
       - name: Deploy to Cloudflare Workers
