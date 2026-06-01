@@ -1,0 +1,100 @@
+/**
+ * KV data store operations
+ * All items (eSIM + subscriptions) are stored in a single KV key as a JSON array.
+ *
+ * KV Key Layout:
+ *   items               → JSON array of all items
+ *   TG_BOT_TOKEN        → Telegram bot token
+ *   TG_CHAT_ID          → Telegram chat ID
+ *   admin_auth_code     → Current OTP code (TTL 300s)
+ *   admin_auth_attempts → Failed attempt counter (TTL 300s)
+ *   session_token_<uuid> → Active session (TTL 2592000s = 30d)
+ */
+
+const ITEMS_KEY = 'items';
+
+/**
+ * Get all items from KV
+ * @param {KVNamespace} db
+ * @returns {Promise<Array>}
+ */
+export async function getAllItems(db) {
+  try {
+    const items = await db.get(ITEMS_KEY, { type: 'json' });
+    return items || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save all items to KV
+ * @param {KVNamespace} db
+ * @param {Array} items
+ */
+export async function saveAllItems(db, items) {
+  await db.put(ITEMS_KEY, JSON.stringify(items));
+}
+
+/**
+ * Get a single item by ID
+ */
+export async function getItemById(db, id) {
+  const items = await getAllItems(db);
+  return items.find(item => item.id === id) || null;
+}
+
+/**
+ * Add a new item
+ */
+export async function addItem(db, item) {
+  const items = await getAllItems(db);
+  items.push(item);
+  await saveAllItems(db, items);
+  return item;
+}
+
+/**
+ * Update an existing item by ID
+ */
+export async function updateItem(db, id, updater) {
+  const items = await getAllItems(db);
+  const idx = items.findIndex(item => item.id === id);
+  if (idx === -1) return null;
+  items[idx] = updater(items[idx]);
+  await saveAllItems(db, items);
+  return items[idx];
+}
+
+/**
+ * Delete an item by ID
+ */
+export async function deleteItem(db, id) {
+  const items = await getAllItems(db);
+  const filtered = items.filter(item => item.id !== id);
+  if (filtered.length === items.length) return false;
+  await saveAllItems(db, filtered);
+  return true;
+}
+
+/**
+ * Get items filtered by type
+ */
+export async function getItemsByType(db, type) {
+  const items = await getAllItems(db);
+  return items.filter(item => item.type === type);
+}
+
+/**
+ * Get a config value from KV
+ */
+export async function getConfig(db, key) {
+  return await db.get(key);
+}
+
+/**
+ * Set a config value in KV
+ */
+export async function setConfig(db, key, value, options) {
+  await db.put(key, value, options);
+}
