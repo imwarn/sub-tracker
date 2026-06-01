@@ -228,9 +228,20 @@ npx wrangler tail
 # 构建检查
 npm run build && echo "OK"
 
-# 检查构建产物
-head -50 worker/worker.js
+# 检查构建产物关键函数
+python3 -c "
+with open('worker/worker.js') as f: c = f.read()
+idx = c.find('function getFlag')
+print(repr(c[idx:idx+200]))
+"
 ```
+
+### ⚠️ esbuild 踩坑
+
+1. **`\d` 被吞反斜杠**：esbuild 构建时 `/[^\d]/g` → `/[^d]/g`，导致正则完全失效
+   - 修复：用 `[0-9]` 替代 `\d`，字符类不含反斜杠，esbuild 不会破坏
+   - 规则：**项目中所有正则一律用 `[0-9]` 不用 `\d`**
+2. **tree-shaking**：未被 import 的函数会被删除（如后端 `parseCountry`），前端代码内嵌在 `template.js` 不受影响
 
 ### 修改 checklist
 
