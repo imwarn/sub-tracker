@@ -140,13 +140,21 @@ export function getHTML() {
     <div id="content-area"></div>
     <div id="empty-state" class="hidden text-center py-16 text-slate-500">
       <i class="fa-solid fa-inbox text-5xl mb-4 opacity-30"></i>
-      <p class="text-lg">暂无数据</p>
-      <p class="text-sm mt-1">点击上方按钮添加你的第一个 eSIM 卡或订阅</p>
+      <p class="text-lg mb-1">暂无数据</p>
+      <p class="text-sm mb-6">添加你的第一个 eSIM 卡或订阅服务</p>
+      <div class="flex gap-3 justify-center">
+        <button onclick="openModal('esim')" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sim-card"></i> 添加 eSIM
+        </button>
+        <button onclick="openModal('subscription')" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-credit-card"></i> 添加订阅
+        </button>
+      </div>
     </div>
   </div>
 
   <!-- ========== MODAL ========== -->
-  <div id="modal-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div id="modal-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)closeModal()">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto fade-in">
       <div class="flex justify-between items-center mb-6">
         <h3 id="modal-title" class="text-xl font-bold text-white">添加</h3>
@@ -451,7 +459,7 @@ function cardHTML(item) {
     '<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2">' +
     '<div class="'+tb+' w-8 h-8 rounded-lg flex items-center justify-center"><i class="fa-solid '+ti+' '+tc+' text-sm"></i></div>' +
     '<span class="text-xs '+tc+' opacity-70">'+esc(tl)+'</span></div>' +
-    '<span class="text-xs font-semibold '+st.cls+'">'+st.text+'</span></div>' +
+    '<span class="text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</span></div>' +
     '<h3 class="text-lg font-bold text-white mb-1 truncate">'+esc(item.name)+'</h3>' +
     body +
     (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>到期: '+item.expireDate+'</div>' : '') +
@@ -459,6 +467,7 @@ function cardHTML(item) {
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
     renewBtn +
+    '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
     '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
     '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
     '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
@@ -491,9 +500,10 @@ function listRowHTML(item) {
       '<span class="truncate text-sm font-medium text-white">'+esc(item.name)+priceStr+'</span></div>' +
     '<div class="col-span-2 hidden sm:block text-xs text-slate-400 truncate">'+flag+esc(sub)+'</div>' +
     '<div class="col-span-2 text-xs text-slate-300">'+(item.expireDate||'-')+'</div>' +
-    '<div class="col-span-2 hidden sm:block text-xs font-semibold '+st.cls+'">'+st.text+'</div>' +
+    '<div class="col-span-2 hidden sm:block text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</div>' +
     '<div class="col-span-2 flex justify-end gap-1">' +
       (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+      '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
       '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
       '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
       '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
@@ -732,6 +742,25 @@ async function importJSON(input) {
     alert('JSON 解析失败: ' + e.message);
   }
   input.value = '';
+}
+
+// ==================== KEYBOARD ====================
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeModal();
+    const menu = document.getElementById('dropdown-menu');
+    if (menu) menu.classList.add('hidden');
+  }
+});
+
+// ==================== STATUS TOGGLE ====================
+async function toggleStatus(id) {
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  const newStatus = item.status === 'active' ? 'paused' : 'active';
+  const res = await api('PUT', '/api/items/' + id, { status: newStatus });
+  const data = await res.json();
+  if (data.success) await loadItems();
 }
 
 // ==================== INIT ====================
