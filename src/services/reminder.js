@@ -11,6 +11,9 @@ import { todayMidnight } from '../utils/date.js';
 
 const DEFAULT_REMIND_DAYS = [3, 1, 0]; // fallback
 
+const CURRENCY_SYMBOLS = {'CNY':'¥','USD':'$','EUR':'€','GBP':'£','JPY':'¥','HKD':'$','TWD':'$','KRW':'₩','TRY':'₺','THB':'฿','NGN':'₦','INR':'₹','PHP':'₱','MYR':'RM','SGD':'$'};
+function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '¥'; }
+
 /**
  * Run the reminder check (called by Cron trigger)
  */
@@ -49,6 +52,7 @@ export async function checkReminders(env) {
     const remarkText = item.remark ? `\n📝 备注: ${item.remark}` : '';
     const typeLabel = item.type === 'esim' ? 'eSIM 保号' : '订阅续费';
     const typeEmoji = item.type === 'esim' ? '📱' : '📦';
+    const priceText = item.price ? `\n💰 费用: ${currSym(item.currency)}${item.price}/${item.billing === 'yearly' ? '年' : item.billing === 'once' ? '次' : '月'}` : '';
 
     let urgency;
     if (diffDays < 0) urgency = '❌';
@@ -66,7 +70,8 @@ export async function checkReminders(env) {
       `${urgency} 【${typeLabel}提醒】\n` +
       `${typeEmoji} 名称: ${item.name}\n` +
       (item.number ? `📞 号码: ${item.number}\n` : '') +
-      `🔄 周期: ${cycleText}\n` +
+      priceText +
+      `\n🔄 周期: ${cycleText}\n` +
       `📅 到期: ${item.expireDate}\n` +
       `⏳ ${statusText}${remarkText}\n` +
       (diffDays > 0 ? `👉 请尽快处理！` : '')

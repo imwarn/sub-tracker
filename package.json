@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "bash scripts/deploy.sh",
     "build": "node scripts/build.js"
   },
   "keywords": ["esim", "subscription", "cloudflare-workers", "tracker"],

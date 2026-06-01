@@ -743,10 +743,30 @@ function getHTML() {
             </div>
           </div>
           <div id="field-price" class="hidden">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-3 gap-3">
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">\u8D39\u7528</label>
                 <input id="form-price" type="number" step="0.01" min="0" placeholder="9.99" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
+                <select id="form-currency" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                  <option value="CNY">\u{1F1E8}\u{1F1F3} CNY \xA5</option>
+                  <option value="USD">\u{1F1FA}\u{1F1F8} USD $</option>
+                  <option value="EUR">\u{1F1EA}\u{1F1FA} EUR \u20AC</option>
+                  <option value="GBP">\u{1F1EC}\u{1F1E7} GBP \xA3</option>
+                  <option value="JPY">\u{1F1EF}\u{1F1F5} JPY \xA5</option>
+                  <option value="HKD">\u{1F1ED}\u{1F1F0} HKD $</option>
+                  <option value="TWD">\u{1F1F9}\u{1F1FC} TWD $</option>
+                  <option value="KRW">\u{1F1F0}\u{1F1F7} KRW \u20A9</option>
+                  <option value="TRY">\u{1F1F9}\u{1F1F7} TRY \u20BA</option>
+                  <option value="THB">\u{1F1F9}\u{1F1ED} THB \u0E3F</option>
+                  <option value="NGN">\u{1F1F3}\u{1F1EC} NGN \u20A6</option>
+                  <option value="INR">\u{1F1EE}\u{1F1F3} INR \u20B9</option>
+                  <option value="PHP">\u{1F1F5}\u{1F1ED} PHP \u20B1</option>
+                  <option value="MYR">\u{1F1F2}\u{1F1FE} MYR RM</option>
+                  <option value="SGD">\u{1F1F8}\u{1F1EC} SGD $</option>
+                </select>
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">\u8BA1\u8D39\u5468\u671F</label>
@@ -884,12 +904,16 @@ function renderStats() {
     else { monthlyCost += 0; yearlyCost += p; }
   });
 
+  // Determine display currency from first subscription with a price
+  const primaryCur = subs.find(s => s.price)?.currency || 'CNY';
+  const sym = currSym(primaryCur);
+
   const stats = [
     { label:'eSIM', value:esims.length, icon:'fa-sim-card', color:'text-cyan-400', bg:'bg-cyan-500/10' },
     { label:'\u8BA2\u9605', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10' },
     { label:'\u5373\u5C06\u5230\u671F', value:urgentCount, icon:'fa-clock', color:'text-amber-400', bg:'bg-amber-500/10' },
-    { label:'\u6708\u5EA6\u652F\u51FA', value:'\xA5'+monthlyCost.toFixed(0), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
-    { label:'\u5E74\u5EA6\u9884\u7B97', value:'\xA5'+yearlyCost.toFixed(0), icon:'fa-chart-pie', color:'text-rose-400', bg:'bg-rose-500/10' },
+    { label:'\u6708\u5EA6\u652F\u51FA', value:sym+monthlyCost.toFixed(0), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
+    { label:'\u5E74\u5EA6\u9884\u7B97', value:sym+yearlyCost.toFixed(0), icon:'fa-chart-pie', color:'text-rose-400', bg:'bg-rose-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
@@ -972,7 +996,7 @@ function cardHTML(item) {
     body = (flag ? '<div class="text-2xl mb-2">'+flag+'</div>' : '') +
       (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
   } else {
-    const ps = item.price ? (item.billing==='yearly' ? '\xA5'+item.price+'/\u5E74' : item.billing==='once' ? '\xA5'+item.price+'(\u4E00\u6B21\u6027)' : '\xA5'+item.price+'/\u6708') : '';
+    const ps = item.price ? (item.billing==='yearly' ? currSym(item.currency)+item.price+'/\u5E74' : item.billing==='once' ? currSym(item.currency)+item.price+'(\u4E00\u6B21\u6027)' : currSym(item.currency)+item.price+'/\u6708') : '';
     const regionFlags = {'CN':'\u{1F1E8}\u{1F1F3}','HK':'\u{1F1ED}\u{1F1F0}','TW':'\u{1F1F9}\u{1F1FC}','US':'\u{1F1FA}\u{1F1F8}','JP':'\u{1F1EF}\u{1F1F5}','KR':'\u{1F1F0}\u{1F1F7}','TR':'\u{1F1F9}\u{1F1F7}','NG':'\u{1F1F3}\u{1F1EC}','IN':'\u{1F1EE}\u{1F1F3}','BR':'\u{1F1E7}\u{1F1F7}','AR':'\u{1F1E6}\u{1F1F7}','PH':'\u{1F1F5}\u{1F1ED}','MY':'\u{1F1F2}\u{1F1FE}','SG':'\u{1F1F8}\u{1F1EC}','EU':'\u{1F1EA}\u{1F1FA}'};
     const regionStr = item.region ? (regionFlags[item.region]||'\u{1F30D}')+' '+item.region : '';
     const catStr = item.category ? esc(item.category) : '';
@@ -1023,7 +1047,7 @@ function listRowHTML(item) {
   const isEsim = item.type === 'esim';
   const sub = isEsim ? (item.number || '-') : (item.category || '-');
   const flag = isEsim ? getFlag(item.number)+' ' : '';
-  const priceStr = !isEsim && item.price ? ' \xB7 \xA5'+item.price : '';
+  const priceStr = !isEsim && item.price ? ' \xB7 '+currSym(item.currency)+item.price : '';
 
   return '<div class="list-row grid grid-cols-12 gap-2 px-4 py-3 items-center border-b border-white/5">' +
     '<div class="col-span-4 flex items-center gap-2 min-w-0">' +
@@ -1116,18 +1140,24 @@ function statusInfo(diff) {
   return { cls:'status-active', text:'\u5269\u4F59 '+diff+'\u5929' };
 }
 
-const FLAG_MAP = {'1':'\u{1F1FA}\u{1F1F8}','7':'\u{1F1F7}\u{1F1FA}','20':'\u{1F1EA}\u{1F1EC}','33':'\u{1F1EB}\u{1F1F7}','34':'\u{1F1EA}\u{1F1F8}','39':'\u{1F1EE}\u{1F1F9}','44':'\u{1F1EC}\u{1F1E7}','49':'\u{1F1E9}\u{1F1EA}','52':'\u{1F1F2}\u{1F1FD}','55':'\u{1F1E7}\u{1F1F7}','60':'\u{1F1F2}\u{1F1FE}','61':'\u{1F1E6}\u{1F1FA}','62':'\u{1F1EE}\u{1F1E9}','63':'\u{1F1F5}\u{1F1ED}','65':'\u{1F1F8}\u{1F1EC}','66':'\u{1F1F9}\u{1F1ED}','81':'\u{1F1EF}\u{1F1F5}','82':'\u{1F1F0}\u{1F1F7}','84':'\u{1F1FB}\u{1F1F3}','86':'\u{1F1E8}\u{1F1F3}','90':'\u{1F1F9}\u{1F1F7}','91':'\u{1F1EE}\u{1F1F3}','212':'\u{1F1F2}\u{1F1E6}','234':'\u{1F1F3}\u{1F1EC}','351':'\u{1F1F5}\u{1F1F9}','353':'\u{1F1EE}\u{1F1EA}','358':'\u{1F1EB}\u{1F1EE}','380':'\u{1F1FA}\u{1F1E6}','852':'\u{1F1ED}\u{1F1F0}','853':'\u{1F1F2}\u{1F1F4}','855':'\u{1F1F0}\u{1F1ED}','880':'\u{1F1E7}\u{1F1E9}','886':'\u{1F1F9}\u{1F1FC}','966':'\u{1F1F8}\u{1F1E6}','971':'\u{1F1E6}\u{1F1EA}','972':'\u{1F1EE}\u{1F1F1}'};
+const FLAG_MAP = {'1':'\u{1F1FA}\u{1F1F8}','7':'\u{1F1F7}\u{1F1FA}','20':'\u{1F1EA}\u{1F1EC}','27':'\u{1F1FF}\u{1F1E6}','30':'\u{1F1EC}\u{1F1F7}','31':'\u{1F1F3}\u{1F1F1}','32':'\u{1F1E7}\u{1F1EA}','33':'\u{1F1EB}\u{1F1F7}','34':'\u{1F1EA}\u{1F1F8}','36':'\u{1F1ED}\u{1F1FA}','39':'\u{1F1EE}\u{1F1F9}','40':'\u{1F1F7}\u{1F1F4}','41':'\u{1F1E8}\u{1F1ED}','43':'\u{1F1E6}\u{1F1F9}','44':'\u{1F1EC}\u{1F1E7}','45':'\u{1F1E9}\u{1F1F0}','46':'\u{1F1F8}\u{1F1EA}','47':'\u{1F1F3}\u{1F1F4}','48':'\u{1F1F5}\u{1F1F1}','49':'\u{1F1E9}\u{1F1EA}','51':'\u{1F1F5}\u{1F1EA}','52':'\u{1F1F2}\u{1F1FD}','53':'\u{1F1E8}\u{1F1FA}','54':'\u{1F1E6}\u{1F1F7}','55':'\u{1F1E7}\u{1F1F7}','56':'\u{1F1E8}\u{1F1F1}','57':'\u{1F1E8}\u{1F1F4}','58':'\u{1F1FB}\u{1F1EA}','60':'\u{1F1F2}\u{1F1FE}','61':'\u{1F1E6}\u{1F1FA}','62':'\u{1F1EE}\u{1F1E9}','63':'\u{1F1F5}\u{1F1ED}','64':'\u{1F1F3}\u{1F1FF}','65':'\u{1F1F8}\u{1F1EC}','66':'\u{1F1F9}\u{1F1ED}','81':'\u{1F1EF}\u{1F1F5}','82':'\u{1F1F0}\u{1F1F7}','84':'\u{1F1FB}\u{1F1F3}','86':'\u{1F1E8}\u{1F1F3}','90':'\u{1F1F9}\u{1F1F7}','91':'\u{1F1EE}\u{1F1F3}','92':'\u{1F1F5}\u{1F1F0}','93':'\u{1F1E6}\u{1F1EB}','94':'\u{1F1F1}\u{1F1F0}','95':'\u{1F1F2}\u{1F1F2}','98':'\u{1F1EE}\u{1F1F7}','212':'\u{1F1F2}\u{1F1E6}','213':'\u{1F1E9}\u{1F1FF}','216':'\u{1F1F9}\u{1F1F3}','218':'\u{1F1F1}\u{1F1FE}','220':'\u{1F1EC}\u{1F1F2}','221':'\u{1F1F8}\u{1F1F3}','223':'\u{1F1F2}\u{1F1F1}','224':'\u{1F1EC}\u{1F1F3}','225':'\u{1F1E8}\u{1F1EE}','226':'\u{1F1E7}\u{1F1EB}','227':'\u{1F1F3}\u{1F1EA}','228':'\u{1F1F9}\u{1F1EC}','229':'\u{1F1E7}\u{1F1EF}','230':'\u{1F1F2}\u{1F1FA}','231':'\u{1F1F1}\u{1F1F7}','233':'\u{1F1EC}\u{1F1ED}','234':'\u{1F1F3}\u{1F1EC}','235':'\u{1F1F9}\u{1F1E9}','237':'\u{1F1E8}\u{1F1F2}','242':'\u{1F1E8}\u{1F1EC}','243':'\u{1F1E8}\u{1F1E9}','244':'\u{1F1E6}\u{1F1F4}','249':'\u{1F1F8}\u{1F1E9}','250':'\u{1F1F7}\u{1F1FC}','251':'\u{1F1EA}\u{1F1F9}','252':'\u{1F1F8}\u{1F1F4}','253':'\u{1F1E9}\u{1F1EF}','254':'\u{1F1F0}\u{1F1EA}','255':'\u{1F1F9}\u{1F1FF}','256':'\u{1F1FA}\u{1F1EC}','257':'\u{1F1E7}\u{1F1EE}','258':'\u{1F1F2}\u{1F1FF}','260':'\u{1F1FF}\u{1F1F2}','261':'\u{1F1F2}\u{1F1EC}','263':'\u{1F1FF}\u{1F1FC}','264':'\u{1F1F3}\u{1F1E6}','265':'\u{1F1F2}\u{1F1FC}','266':'\u{1F1F1}\u{1F1F8}','267':'\u{1F1E7}\u{1F1FC}','268':'\u{1F1F8}\u{1F1FF}','269':'\u{1F1F0}\u{1F1F2}','297':'\u{1F1E6}\u{1F1FC}','299':'\u{1F1EC}\u{1F1F1}','350':'\u{1F1EC}\u{1F1EE}','351':'\u{1F1F5}\u{1F1F9}','352':'\u{1F1F1}\u{1F1FA}','353':'\u{1F1EE}\u{1F1EA}','354':'\u{1F1EE}\u{1F1F8}','355':'\u{1F1E6}\u{1F1F1}','356':'\u{1F1F2}\u{1F1F9}','357':'\u{1F1E8}\u{1F1FE}','358':'\u{1F1EB}\u{1F1EE}','359':'\u{1F1E7}\u{1F1EC}','370':'\u{1F1F1}\u{1F1F9}','371':'\u{1F1F1}\u{1F1FB}','372':'\u{1F1EA}\u{1F1EA}','373':'\u{1F1F2}\u{1F1E9}','374':'\u{1F1E6}\u{1F1F2}','375':'\u{1F1E7}\u{1F1FE}','376':'\u{1F1E6}\u{1F1E9}','377':'\u{1F1F2}\u{1F1E8}','380':'\u{1F1FA}\u{1F1E6}','381':'\u{1F1F7}\u{1F1F8}','382':'\u{1F1F2}\u{1F1EA}','385':'\u{1F1ED}\u{1F1F7}','386':'\u{1F1F8}\u{1F1EE}','387':'\u{1F1E7}\u{1F1E6}','389':'\u{1F1F2}\u{1F1F0}','850':'\u{1F1F0}\u{1F1F5}','852':'\u{1F1ED}\u{1F1F0}','853':'\u{1F1F2}\u{1F1F4}','855':'\u{1F1F0}\u{1F1ED}','856':'\u{1F1F1}\u{1F1E6}','880':'\u{1F1E7}\u{1F1E9}','886':'\u{1F1F9}\u{1F1FC}','960':'\u{1F1F2}\u{1F1FB}','961':'\u{1F1F1}\u{1F1E7}','962':'\u{1F1EF}\u{1F1F4}','964':'\u{1F1EE}\u{1F1F6}','965':'\u{1F1F0}\u{1F1FC}','966':'\u{1F1F8}\u{1F1E6}','967':'\u{1F1FE}\u{1F1EA}','968':'\u{1F1F4}\u{1F1F2}','971':'\u{1F1E6}\u{1F1EA}','972':'\u{1F1EE}\u{1F1F1}','973':'\u{1F1E7}\u{1F1ED}','974':'\u{1F1F6}\u{1F1E6}','975':'\u{1F1E7}\u{1F1F9}','976':'\u{1F1F2}\u{1F1F3}','977':'\u{1F1F3}\u{1F1F5}','992':'\u{1F1F9}\u{1F1EF}','994':'\u{1F1E6}\u{1F1FF}','995':'\u{1F1EC}\u{1F1EA}','996':'\u{1F1F0}\u{1F1EC}','998':'\u{1F1FA}\u{1F1FF}'};
 function getFlag(num) {
   if (!num) return '';
-  const digits = num.replace(/[^d]/g, '');
+  let digits = num.replace(/[^d]/g, '');
+  if (digits.startsWith('00')) digits = digits.substring(2);
   for (const len of [3, 2, 1]) {
-    const prefix = digits.substring(0, len);
-    if (FLAG_MAP[prefix]) return FLAG_MAP[prefix];
+    if (digits.length >= len) {
+      const prefix = digits.substring(0, len);
+      if (FLAG_MAP[prefix]) return FLAG_MAP[prefix];
+    }
   }
   return '\u{1F30D}';
 }
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+const CURRENCY_SYMBOLS = {'CNY':'\xA5','USD':'$','EUR':'\u20AC','GBP':'\xA3','JPY':'\xA5','HKD':'$','TWD':'$','KRW':'\u20A9','TRY':'\u20BA','THB':'\u0E3F','NGN':'\u20A6','INR':'\u20B9','PHP':'\u20B1','MYR':'RM','SGD':'$'};
+function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '\xA5'; }
 
 function toggleMenu(e) {
   if (e) e.stopPropagation();
@@ -1169,6 +1199,7 @@ function openModal(type, item) {
     document.getElementById('form-expire').value = item.expireDate || '';
     document.getElementById('form-cycle').value = item.cycle || '';
     document.getElementById('form-price').value = item.price || '';
+    document.getElementById('form-currency').value = item.currency || 'CNY';
     document.getElementById('form-billing').value = item.billing || 'monthly';
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
@@ -1196,6 +1227,7 @@ async function saveItem(e) {
     expireDate: document.getElementById('form-expire').value,
     cycle: parseInt(document.getElementById('form-cycle').value) || null,
     price: document.getElementById('form-price').value || null,
+    currency: document.getElementById('form-currency').value,
     billing: document.getElementById('form-billing').value,
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
@@ -1340,6 +1372,10 @@ async function route(request, env) {
 
 // src/services/reminder.js
 var DEFAULT_REMIND_DAYS = [3, 1, 0];
+var CURRENCY_SYMBOLS = { "CNY": "\xA5", "USD": "$", "EUR": "\u20AC", "GBP": "\xA3", "JPY": "\xA5", "HKD": "$", "TWD": "$", "KRW": "\u20A9", "TRY": "\u20BA", "THB": "\u0E3F", "NGN": "\u20A6", "INR": "\u20B9", "PHP": "\u20B1", "MYR": "RM", "SGD": "$" };
+function currSym(code) {
+  return CURRENCY_SYMBOLS[code] || code || "\xA5";
+}
 async function checkReminders(env) {
   let tgToken = env.TG_BOT_TOKEN;
   let tgChat = env.TG_CHAT_ID;
@@ -1373,6 +1409,8 @@ async function checkReminders(env) {
 \u{1F4DD} \u5907\u6CE8: ${item.remark}` : "";
     const typeLabel = item.type === "esim" ? "eSIM \u4FDD\u53F7" : "\u8BA2\u9605\u7EED\u8D39";
     const typeEmoji = item.type === "esim" ? "\u{1F4F1}" : "\u{1F4E6}";
+    const priceText = item.price ? `
+\u{1F4B0} \u8D39\u7528: ${currSym(item.currency)}${item.price}/${item.billing === "yearly" ? "\u5E74" : item.billing === "once" ? "\u6B21" : "\u6708"}` : "";
     let urgency;
     if (diffDays < 0)
       urgency = "\u274C";
@@ -1387,7 +1425,8 @@ async function checkReminders(env) {
       `${urgency} \u3010${typeLabel}\u63D0\u9192\u3011
 ${typeEmoji} \u540D\u79F0: ${item.name}
 ` + (item.number ? `\u{1F4DE} \u53F7\u7801: ${item.number}
-` : "") + `\u{1F504} \u5468\u671F: ${cycleText}
+` : "") + priceText + `
+\u{1F504} \u5468\u671F: ${cycleText}
 \u{1F4C5} \u5230\u671F: ${item.expireDate}
 \u23F3 ${statusText}${remarkText}
 ` + (diffDays > 0 ? `\u{1F449} \u8BF7\u5C3D\u5FEB\u5904\u7406\uFF01` : "")

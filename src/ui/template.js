@@ -245,10 +245,30 @@ export function getHTML() {
             </div>
           </div>
           <div id="field-price" class="hidden">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-3 gap-3">
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">费用</label>
                 <input id="form-price" type="number" step="0.01" min="0" placeholder="9.99" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">货币</label>
+                <select id="form-currency" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                  <option value="CNY">🇨🇳 CNY ¥</option>
+                  <option value="USD">🇺🇸 USD $</option>
+                  <option value="EUR">🇪🇺 EUR €</option>
+                  <option value="GBP">🇬🇧 GBP £</option>
+                  <option value="JPY">🇯🇵 JPY ¥</option>
+                  <option value="HKD">🇭🇰 HKD $</option>
+                  <option value="TWD">🇹🇼 TWD $</option>
+                  <option value="KRW">🇰🇷 KRW ₩</option>
+                  <option value="TRY">🇹🇷 TRY ₺</option>
+                  <option value="THB">🇹🇭 THB ฿</option>
+                  <option value="NGN">🇳🇬 NGN ₦</option>
+                  <option value="INR">🇮🇳 INR ₹</option>
+                  <option value="PHP">🇵🇭 PHP ₱</option>
+                  <option value="MYR">🇲🇾 MYR RM</option>
+                  <option value="SGD">🇸🇬 SGD $</option>
+                </select>
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">计费周期</label>
@@ -386,12 +406,16 @@ function renderStats() {
     else { monthlyCost += 0; yearlyCost += p; }
   });
 
+  // Determine display currency from first subscription with a price
+  const primaryCur = subs.find(s => s.price)?.currency || 'CNY';
+  const sym = currSym(primaryCur);
+
   const stats = [
     { label:'eSIM', value:esims.length, icon:'fa-sim-card', color:'text-cyan-400', bg:'bg-cyan-500/10' },
     { label:'订阅', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10' },
     { label:'即将到期', value:urgentCount, icon:'fa-clock', color:'text-amber-400', bg:'bg-amber-500/10' },
-    { label:'月度支出', value:'¥'+monthlyCost.toFixed(0), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
-    { label:'年度预算', value:'¥'+yearlyCost.toFixed(0), icon:'fa-chart-pie', color:'text-rose-400', bg:'bg-rose-500/10' },
+    { label:'月度支出', value:sym+monthlyCost.toFixed(0), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
+    { label:'年度预算', value:sym+yearlyCost.toFixed(0), icon:'fa-chart-pie', color:'text-rose-400', bg:'bg-rose-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
@@ -474,7 +498,7 @@ function cardHTML(item) {
     body = (flag ? '<div class="text-2xl mb-2">'+flag+'</div>' : '') +
       (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
   } else {
-    const ps = item.price ? (item.billing==='yearly' ? '¥'+item.price+'/年' : item.billing==='once' ? '¥'+item.price+'(一次性)' : '¥'+item.price+'/月') : '';
+    const ps = item.price ? (item.billing==='yearly' ? currSym(item.currency)+item.price+'/年' : item.billing==='once' ? currSym(item.currency)+item.price+'(一次性)' : currSym(item.currency)+item.price+'/月') : '';
     const regionFlags = {'CN':'🇨🇳','HK':'🇭🇰','TW':'🇹🇼','US':'🇺🇸','JP':'🇯🇵','KR':'🇰🇷','TR':'🇹🇷','NG':'🇳🇬','IN':'🇮🇳','BR':'🇧🇷','AR':'🇦🇷','PH':'🇵🇭','MY':'🇲🇾','SG':'🇸🇬','EU':'🇪🇺'};
     const regionStr = item.region ? (regionFlags[item.region]||'🌍')+' '+item.region : '';
     const catStr = item.category ? esc(item.category) : '';
@@ -525,7 +549,7 @@ function listRowHTML(item) {
   const isEsim = item.type === 'esim';
   const sub = isEsim ? (item.number || '-') : (item.category || '-');
   const flag = isEsim ? getFlag(item.number)+' ' : '';
-  const priceStr = !isEsim && item.price ? ' · ¥'+item.price : '';
+  const priceStr = !isEsim && item.price ? ' · '+currSym(item.currency)+item.price : '';
 
   return '<div class="list-row grid grid-cols-12 gap-2 px-4 py-3 items-center border-b border-white/5">' +
     '<div class="col-span-4 flex items-center gap-2 min-w-0">' +
@@ -618,18 +642,24 @@ function statusInfo(diff) {
   return { cls:'status-active', text:'剩余 '+diff+'天' };
 }
 
-const FLAG_MAP = {'1':'🇺🇸','7':'🇷🇺','20':'🇪🇬','33':'🇫🇷','34':'🇪🇸','39':'🇮🇹','44':'🇬🇧','49':'🇩🇪','52':'🇲🇽','55':'🇧🇷','60':'🇲🇾','61':'🇦🇺','62':'🇮🇩','63':'🇵🇭','65':'🇸🇬','66':'🇹🇭','81':'🇯🇵','82':'🇰🇷','84':'🇻🇳','86':'🇨🇳','90':'🇹🇷','91':'🇮🇳','212':'🇲🇦','234':'🇳🇬','351':'🇵🇹','353':'🇮🇪','358':'🇫🇮','380':'🇺🇦','852':'🇭🇰','853':'🇲🇴','855':'🇰🇭','880':'🇧🇩','886':'🇹🇼','966':'🇸🇦','971':'🇦🇪','972':'🇮🇱'};
+const FLAG_MAP = {'1':'🇺🇸','7':'🇷🇺','20':'🇪🇬','27':'🇿🇦','30':'🇬🇷','31':'🇳🇱','32':'🇧🇪','33':'🇫🇷','34':'🇪🇸','36':'🇭🇺','39':'🇮🇹','40':'🇷🇴','41':'🇨🇭','43':'🇦🇹','44':'🇬🇧','45':'🇩🇰','46':'🇸🇪','47':'🇳🇴','48':'🇵🇱','49':'🇩🇪','51':'🇵🇪','52':'🇲🇽','53':'🇨🇺','54':'🇦🇷','55':'🇧🇷','56':'🇨🇱','57':'🇨🇴','58':'🇻🇪','60':'🇲🇾','61':'🇦🇺','62':'🇮🇩','63':'🇵🇭','64':'🇳🇿','65':'🇸🇬','66':'🇹🇭','81':'🇯🇵','82':'🇰🇷','84':'🇻🇳','86':'🇨🇳','90':'🇹🇷','91':'🇮🇳','92':'🇵🇰','93':'🇦🇫','94':'🇱🇰','95':'🇲🇲','98':'🇮🇷','212':'🇲🇦','213':'🇩🇿','216':'🇹🇳','218':'🇱🇾','220':'🇬🇲','221':'🇸🇳','223':'🇲🇱','224':'🇬🇳','225':'🇨🇮','226':'🇧🇫','227':'🇳🇪','228':'🇹🇬','229':'🇧🇯','230':'🇲🇺','231':'🇱🇷','233':'🇬🇭','234':'🇳🇬','235':'🇹🇩','237':'🇨🇲','242':'🇨🇬','243':'🇨🇩','244':'🇦🇴','249':'🇸🇩','250':'🇷🇼','251':'🇪🇹','252':'🇸🇴','253':'🇩🇯','254':'🇰🇪','255':'🇹🇿','256':'🇺🇬','257':'🇧🇮','258':'🇲🇿','260':'🇿🇲','261':'🇲🇬','263':'🇿🇼','264':'🇳🇦','265':'🇲🇼','266':'🇱🇸','267':'🇧🇼','268':'🇸🇿','269':'🇰🇲','297':'🇦🇼','299':'🇬🇱','350':'🇬🇮','351':'🇵🇹','352':'🇱🇺','353':'🇮🇪','354':'🇮🇸','355':'🇦🇱','356':'🇲🇹','357':'🇨🇾','358':'🇫🇮','359':'🇧🇬','370':'🇱🇹','371':'🇱🇻','372':'🇪🇪','373':'🇲🇩','374':'🇦🇲','375':'🇧🇾','376':'🇦🇩','377':'🇲🇨','380':'🇺🇦','381':'🇷🇸','382':'🇲🇪','385':'🇭🇷','386':'🇸🇮','387':'🇧🇦','389':'🇲🇰','850':'🇰🇵','852':'🇭🇰','853':'🇲🇴','855':'🇰🇭','856':'🇱🇦','880':'🇧🇩','886':'🇹🇼','960':'🇲🇻','961':'🇱🇧','962':'🇯🇴','964':'🇮🇶','965':'🇰🇼','966':'🇸🇦','967':'🇾🇪','968':'🇴🇲','971':'🇦🇪','972':'🇮🇱','973':'🇧🇭','974':'🇶🇦','975':'🇧🇹','976':'🇲🇳','977':'🇳🇵','992':'🇹🇯','994':'🇦🇿','995':'🇬🇪','996':'🇰🇬','998':'🇺🇿'};
 function getFlag(num) {
   if (!num) return '';
-  const digits = num.replace(/[^\d]/g, '');
+  let digits = num.replace(/[^\d]/g, '');
+  if (digits.startsWith('00')) digits = digits.substring(2);
   for (const len of [3, 2, 1]) {
-    const prefix = digits.substring(0, len);
-    if (FLAG_MAP[prefix]) return FLAG_MAP[prefix];
+    if (digits.length >= len) {
+      const prefix = digits.substring(0, len);
+      if (FLAG_MAP[prefix]) return FLAG_MAP[prefix];
+    }
   }
   return '🌍';
 }
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+const CURRENCY_SYMBOLS = {'CNY':'¥','USD':'$','EUR':'€','GBP':'£','JPY':'¥','HKD':'$','TWD':'$','KRW':'₩','TRY':'₺','THB':'฿','NGN':'₦','INR':'₹','PHP':'₱','MYR':'RM','SGD':'$'};
+function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '¥'; }
 
 function toggleMenu(e) {
   if (e) e.stopPropagation();
@@ -671,6 +701,7 @@ function openModal(type, item) {
     document.getElementById('form-expire').value = item.expireDate || '';
     document.getElementById('form-cycle').value = item.cycle || '';
     document.getElementById('form-price').value = item.price || '';
+    document.getElementById('form-currency').value = item.currency || 'CNY';
     document.getElementById('form-billing').value = item.billing || 'monthly';
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
@@ -698,6 +729,7 @@ async function saveItem(e) {
     expireDate: document.getElementById('form-expire').value,
     cycle: parseInt(document.getElementById('form-cycle').value) || null,
     price: document.getElementById('form-price').value || null,
+    currency: document.getElementById('form-currency').value,
     billing: document.getElementById('form-billing').value,
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
