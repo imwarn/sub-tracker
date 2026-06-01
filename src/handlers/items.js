@@ -2,11 +2,14 @@
  * Items CRUD handlers - unified for eSIM cards and subscriptions
  *
  * Routes:
- *   GET    /api/items          - List all items (optional ?type=esim|subscription)
- *   POST   /api/items          - Create new item
- *   PUT    /api/items/:id      - Update item
- *   DELETE /api/items/:id      - Delete item
- *   POST   /api/items/:id/renew - One-click renew (extend expireDate by cycle)
+ *   GET    /api/items              - List all items (optional ?type=esim|subscription)
+ *   POST   /api/items              - Create new item
+ *   PUT    /api/items/:id          - Update item
+ *   DELETE /api/items/:id          - Delete item
+ *   POST   /api/items/:id/renew    - One-click renew
+ *   GET    /api/items/export/json  - Export all as JSON
+ *   GET    /api/items/export/csv   - Export all as CSV
+ *   POST   /api/items/import/json  - Import from JSON
  */
 
 import { errorResponse, successResponse, jsonResponse, corsPreFlight } from '../utils/response.js';
@@ -21,6 +24,21 @@ export async function handleItems(request, env, path) {
   // Auth check for all item routes
   const authErr = await requireAuth(request, env);
   if (authErr) return authErr;
+
+  // GET /api/items/export/json
+  if (path === '/api/items/export/json' && request.method === 'GET') {
+    return await exportJSON(env);
+  }
+
+  // GET /api/items/export/csv
+  if (path === '/api/items/export/csv' && request.method === 'GET') {
+    return await exportCSV(env);
+  }
+
+  // POST /api/items/import/json
+  if (path === '/api/items/import/json' && request.method === 'POST') {
+    return await importJSON(request, env);
+  }
 
   // GET /api/items
   if (path === '/api/items' && request.method === 'GET') {
@@ -117,4 +135,92 @@ async function renewItem(env, id) {
 
   if (!result) return errorResponse('未找到记录', 404);
   return successResponse({ newExpireDate: result.expireDate });
+}
+
+// ==================== EXPORT / IMPORT ====================
+
+async function exportJSON(env) {
+  const items = await getAllItems(env.DB);
+  const exportData = {
+    version: '1.0.0',
+    exportDate: new Date().toISOString(),
+    count: items.length,
+    items: items.map(({ id, createdAt, ...rest }) => rest), // strip id/createdAt for clean import
+  };
+
+  return new Response(JSON.stringify(exportData, null, 2), {
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Disposition': `attachment; filename=sub-tracker-${new Date().toISOString().split('T')[0]}.json`,
+    },
+  });
+}
+
+async function exportCSV(env) {
+  const items = await getAllItems(env.DB);
+  const headers = ['类型', '名称', '号码', '分类', '到期日期', '周期(天)', '费用', '货币', '自动续费', '状态', '备注'];
+
+  const rows = items.map(item => {
+    const typeLabel = item.type === 'esim' ? 'eSIM' : '订阅';
+    return [
+      typeLabel,
+      csvEscape(item.name),
+      csvEscape(item.number || ''),
+      csvEscape(item.category || ''),
+      item.expireDate || '',
+      item.cycle || '',
+      item.price || '',
+      item.currency || 'CNY',
+      item.autoRenew ? '是' : '否',
+      item.status === 'active' ? '启用' : '停用',
+      csvEscape(item.remark || ''),
+    ].join(',');
+  });
+
+  const bom = '\uFEFF'; // Excel UTF-8 BOM
+  const csv = bom + [headers.join(','), ...rows].join('\n');
+
+  return new Response(csv, {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename=sub-tracker-${new Date().toISOString().split('T')[0]}.csv`,
+    },
+  });
+}
+
+function csvEscape(s) {
+  if (!s) return '';
+  s = String(s);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+async function importJSON(request, env) {
+  try {
+    const body = await request.json();
+    const importedItems = body.items || body;
+
+    if (!Array.isArray(importedItems)) {
+      return errorResponse('数据格式错误：需要 items 数组');
+    }
+
+    const existing = await getAllItems(env.DB);
+    let added = 0;
+
+    for (const raw of importedItems) {
+      const type = raw.type || 'esim';
+      if (!['esim', 'subscription'].includes(type)) continue;
+
+      const item = createItem(type, raw);
+      existing.push(item);
+      added++;
+    }
+
+    await saveAllItems(env.DB, existing);
+    return successResponse({ added, total: existing.length });
+  } catch {
+    return errorResponse('导入失败：JSON 解析错误', 400);
+  }
 }

@@ -108,7 +108,9 @@ async function sendOTP(env) {
     if (!chatId)
       missing.push("TG_CHAT_ID");
     return errorResponse(
-      `\u73AF\u5883\u7F3A\u5931\uFF1A\u7F3A\u5C11 ${missing.join(" \u548C ")}\u3002\u8BF7\u524D\u5F80 Cloudflare \u7684 KV \u6570\u636E\u5E93\u4E2D\u624B\u52A8\u6DFB\u52A0\u8FD9\u4E24\u4E2A\u952E\u503C\u5BF9\uFF01`,
+      `\u73AF\u5883\u7F3A\u5931\uFF1A\u7F3A\u5C11 ${missing.join(" \u548C ")}\u3002\u53EF\u901A\u8FC7\u4EE5\u4E0B\u65B9\u5F0F\u914D\u7F6E\uFF1A
+1. Cloudflare Dashboard \u2192 Workers \u2192 Settings \u2192 Variables (\u63A8\u8350)
+2. KV \u6570\u636E\u5E93\u4E2D\u624B\u52A8\u6DFB\u52A0\u8FD9\u4E24\u4E2A\u952E\u503C\u5BF9`,
       500
     );
   }
@@ -203,6 +205,8 @@ function createItem(type, data) {
     ...base,
     category: data.category || "",
     price: data.price || null,
+    billing: data.billing || "monthly",
+    // monthly | yearly | once
     currency: data.currency || "CNY",
     autoRenew: data.autoRenew || false,
     remindDays: data.remindDays ?? 3,
@@ -230,7 +234,7 @@ function mergeUpdate(existing, data) {
       updated.number = data.number;
   }
   if (existing.type === "subscription") {
-    for (const key of ["category", "price", "currency", "autoRenew", "remindDays", "url"]) {
+    for (const key of ["category", "price", "billing", "currency", "autoRenew", "remindDays", "url"]) {
       if (data[key] !== void 0)
         updated[key] = data[key];
     }
@@ -259,6 +263,15 @@ async function handleItems(request, env, path) {
   const authErr = await requireAuth(request, env);
   if (authErr)
     return authErr;
+  if (path === "/api/items/export/json" && request.method === "GET") {
+    return await exportJSON(env);
+  }
+  if (path === "/api/items/export/csv" && request.method === "GET") {
+    return await exportCSV(env);
+  }
+  if (path === "/api/items/import/json" && request.method === "POST") {
+    return await importJSON(request, env);
+  }
   if (path === "/api/items" && request.method === "GET") {
     return await listItems(request, env);
   }
@@ -338,6 +351,82 @@ async function renewItem(env, id) {
     return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404);
   return successResponse({ newExpireDate: result.expireDate });
 }
+async function exportJSON(env) {
+  const items = await getAllItems(env.DB);
+  const exportData = {
+    version: "1.0.0",
+    exportDate: (/* @__PURE__ */ new Date()).toISOString(),
+    count: items.length,
+    items: items.map(({ id, createdAt, ...rest }) => rest)
+    // strip id/createdAt for clean import
+  };
+  return new Response(JSON.stringify(exportData, null, 2), {
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Disposition": `attachment; filename=sub-tracker-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.json`
+    }
+  });
+}
+async function exportCSV(env) {
+  const items = await getAllItems(env.DB);
+  const headers = ["\u7C7B\u578B", "\u540D\u79F0", "\u53F7\u7801", "\u5206\u7C7B", "\u5230\u671F\u65E5\u671F", "\u5468\u671F(\u5929)", "\u8D39\u7528", "\u8D27\u5E01", "\u81EA\u52A8\u7EED\u8D39", "\u72B6\u6001", "\u5907\u6CE8"];
+  const rows = items.map((item) => {
+    const typeLabel = item.type === "esim" ? "eSIM" : "\u8BA2\u9605";
+    return [
+      typeLabel,
+      csvEscape(item.name),
+      csvEscape(item.number || ""),
+      csvEscape(item.category || ""),
+      item.expireDate || "",
+      item.cycle || "",
+      item.price || "",
+      item.currency || "CNY",
+      item.autoRenew ? "\u662F" : "\u5426",
+      item.status === "active" ? "\u542F\u7528" : "\u505C\u7528",
+      csvEscape(item.remark || "")
+    ].join(",");
+  });
+  const bom = "\uFEFF";
+  const csv = bom + [headers.join(","), ...rows].join("\n");
+  return new Response(csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename=sub-tracker-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.csv`
+    }
+  });
+}
+function csvEscape(s) {
+  if (!s)
+    return "";
+  s = String(s);
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+async function importJSON(request, env) {
+  try {
+    const body = await request.json();
+    const importedItems = body.items || body;
+    if (!Array.isArray(importedItems)) {
+      return errorResponse("\u6570\u636E\u683C\u5F0F\u9519\u8BEF\uFF1A\u9700\u8981 items \u6570\u7EC4");
+    }
+    const existing = await getAllItems(env.DB);
+    let added = 0;
+    for (const raw of importedItems) {
+      const type = raw.type || "esim";
+      if (!["esim", "subscription"].includes(type))
+        continue;
+      const item = createItem(type, raw);
+      existing.push(item);
+      added++;
+    }
+    await saveAllItems(env.DB, existing);
+    return successResponse({ added, total: existing.length });
+  } catch {
+    return errorResponse("\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", 400);
+  }
+}
 
 // src/ui/template.js
 function getHTML() {
@@ -358,61 +447,27 @@ function getHTML() {
       min-height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
-    @keyframes gradient {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    .glass {
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-    }
-    .glass-card {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .glass-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-    }
-    .glass-input {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #f1f5f9;
-    }
-    .glass-input::placeholder { color: rgba(255, 255, 255, 0.4); }
-    .glass-input:focus {
-      outline: none;
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #0ea5e9, #2563eb);
-      transition: all 0.2s;
-    }
-    .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
-    .btn-danger {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      transition: all 0.2s;
-    }
-    .status-active { color: #4ade80; }
-    .status-warning { color: #fbbf24; }
-    .status-danger { color: #f87171; }
-    .status-expired { color: #ef4444; }
-    .modal-overlay {
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(4px);
-    }
-    .fade-in { animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    .tab-active { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: #38bdf8; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    @keyframes gradient { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+    .glass { background:rgba(255,255,255,0.08); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.12); }
+    .glass-card { background:rgba(255,255,255,0.1); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.15); transition:transform 0.2s,box-shadow 0.2s; }
+    .glass-card:hover { transform:translateY(-3px); box-shadow:0 12px 32px rgba(0,0,0,0.25); }
+    .glass-input { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#f1f5f9; }
+    .glass-input::placeholder { color:rgba(255,255,255,0.4); }
+    .glass-input:focus { outline:none; border-color:#38bdf8; box-shadow:0 0 0 2px rgba(56,189,248,0.2); }
+    .btn-primary { background:linear-gradient(135deg,#0ea5e9,#2563eb); transition:all 0.2s; }
+    .btn-primary:hover { filter:brightness(1.1); transform:translateY(-1px); }
+    .status-active { color:#4ade80; } .status-warning { color:#fbbf24; }
+    .status-danger { color:#f87171; } .status-expired { color:#ef4444; }
+    .modal-overlay { background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); }
+    .fade-in { animation:fadeIn 0.3s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+    .tab-active { background:rgba(56,189,248,0.2); color:#38bdf8; border-color:#38bdf8; }
+    ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:3px; }
+    .list-row { transition:background 0.15s; } .list-row:hover { background:rgba(255,255,255,0.05); }
+    .cal-day { min-height:80px; } .cal-day:hover { background:rgba(56,189,248,0.08); }
+    .cal-event { font-size:0.65rem; padding:1px 4px; border-radius:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    select.glass-input option { background:#1e293b; color:#f1f5f9; }
   </style>
 </head>
 <body class="text-slate-200 min-h-screen">
@@ -451,34 +506,65 @@ function getHTML() {
         </h1>
         <p class="text-slate-400 mt-1 text-sm">eSIM \u4FDD\u53F7 & \u8BA2\u9605\u8D39\u7528\u7BA1\u7406\u770B\u677F</p>
       </div>
-      <div class="flex items-center gap-3 flex-wrap justify-center">
+      <div class="flex items-center gap-2 flex-wrap justify-center">
         <span class="text-sm text-slate-400 bg-white/5 px-3 py-1.5 rounded-full" id="today-display"></span>
         <button onclick="openModal('esim')" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-sim-card"></i> \u6DFB\u52A0 eSIM
+          <i class="fa-solid fa-sim-card"></i> eSIM
         </button>
         <button onclick="openModal('subscription')" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-credit-card"></i> \u6DFB\u52A0\u8BA2\u9605
+          <i class="fa-solid fa-credit-card"></i> \u8BA2\u9605
         </button>
-        <button onclick="logout()" class="text-red-400 hover:text-red-300 px-3 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/10 transition-colors" title="\u9000\u51FA">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </button>
+        <div class="relative">
+          <button onclick="toggleMenu()" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+          <div id="dropdown-menu" class="hidden absolute right-0 top-full mt-2 glass rounded-xl p-2 min-w-[160px] z-40">
+            <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
+              <i class="fa-solid fa-download mr-2 text-emerald-400"></i>\u5BFC\u51FA JSON
+            </button>
+            <button onclick="exportCSV()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
+              <i class="fa-solid fa-file-csv mr-2 text-emerald-400"></i>\u5BFC\u51FA CSV
+            </button>
+            <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
+              <i class="fa-solid fa-upload mr-2 text-amber-400"></i>\u5BFC\u5165 JSON
+            </button>
+            <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
+            <hr class="border-white/10 my-1">
+            <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors text-red-400">
+              <i class="fa-solid fa-right-from-bracket mr-2"></i>\u9000\u51FA\u767B\u5F55
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="stats-bar"></div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6" id="stats-bar"></div>
 
-    <!-- Filter tabs -->
-    <div class="flex gap-2 mb-6 flex-wrap">
-      <button onclick="setFilter('all')" data-filter="all" class="filter-tab tab-active px-4 py-2 rounded-xl text-sm font-semibold border border-transparent transition-all">
-        <i class="fa-solid fa-globe mr-1"></i> \u5168\u90E8
-      </button>
-      <button onclick="setFilter('esim')" data-filter="esim" class="filter-tab px-4 py-2 rounded-xl text-sm font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
-        <i class="fa-solid fa-sim-card mr-1"></i> eSIM
-      </button>
-      <button onclick="setFilter('subscription')" data-filter="subscription" class="filter-tab px-4 py-2 rounded-xl text-sm font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
-        <i class="fa-solid fa-credit-card mr-1"></i> \u8BA2\u9605
-      </button>
+    <!-- View toggle + Filter -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="setFilter('all')" data-filter="all" class="filter-tab tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all">
+          <i class="fa-solid fa-globe mr-1"></i>\u5168\u90E8
+        </button>
+        <button onclick="setFilter('esim')" data-filter="esim" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-sim-card mr-1"></i>eSIM
+        </button>
+        <button onclick="setFilter('subscription')" data-filter="subscription" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-credit-card mr-1"></i>\u8BA2\u9605
+        </button>
+      </div>
+      <div class="flex gap-1 glass rounded-lg p-1">
+        <button onclick="setView('grid')" data-view="grid" class="view-tab tab-active px-3 py-1.5 rounded-md text-xs transition-all" title="\u5361\u7247\u89C6\u56FE">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+        <button onclick="setView('list')" data-view="list" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="\u5217\u8868\u89C6\u56FE">
+          <i class="fa-solid fa-list"></i>
+        </button>
+        <button onclick="setView('calendar')" data-view="calendar" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="\u65E5\u5386\u89C6\u56FE">
+          <i class="fa-solid fa-calendar"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Search -->
@@ -491,8 +577,8 @@ function getHTML() {
       </div>
     </div>
 
-    <!-- Items grid -->
-    <div id="items-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    <!-- Content area -->
+    <div id="content-area"></div>
     <div id="empty-state" class="hidden text-center py-16 text-slate-500">
       <i class="fa-solid fa-inbox text-5xl mb-4 opacity-30"></i>
       <p class="text-lg">\u6682\u65E0\u6570\u636E</p>
@@ -510,23 +596,15 @@ function getHTML() {
       <form id="item-form" onsubmit="saveItem(event)">
         <input type="hidden" id="form-id">
         <input type="hidden" id="form-type">
-
         <div class="space-y-4">
-          <!-- Name -->
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u540D\u79F0 *</label>
-            <input id="form-name" type="text" required placeholder="\u5982: T-Mobile eSIM / Netflix"
-              class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            <input id="form-name" type="text" required placeholder="\u5982: T-Mobile eSIM / Netflix" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
           </div>
-
-          <!-- Number (eSIM only) -->
           <div id="field-number" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">\u53F7\u7801</label>
-            <input id="form-number" type="text" placeholder="+8613800138000"
-              class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            <input id="form-number" type="text" placeholder="+8613800138000" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
           </div>
-
-          <!-- Category (subscription only) -->
           <div id="field-category" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">\u5206\u7C7B</label>
             <select id="form-category" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -540,126 +618,96 @@ function getHTML() {
               <option value="Other">\u5176\u4ED6</option>
             </select>
           </div>
-
-          <!-- Expire Date -->
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u5230\u671F\u65E5\u671F *</label>
-            <input id="form-expire" type="date" required
-              class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            <input id="form-expire" type="date" required class="glass-input w-full px-4 py-3 rounded-xl text-sm">
           </div>
-
-          <!-- Cycle -->
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u4FDD\u53F7/\u7EED\u8D39\u5468\u671F (\u5929)</label>
-            <input id="form-cycle" type="number" min="1" placeholder="\u5982: 180"
-              class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            <input id="form-cycle" type="number" min="1" placeholder="\u5982: 180" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
           </div>
-
-          <!-- Price & Currency (subscription only) -->
-          <div id="field-price" class="hidden grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-sm text-slate-400 mb-1 block">\u8D39\u7528</label>
-              <input id="form-price" type="number" step="0.01" min="0" placeholder="9.99"
-                class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-            </div>
-            <div>
-              <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-              <select id="form-currency" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-                <option value="CNY">CNY \xA5</option>
-                <option value="USD">USD $</option>
-                <option value="EUR">EUR \u20AC</option>
-                <option value="GBP">GBP \xA3</option>
-                <option value="JPY">JPY \xA5</option>
-                <option value="HKD">HKD $</option>
-              </select>
+          <div id="field-price" class="hidden">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">\u8D39\u7528</label>
+                <input id="form-price" type="number" step="0.01" min="0" placeholder="9.99" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">\u8BA1\u8D39\u5468\u671F</label>
+                <select id="form-billing" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                  <option value="monthly">\u6708\u4ED8</option>
+                  <option value="yearly">\u5E74\u4ED8</option>
+                  <option value="once">\u4E00\u6B21\u6027</option>
+                </select>
+              </div>
             </div>
           </div>
-
-          <!-- Remark -->
+          <div id="field-url" class="hidden">
+            <label class="text-sm text-slate-400 mb-1 block">\u670D\u52A1\u94FE\u63A5</label>
+            <input id="form-url" type="url" placeholder="https://..." class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u5907\u6CE8</label>
-            <textarea id="form-remark" rows="2" placeholder="\u53EF\u9009\u5907\u6CE8..."
-              class="glass-input w-full px-4 py-3 rounded-xl text-sm resize-none"></textarea>
+            <textarea id="form-remark" rows="2" placeholder="\u53EF\u9009\u5907\u6CE8..." class="glass-input w-full px-4 py-3 rounded-xl text-sm resize-none"></textarea>
           </div>
         </div>
-
         <div class="flex gap-3 mt-6">
-          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white">
-            <i class="fa-solid fa-check mr-1"></i> \u4FDD\u5B58
-          </button>
-          <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">
-            \u53D6\u6D88
-          </button>
+          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>\u4FDD\u5B58</button>
+          <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
         </div>
       </form>
     </div>
   </div>
 
 <script>
-// ==================== STATE ====================
 let TOKEN = localStorage.getItem('token') || '';
 let allItems = [];
 let currentFilter = 'all';
+let currentView = 'grid';
+let calYear, calMonth;
 
 const API = '';
 
-// ==================== AUTH ====================
+// ==================== API ====================
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (TOKEN) opts.headers['Authorization'] = TOKEN;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
-  return res.json();
+  return res;
 }
 
+// ==================== AUTH ====================
 async function sendOTP() {
   const btn = document.getElementById('send-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> \u53D1\u9001\u4E2D...';
-  const data = await api('POST', '/api/auth/send');
-  if (data.success) {
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> \u5DF2\u53D1\u9001\uFF0C\u8BF7\u67E5\u770B TG';
-    btn.classList.add('text-green-400');
-    showLoginMsg('');
-  } else {
-    showLoginMsg(data.message || '\u53D1\u9001\u5931\u8D25');
-    btn.innerHTML = '<i class="fa-brands fa-telegram"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801';
-  }
-  setTimeout(() => {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-brands fa-telegram"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801';
-    btn.classList.remove('text-green-400');
-  }, 5000);
+  btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> \u53D1\u9001\u4E2D...';
+  const res = await api('POST', '/api/auth/send');
+  const data = await res.json();
+  if (data.success) { btn.innerHTML = '<i class="fa-solid fa-check"></i> \u5DF2\u53D1\u9001'; btn.classList.add('text-green-400'); showLoginMsg(''); }
+  else { showLoginMsg(data.message || '\u53D1\u9001\u5931\u8D25'); btn.innerHTML = '<i class="fa-brands fa-telegram"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801'; }
+  setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="fa-brands fa-telegram"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801'; btn.classList.remove('text-green-400'); }, 5000);
 }
 
 async function verifyOTP() {
   const code = document.getElementById('otp-input').value.trim();
   if (!code || code.length !== 6) return showLoginMsg('\u8BF7\u8F93\u5165 6 \u4F4D\u9A8C\u8BC1\u7801');
-  const data = await api('POST', '/api/auth/verify', { code });
-  if (data.success) {
-    TOKEN = data.token;
-    localStorage.setItem('token', TOKEN);
-    enterDashboard();
-  } else {
-    showLoginMsg(data.message || '\u9A8C\u8BC1\u5931\u8D25');
-  }
+  const res = await api('POST', '/api/auth/verify', { code });
+  const data = await res.json();
+  if (data.success) { TOKEN = data.token; localStorage.setItem('token', TOKEN); enterDashboard(); }
+  else showLoginMsg(data.message || '\u9A8C\u8BC1\u5931\u8D25');
 }
 
-function showLoginMsg(msg) {
-  const el = document.getElementById('login-msg');
-  el.textContent = msg;
-  el.classList.toggle('hidden', !msg);
-}
+function showLoginMsg(msg) { const el = document.getElementById('login-msg'); el.textContent = msg; el.classList.toggle('hidden', !msg); }
 
 async function checkAuth() {
   if (!TOKEN) return false;
-  const data = await api('GET', '/api/auth/check');
+  const res = await api('GET', '/api/auth/check');
+  const data = await res.json();
   return data.success;
 }
 
 function logout() {
-  TOKEN = '';
-  localStorage.removeItem('token');
+  TOKEN = ''; localStorage.removeItem('token');
   document.getElementById('dashboard-view').classList.add('hidden');
   document.getElementById('login-view').classList.remove('hidden');
 }
@@ -668,164 +716,57 @@ function logout() {
 async function enterDashboard() {
   document.getElementById('login-view').classList.add('hidden');
   document.getElementById('dashboard-view').classList.remove('hidden');
-  document.getElementById('today-display').textContent = '\u4ECA\u65E5: ' + new Date().toLocaleDateString('zh-CN');
+  const now = new Date();
+  document.getElementById('today-display').textContent = now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+  const now2 = new Date();
+  calYear = now2.getFullYear(); calMonth = now2.getMonth();
   await loadItems();
 }
 
 async function loadItems() {
-  const data = await api('GET', '/api/items');
-  if (Array.isArray(data)) allItems = data;
-  renderStats();
-  renderItems();
+  const res = await api('GET', '/api/items');
+  if (res.ok) { const data = await res.json(); if (Array.isArray(data)) allItems = data; }
+  renderStats(); renderItems();
 }
 
-// ==================== RENDER ====================
+// ==================== STATS ====================
 function renderStats() {
   const esims = allItems.filter(i => i.type === 'esim');
   const subs = allItems.filter(i => i.type === 'subscription');
   const today = new Date(); today.setHours(0,0,0,0);
-
   let urgentCount = 0;
-  let monthlyCost = 0;
   allItems.forEach(i => {
-    if (i.expireDate) {
-      const exp = new Date(i.expireDate + 'T00:00:00');
-      const diff = Math.ceil((exp - today) / 86400000);
-      if (diff <= 15) urgentCount++;
-    }
-    if (i.type === 'subscription' && i.price) {
-      monthlyCost += parseFloat(i.price) || 0;
-    }
+    if (i.expireDate) { const exp = new Date(i.expireDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
+  });
+
+  // Cost calculation
+  let monthlyCost = 0, yearlyCost = 0;
+  subs.forEach(s => {
+    if (!s.price) return;
+    const p = parseFloat(s.price);
+    const billing = s.billing || 'monthly';
+    if (billing === 'monthly') { monthlyCost += p; yearlyCost += p * 12; }
+    else if (billing === 'yearly') { monthlyCost += p / 12; yearlyCost += p; }
+    else { monthlyCost += 0; yearlyCost += p; }
   });
 
   const stats = [
-    { label: 'eSIM \u5361', value: esims.length, icon: 'fa-sim-card', color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-    { label: '\u8BA2\u9605\u670D\u52A1', value: subs.length, icon: 'fa-credit-card', color: 'text-violet-400', bg: 'bg-violet-500/10' },
-    { label: '\u5373\u5C06\u5230\u671F', value: urgentCount, icon: 'fa-clock', color: 'text-amber-400', bg: 'bg-amber-500/10' },
-    { label: '\u6708\u5EA6\u652F\u51FA', value: '\xA5' + monthlyCost.toFixed(0), icon: 'fa-coins', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    { label:'eSIM', value:esims.length, icon:'fa-sim-card', color:'text-cyan-400', bg:'bg-cyan-500/10' },
+    { label:'\u8BA2\u9605', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10' },
+    { label:'\u5373\u5C06\u5230\u671F', value:urgentCount, icon:'fa-clock', color:'text-amber-400', bg:'bg-amber-500/10' },
+    { label:'\u6708\u5EA6\u652F\u51FA', value:'\xA5'+monthlyCost.toFixed(0), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
+    { label:'\u5E74\u5EA6\u9884\u7B97', value:'\xA5'+yearlyCost.toFixed(0), icon:'fa-chart-pie', color:'text-rose-400', bg:'bg-rose-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
-    '<div class="glass-card rounded-xl p-4">' +
-      '<div class="flex items-center gap-3">' +
-        '<div class="' + s.bg + ' w-10 h-10 rounded-lg flex items-center justify-center">' +
-          '<i class="fa-solid ' + s.icon + ' ' + s.color + '"></i>' +
-        '</div>' +
-        '<div>' +
-          '<div class="text-xs text-slate-400">' + s.label + '</div>' +
-          '<div class="text-xl font-bold text-white">' + s.value + '</div>' +
-        '</div>' +
-      '</div>' +
-    '</div>'
+    '<div class="glass-card rounded-xl p-4"><div class="flex items-center gap-3">' +
+    '<div class="'+s.bg+' w-10 h-10 rounded-lg flex items-center justify-center"><i class="fa-solid '+s.icon+' '+s.color+'"></i></div>' +
+    '<div><div class="text-xs text-slate-400">'+s.label+'</div><div class="text-xl font-bold text-white">'+s.value+'</div></div>' +
+    '</div></div>'
   ).join('');
 }
 
-function renderItems() {
-  const search = (document.getElementById('search-input').value || '').toLowerCase();
-  let items = allItems;
-
-  if (currentFilter !== 'all') items = items.filter(i => i.type === currentFilter);
-  if (search) items = items.filter(i =>
-    (i.name || '').toLowerCase().includes(search) ||
-    (i.number || '').toLowerCase().includes(search) ||
-    (i.remark || '').toLowerCase().includes(search) ||
-    (i.category || '').toLowerCase().includes(search)
-  );
-
-  // Sort: urgent first
-  const today = new Date(); today.setHours(0,0,0,0);
-  items.sort((a, b) => {
-    const da = a.expireDate ? Math.ceil((new Date(a.expireDate+'T00:00:00') - today) / 86400000) : 9999;
-    const db = b.expireDate ? Math.ceil((new Date(b.expireDate+'T00:00:00') - today) / 86400000) : 9999;
-    return da - db;
-  });
-
-  const grid = document.getElementById('items-grid');
-  const empty = document.getElementById('empty-state');
-
-  if (!items.length) {
-    grid.innerHTML = '';
-    empty.classList.remove('hidden');
-    return;
-  }
-  empty.classList.add('hidden');
-
-  grid.innerHTML = items.map(item => renderItemCard(item)).join('');
-}
-
-function renderItemCard(item) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const exp = item.expireDate ? new Date(item.expireDate+'T00:00:00') : null;
-  const diff = exp ? Math.ceil((exp - today) / 86400000) : null;
-
-  let statusClass = 'status-active';
-  let statusText = '\u6B63\u5E38';
-  if (diff !== null) {
-    if (diff < 0) { statusClass = 'status-expired'; statusText = '\u5DF2\u8FC7\u671F ' + Math.abs(diff) + ' \u5929'; }
-    else if (diff === 0) { statusClass = 'status-danger'; statusText = '\u4ECA\u5929\u5230\u671F'; }
-    else if (diff <= 15) { statusClass = 'status-warning'; statusText = '\u5269\u4F59 ' + diff + ' \u5929'; }
-    else { statusText = '\u5269\u4F59 ' + diff + ' \u5929'; }
-  }
-
-  const isEsim = item.type === 'esim';
-  const typeIcon = isEsim ? 'fa-sim-card' : 'fa-credit-card';
-  const typeColor = isEsim ? 'text-cyan-400' : 'text-violet-400';
-  const typeBg = isEsim ? 'bg-cyan-500/10' : 'bg-violet-500/10';
-  const typeLabel = isEsim ? 'eSIM' : (item.category || '\u8BA2\u9605');
-
-  // Flag for eSIM
-  let flag = '';
-  if (isEsim && item.number) {
-    const m = item.number.match(/^\\+?(\\d{1,3})/);
-    if (m) {
-      const flags = {'1':'\u{1F1FA}\u{1F1F8}','7':'\u{1F1F7}\u{1F1FA}','20':'\u{1F1EA}\u{1F1EC}','33':'\u{1F1EB}\u{1F1F7}','34':'\u{1F1EA}\u{1F1F8}','39':'\u{1F1EE}\u{1F1F9}','44':'\u{1F1EC}\u{1F1E7}','49':'\u{1F1E9}\u{1F1EA}','52':'\u{1F1F2}\u{1F1FD}','55':'\u{1F1E7}\u{1F1F7}','60':'\u{1F1F2}\u{1F1FE}','61':'\u{1F1E6}\u{1F1FA}','62':'\u{1F1EE}\u{1F1E9}','63':'\u{1F1F5}\u{1F1ED}','65':'\u{1F1F8}\u{1F1EC}','66':'\u{1F1F9}\u{1F1ED}','81':'\u{1F1EF}\u{1F1F5}','82':'\u{1F1F0}\u{1F1F7}','84':'\u{1F1FB}\u{1F1F3}','86':'\u{1F1E8}\u{1F1F3}','90':'\u{1F1F9}\u{1F1F7}','91':'\u{1F1EE}\u{1F1F3}','852':'\u{1F1ED}\u{1F1F0}','853':'\u{1F1F2}\u{1F1F4}','886':'\u{1F1F9}\u{1F1FC}'};
-      flag = flags[m[1]] || '\u{1F30D}';
-    }
-  }
-
-  let body = '';
-  if (isEsim) {
-    body = (flag ? '<div class="text-2xl mb-2">' + flag + '</div>' : '') +
-      (item.number ? '<div class="text-sm text-slate-300 font-mono">' + escHtml(item.number) + '</div>' : '');
-  } else {
-    const priceStr = item.price ? item.currency + ' ' + item.price : '';
-    body = (item.category ? '<div class="text-xs text-slate-400 mb-1">' + escHtml(item.category) + '</div>' : '') +
-      (priceStr ? '<div class="text-sm text-emerald-400 font-semibold">' + escHtml(priceStr) + '</div>' : '');
-  }
-
-  const cycleStr = item.cycle ? item.cycle + '\u5929' : '';
-  const renewBtn = isEsim && item.cycle ?
-    '<button onclick="renewItem(\\'' + item.id + '\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded-lg hover:bg-sky-500/10 transition-colors" title="\u4E00\u952E\u7EED\u671F"><i class="fa-solid fa-rotate"></i> \u7EED\u671F</button>' : '';
-
-  return '<div class="glass-card rounded-xl p-5">' +
-    '<div class="flex justify-between items-start mb-3">' +
-      '<div class="flex items-center gap-2">' +
-        '<div class="' + typeBg + ' w-8 h-8 rounded-lg flex items-center justify-center">' +
-          '<i class="fa-solid ' + typeIcon + ' ' + typeColor + ' text-sm"></i>' +
-        '</div>' +
-        '<span class="text-xs ' + typeColor + ' opacity-70">' + escHtml(typeLabel) + '</span>' +
-      '</div>' +
-      '<span class="text-xs font-semibold ' + statusClass + '">' + escHtml(statusText) + '</span>' +
-    '</div>' +
-    '<h3 class="text-lg font-bold text-white mb-1 truncate">' + escHtml(item.name) + '</h3>' +
-    body +
-    (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>\u5230\u671F: ' + item.expireDate + '</div>' : '') +
-    (cycleStr ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>\u5468\u671F: ' + cycleStr + '</div>' : '') +
-    (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>' + escHtml(item.remark) + '</div>' : '') +
-    '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
-      renewBtn +
-      '<button onclick="editItem(\\'' + item.id + '\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"><i class="fa-solid fa-pen"></i></button>' +
-      '<button onclick="deleteItem(\\'' + item.id + '\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors"><i class="fa-solid fa-trash"></i></button>' +
-    '</div>' +
-  '</div>';
-}
-
-function escHtml(s) {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ==================== FILTER ====================
+// ==================== FILTER / VIEW ====================
 function setFilter(f) {
   currentFilter = f;
   document.querySelectorAll('.filter-tab').forEach(b => {
@@ -836,19 +777,226 @@ function setFilter(f) {
   renderItems();
 }
 
-// ==================== MODAL ====================
-let editingType = 'esim';
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('.view-tab').forEach(b => {
+    const active = b.dataset.view === v;
+    b.classList.toggle('tab-active', active);
+    b.classList.toggle('text-slate-400', !active);
+  });
+  renderItems();
+}
 
+// ==================== RENDER ====================
+function getFilteredItems() {
+  const search = (document.getElementById('search-input').value || '').toLowerCase();
+  let items = allItems;
+  if (currentFilter !== 'all') items = items.filter(i => i.type === currentFilter);
+  if (search) items = items.filter(i =>
+    (i.name||'').toLowerCase().includes(search) || (i.number||'').toLowerCase().includes(search) ||
+    (i.remark||'').toLowerCase().includes(search) || (i.category||'').toLowerCase().includes(search)
+  );
+  const today = new Date(); today.setHours(0,0,0,0);
+  items.sort((a,b) => {
+    const da = a.expireDate ? Math.ceil((new Date(a.expireDate+'T00:00:00')-today)/86400000) : 9999;
+    const db = b.expireDate ? Math.ceil((new Date(b.expireDate+'T00:00:00')-today)/86400000) : 9999;
+    return da - db;
+  });
+  return items;
+}
+
+function renderItems() {
+  const items = getFilteredItems();
+  const area = document.getElementById('content-area');
+  const empty = document.getElementById('empty-state');
+  if (!items.length) { area.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  if (currentView === 'grid') renderGrid(items, area);
+  else if (currentView === 'list') renderList(items, area);
+  else if (currentView === 'calendar') renderCalendar(items, area);
+}
+
+// -- Grid view --
+function renderGrid(items, area) {
+  area.innerHTML = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">' +
+    items.map(i => cardHTML(i)).join('') + '</div>';
+}
+
+function cardHTML(item) {
+  const diff = getDiff(item);
+  const st = statusInfo(diff);
+  const isEsim = item.type === 'esim';
+  const tc = isEsim ? 'text-cyan-400' : 'text-violet-400';
+  const tb = isEsim ? 'bg-cyan-500/10' : 'bg-violet-500/10';
+  const ti = isEsim ? 'fa-sim-card' : 'fa-credit-card';
+  const tl = isEsim ? 'eSIM' : (item.category||'\u8BA2\u9605');
+
+  let body = '';
+  if (isEsim) {
+    const flag = getFlag(item.number);
+    body = (flag ? '<div class="text-2xl mb-2">'+flag+'</div>' : '') +
+      (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
+  } else {
+    const ps = item.price ? (item.billing==='yearly' ? '\xA5'+item.price+'/\u5E74' : item.billing==='once' ? '\xA5'+item.price+'(\u4E00\u6B21\u6027)' : '\xA5'+item.price+'/\u6708') : '';
+    body = (item.category ? '<div class="text-xs text-slate-400 mb-1">'+esc(item.category)+'</div>' : '') +
+      (ps ? '<div class="text-sm text-emerald-400 font-semibold">'+esc(ps)+'</div>' : '');
+    if (item.url) body += '<a href="'+esc(item.url)+'" target="_blank" class="text-xs text-sky-400 hover:underline mt-1 inline-block"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>\u8BBF\u95EE</a>';
+  }
+
+  const renewBtn = isEsim && item.cycle ?
+    '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> \u7EED\u671F</button>' : '';
+
+  return '<div class="glass-card rounded-xl p-5">' +
+    '<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2">' +
+    '<div class="'+tb+' w-8 h-8 rounded-lg flex items-center justify-center"><i class="fa-solid '+ti+' '+tc+' text-sm"></i></div>' +
+    '<span class="text-xs '+tc+' opacity-70">'+esc(tl)+'</span></div>' +
+    '<span class="text-xs font-semibold '+st.cls+'">'+st.text+'</span></div>' +
+    '<h3 class="text-lg font-bold text-white mb-1 truncate">'+esc(item.name)+'</h3>' +
+    body +
+    (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>\u5230\u671F: '+item.expireDate+'</div>' : '') +
+    (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>\u5468\u671F: '+item.cycle+'\u5929</div>' : '') +
+    (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
+    '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
+    renewBtn +
+    '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
+    '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
+    '</div></div>';
+}
+
+// -- List view --
+function renderList(items, area) {
+  let html = '<div class="glass rounded-xl overflow-hidden">';
+  html += '<div class="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold text-slate-400 border-b border-white/10 bg-white/5">' +
+    '<div class="col-span-4">\u540D\u79F0</div><div class="col-span-2 hidden sm:block">\u7C7B\u578B/\u53F7\u7801</div>' +
+    '<div class="col-span-2">\u5230\u671F</div><div class="col-span-2 hidden sm:block">\u72B6\u6001</div>' +
+    '<div class="col-span-2 text-right">\u64CD\u4F5C</div></div>';
+  html += items.map(i => listRowHTML(i)).join('');
+  html += '</div>';
+  area.innerHTML = html;
+}
+
+function listRowHTML(item) {
+  const diff = getDiff(item);
+  const st = statusInfo(diff);
+  const isEsim = item.type === 'esim';
+  const sub = isEsim ? (item.number || '-') : (item.category || '-');
+  const flag = isEsim ? getFlag(item.number)+' ' : '';
+  const priceStr = !isEsim && item.price ? ' \xB7 \xA5'+item.price : '';
+
+  return '<div class="list-row grid grid-cols-12 gap-2 px-4 py-3 items-center border-b border-white/5">' +
+    '<div class="col-span-4 flex items-center gap-2 min-w-0">' +
+      '<i class="fa-solid '+(isEsim?'fa-sim-card text-cyan-400':'fa-credit-card text-violet-400')+' text-sm flex-shrink-0"></i>' +
+      '<span class="truncate text-sm font-medium text-white">'+esc(item.name)+priceStr+'</span></div>' +
+    '<div class="col-span-2 hidden sm:block text-xs text-slate-400 truncate">'+flag+esc(sub)+'</div>' +
+    '<div class="col-span-2 text-xs text-slate-300">'+(item.expireDate||'-')+'</div>' +
+    '<div class="col-span-2 hidden sm:block text-xs font-semibold '+st.cls+'">'+st.text+'</div>' +
+    '<div class="col-span-2 flex justify-end gap-1">' +
+      (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
+      '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
+      '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
+    '</div></div>';
+}
+
+// -- Calendar view --
+function renderCalendar(items, area) {
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth + 1, 0);
+  const startPad = firstDay.getDay(); // 0=Sun
+  const daysInMonth = lastDay.getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Build events map
+  const events = {};
+  items.forEach(i => {
+    if (!i.expireDate) return;
+    const d = new Date(i.expireDate+'T00:00:00');
+    const key = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+    if (!events[key]) events[key] = [];
+    events[key].push(i);
+  });
+
+  const monthName = calYear + '\u5E74' + (calMonth+1) + '\u6708';
+  const weekDays = ['\u65E5','\u4E00','\u4E8C','\u4E09','\u56DB','\u4E94','\u516D'];
+
+  let html = '<div class="glass rounded-xl p-4">';
+  // Header
+  html += '<div class="flex justify-between items-center mb-4">' +
+    '<button onclick="calPrev()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-left"></i></button>' +
+    '<h3 class="text-lg font-bold text-white">'+monthName+'</h3>' +
+    '<button onclick="calNext()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-right"></i></button></div>';
+
+  // Weekday headers
+  html += '<div class="grid grid-cols-7 gap-1 mb-1">';
+  weekDays.forEach(d => html += '<div class="text-center text-xs font-semibold text-slate-400 py-2">'+d+'</div>');
+  html += '</div>';
+
+  // Days grid
+  html += '<div class="grid grid-cols-7 gap-1">';
+  // Padding
+  for (let i = 0; i < startPad; i++) html += '<div class="cal-day rounded-lg"></div>';
+  // Days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = calYear+'-'+(calMonth+1)+'-'+d;
+    const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
+    const dayEvents = events[key] || [];
+
+    html += '<div class="cal-day rounded-lg p-1.5 '+(isToday ? 'bg-sky-500/20 border border-sky-500/30' : 'border border-white/5')+'">' +
+      '<div class="text-xs font-semibold '+(isToday ? 'text-sky-400' : 'text-slate-400')+' mb-1">'+d+'</div>';
+    dayEvents.forEach(e => {
+      const isEsim = e.type === 'esim';
+      const bg = isEsim ? 'bg-cyan-500/30 text-cyan-300' : 'bg-violet-500/30 text-violet-300';
+      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem(\\''+e.id+'\\')" title="'+esc(e.name)+'">'+esc(e.name)+'</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div></div>';
+  area.innerHTML = html;
+}
+
+function calPrev() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderItems(); }
+function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderItems(); }
+
+// ==================== HELPERS ====================
+function getDiff(item) {
+  if (!item.expireDate) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const exp = new Date(item.expireDate+'T00:00:00');
+  return Math.ceil((exp - today) / 86400000);
+}
+
+function statusInfo(diff) {
+  if (diff === null) return { cls:'text-slate-400', text:'\u672A\u8BBE\u7F6E' };
+  if (diff < 0) return { cls:'status-expired', text:'\u5DF2\u8FC7\u671F '+Math.abs(diff)+'\u5929' };
+  if (diff === 0) return { cls:'status-danger', text:'\u4ECA\u5929\u5230\u671F' };
+  if (diff <= 15) return { cls:'status-warning', text:'\u5269\u4F59 '+diff+'\u5929' };
+  return { cls:'status-active', text:'\u5269\u4F59 '+diff+'\u5929' };
+}
+
+const FLAG_MAP = {'1':'\u{1F1FA}\u{1F1F8}','7':'\u{1F1F7}\u{1F1FA}','20':'\u{1F1EA}\u{1F1EC}','33':'\u{1F1EB}\u{1F1F7}','34':'\u{1F1EA}\u{1F1F8}','39':'\u{1F1EE}\u{1F1F9}','44':'\u{1F1EC}\u{1F1E7}','49':'\u{1F1E9}\u{1F1EA}','52':'\u{1F1F2}\u{1F1FD}','55':'\u{1F1E7}\u{1F1F7}','60':'\u{1F1F2}\u{1F1FE}','61':'\u{1F1E6}\u{1F1FA}','62':'\u{1F1EE}\u{1F1E9}','63':'\u{1F1F5}\u{1F1ED}','65':'\u{1F1F8}\u{1F1EC}','66':'\u{1F1F9}\u{1F1ED}','81':'\u{1F1EF}\u{1F1F5}','82':'\u{1F1F0}\u{1F1F7}','84':'\u{1F1FB}\u{1F1F3}','86':'\u{1F1E8}\u{1F1F3}','90':'\u{1F1F9}\u{1F1F7}','91':'\u{1F1EE}\u{1F1F3}','852':'\u{1F1ED}\u{1F1F0}','853':'\u{1F1F2}\u{1F1F4}','886':'\u{1F1F9}\u{1F1FC}'};
+function getFlag(num) {
+  if (!num) return '';
+  const m = num.match(/^\\+?(\\d{1,3})/);
+  return m ? (FLAG_MAP[m[1]] || '\u{1F30D}') : '';
+}
+
+function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+function toggleMenu() { document.getElementById('dropdown-menu').classList.toggle('hidden'); }
+document.addEventListener('click', e => {
+  const menu = document.getElementById('dropdown-menu');
+  if (menu && !e.target.closest('.relative')) menu.classList.add('hidden');
+});
+
+// ==================== MODAL ====================
 function openModal(type, item) {
-  editingType = type;
   document.getElementById('form-type').value = type;
   document.getElementById('form-id').value = item ? item.id : '';
   document.getElementById('modal-title').textContent = (item ? '\u7F16\u8F91' : '\u6DFB\u52A0') + (type === 'esim' ? ' eSIM' : ' \u8BA2\u9605');
-
-  // Show/hide type-specific fields
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-category').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-price').classList.toggle('hidden', type !== 'subscription');
+  document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
 
   if (item) {
     document.getElementById('form-name').value = item.name || '';
@@ -857,20 +1005,17 @@ function openModal(type, item) {
     document.getElementById('form-expire').value = item.expireDate || '';
     document.getElementById('form-cycle').value = item.cycle || '';
     document.getElementById('form-price').value = item.price || '';
-    document.getElementById('form-currency').value = item.currency || 'CNY';
+    document.getElementById('form-billing').value = item.billing || 'monthly';
+    document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
   } else {
     document.getElementById('item-form').reset();
   }
-
   document.getElementById('modal-overlay').classList.remove('hidden');
   document.getElementById('modal-overlay').classList.add('flex');
 }
 
-function closeModal() {
-  document.getElementById('modal-overlay').classList.add('hidden');
-  document.getElementById('modal-overlay').classList.remove('flex');
-}
+function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('flex'); }
 
 async function saveItem(e) {
   e.preventDefault();
@@ -883,55 +1028,81 @@ async function saveItem(e) {
     expireDate: document.getElementById('form-expire').value,
     cycle: parseInt(document.getElementById('form-cycle').value) || null,
     price: document.getElementById('form-price').value || null,
-    currency: document.getElementById('form-currency').value,
+    billing: document.getElementById('form-billing').value,
+    url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
   };
 
-  let data;
-  if (id) {
-    data = await api('PUT', '/api/items/' + id, body);
-  } else {
-    data = await api('POST', '/api/items', body);
-  }
-
-  if (data.success) {
-    closeModal();
-    await loadItems();
-  } else {
-    alert(data.message || '\u4FDD\u5B58\u5931\u8D25');
-  }
+  const res = id ? await api('PUT', '/api/items/'+id, body) : await api('POST', '/api/items', body);
+  const data = await res.json();
+  if (data.success) { closeModal(); await loadItems(); } else alert(data.message || '\u4FDD\u5B58\u5931\u8D25');
 }
 
 // ==================== ACTIONS ====================
-function editItem(id) {
-  const item = allItems.find(i => i.id === id);
-  if (item) openModal(item.type, item);
-}
+function editItem(id) { const item = allItems.find(i => i.id === id); if (item) openModal(item.type, item); }
 
 async function deleteItem(id) {
   if (!confirm('\u786E\u5B9A\u5220\u9664\u6B64\u8BB0\u5F55\uFF1F')) return;
-  const data = await api('DELETE', '/api/items/' + id);
+  const res = await api('DELETE', '/api/items/'+id);
+  const data = await res.json();
   if (data.success) await loadItems();
 }
 
 async function renewItem(id) {
-  const data = await api('POST', '/api/items/' + id + '/renew');
-  if (data.success) {
-    await loadItems();
-  } else {
-    alert(data.message || '\u7EED\u671F\u5931\u8D25');
+  const res = await api('POST', '/api/items/'+id+'/renew');
+  const data = await res.json();
+  if (data.success) await loadItems(); else alert(data.message || '\u7EED\u671F\u5931\u8D25');
+}
+
+// ==================== IMPORT / EXPORT ====================
+async function exportJSON() {
+  toggleMenu();
+  const res = await api('GET', '/api/items/export/json');
+  const blob = await res.blob();
+  downloadBlob(blob, 'sub-tracker-' + new Date().toISOString().split('T')[0] + '.json');
+}
+
+async function exportCSV() {
+  toggleMenu();
+  const res = await api('GET', '/api/items/export/csv');
+  const blob = await res.blob();
+  downloadBlob(blob, 'sub-tracker-' + new Date().toISOString().split('T')[0] + '.csv');
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function importJSON(input) {
+  toggleMenu();
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const res = await api('POST', '/api/items/import/json', data);
+    const result = await res.json();
+    if (result.success) {
+      alert('\u5BFC\u5165\u6210\u529F\uFF01\u65B0\u589E ' + result.added + ' \u6761\uFF0C\u5171 ' + result.total + ' \u6761');
+      await loadItems();
+    } else {
+      alert(result.message || '\u5BFC\u5165\u5931\u8D25');
+    }
+  } catch (e) {
+    alert('JSON \u89E3\u6790\u5931\u8D25: ' + e.message);
   }
+  input.value = '';
 }
 
 // ==================== INIT ====================
 (async function init() {
   const ok = await checkAuth();
-  if (ok) {
-    enterDashboard();
-  } else {
-    TOKEN = '';
-    localStorage.removeItem('token');
-  }
+  if (ok) enterDashboard();
+  else { TOKEN = ''; localStorage.removeItem('token'); }
 })();
 <\/script>
 </body>
