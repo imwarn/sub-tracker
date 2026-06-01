@@ -591,23 +591,6 @@ function getHTML() {
             <i class="fa-solid fa-ellipsis-vertical"></i>
           </button>
         </div>
-        <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
-            <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
-              <i class="fa-solid fa-download mr-2 text-emerald-400"></i>\u5BFC\u51FA JSON
-            </button>
-            <button onclick="exportCSV()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
-              <i class="fa-solid fa-file-csv mr-2 text-emerald-400"></i>\u5BFC\u51FA CSV
-            </button>
-            <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
-              <i class="fa-solid fa-upload mr-2 text-amber-400"></i>\u5BFC\u5165 JSON
-            </button>
-            <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
-            <hr class="border-white/10 my-1">
-            <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors text-red-400">
-              <i class="fa-solid fa-right-from-bracket mr-2"></i>\u9000\u51FA\u767B\u5F55
-            </button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -753,6 +736,24 @@ function getHTML() {
         </div>
       </form>
     </div>
+  </div>
+
+  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
+  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
+    <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-download mr-2 text-emerald-400"></i>\u5BFC\u51FA JSON
+    </button>
+    <button onclick="exportCSV()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-file-csv mr-2 text-emerald-400"></i>\u5BFC\u51FA CSV
+    </button>
+    <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-upload mr-2 text-amber-400"></i>\u5BFC\u5165 JSON
+    </button>
+    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
+    <hr class="border-white/10 my-1">
+    <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-right-from-bracket mr-2"></i>\u9000\u51FA\u767B\u5F55
+    </button>
   </div>
 
 <script>
@@ -1327,10 +1328,18 @@ ${typeEmoji} \u540D\u79F0: ${item.name}
 
 // src/index.js
 var src_default = {
-  /**
-   * Handle HTTP requests
-   */
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (url.pathname === "/api/debug" && url.searchParams.get("key") === "subtracker") {
+      return jsonResponse({
+        has_TG_BOT_TOKEN: !!env.TG_BOT_TOKEN,
+        has_TG_CHAT_ID: !!env.TG_CHAT_ID,
+        has_DB: !!env.DB,
+        tg_token_len: env.TG_BOT_TOKEN ? env.TG_BOT_TOKEN.length : 0,
+        tg_chat_val: env.TG_CHAT_ID || "(empty)",
+        env_keys: Object.keys(env).filter((k) => !k.startsWith("__"))
+      });
+    }
     try {
       return await route(request, env);
     } catch (err) {
@@ -1341,10 +1350,6 @@ var src_default = {
       });
     }
   },
-  /**
-   * Handle scheduled (cron) triggers
-   * Runs daily to check for expiring items and send reminders
-   */
   async scheduled(event, env, ctx) {
     try {
       await checkReminders(env);

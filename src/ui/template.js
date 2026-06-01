@@ -94,23 +94,6 @@ export function getHTML() {
             <i class="fa-solid fa-ellipsis-vertical"></i>
           </button>
         </div>
-        <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
-            <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
-              <i class="fa-solid fa-download mr-2 text-emerald-400"></i>导出 JSON
-            </button>
-            <button onclick="exportCSV()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
-              <i class="fa-solid fa-file-csv mr-2 text-emerald-400"></i>导出 CSV
-            </button>
-            <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
-              <i class="fa-solid fa-upload mr-2 text-amber-400"></i>导入 JSON
-            </button>
-            <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
-            <hr class="border-white/10 my-1">
-            <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors text-red-400">
-              <i class="fa-solid fa-right-from-bracket mr-2"></i>退出登录
-            </button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -256,6 +239,24 @@ export function getHTML() {
         </div>
       </form>
     </div>
+  </div>
+
+  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
+  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
+    <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-download mr-2 text-emerald-400"></i>导出 JSON
+    </button>
+    <button onclick="exportCSV()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-file-csv mr-2 text-emerald-400"></i>导出 CSV
+    </button>
+    <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-upload mr-2 text-amber-400"></i>导入 JSON
+    </button>
+    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
+    <hr class="border-white/10 my-1">
+    <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-right-from-bracket mr-2"></i>退出登录
+    </button>
   </div>
 
 <script>
