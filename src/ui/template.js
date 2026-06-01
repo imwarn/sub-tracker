@@ -308,6 +308,9 @@ export function getHTML() {
     <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-upload mr-2 text-amber-400"></i>导入 JSON
     </button>
+    <button onclick="downloadDemo()" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-download mr-2 text-slate-500"></i>下载导入示例
+    </button>
     <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
     <hr class="border-white/10 my-1">
     <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-white/10 transition-colors">
@@ -816,6 +819,26 @@ async function importJSON(input) {
     alert('JSON 解析失败: ' + e.message);
   }
   input.value = '';
+}
+
+function downloadDemo() {
+  toggleMenu();
+  const demo = {
+    version: '1.0.0',
+    exportDate: new Date().toISOString(),
+    count: 4,
+    items: [
+      { type: 'esim', name: '美国保号卡', number: '+12025551234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active' },
+      { type: 'esim', name: '日本 IIJmio', number: '+81901234567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
+      { type: 'subscription', name: 'ChatGPT Plus', category: 'AI 工具', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: 3, url: 'https://chat.openai.com', remark: '', status: 'active' },
+      { type: 'subscription', name: 'YouTube Premium', category: '视频会员', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: 7, url: 'https://youtube.com/premium', remark: '土耳其区', status: 'active' },
+    ]
+  };
+  const blob = new Blob([JSON.stringify(demo, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'sub-tracker-demo.json'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ==================== KEYBOARD ====================

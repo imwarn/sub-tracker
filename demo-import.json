@@ -1,0 +1,57 @@
+{
+  "version": "1.0.0",
+  "exportDate": "2026-06-01T00:00:00.000Z",
+  "count": 4,
+  "items": [
+    {
+      "type": "esim",
+      "name": "美国保号卡",
+      "number": "+12025551234",
+      "expireDate": "2026-12-31",
+      "cycle": 180,
+      "remark": "Ultra Mobile 保号",
+      "status": "active"
+    },
+    {
+      "type": "esim",
+      "name": "日本 IIJmio",
+      "number": "+81901234567",
+      "expireDate": "2026-09-15",
+      "cycle": 365,
+      "remark": "",
+      "status": "active"
+    },
+    {
+      "type": "subscription",
+      "name": "ChatGPT Plus",
+      "category": "AI 工具",
+      "region": "US",
+      "subId": "",
+      "expireDate": "2026-07-20",
+      "price": "20",
+      "billing": "monthly",
+      "currency": "USD",
+      "autoRenew": true,
+      "remindDays": 3,
+      "url": "https://chat.openai.com",
+      "remark": "",
+      "status": "active"
+    },
+    {
+      "type": "subscription",
+      "name": "YouTube Premium",
+      "category": "视频会员",
+      "region": "TR",
+      "subId": "",
+      "expireDate": "2026-08-01",
+      "price": "99.99",
+      "billing": "yearly",
+      "currency": "TRY",
+      "autoRenew": false,
+      "remindDays": 7,
+      "url": "https://youtube.com/premium",
+      "remark": "土耳其区",
+      "status": "active"
+    }
+  ]
+}
