@@ -18,7 +18,11 @@
 
 ---
 
-## 🚀 一键部署（2 分钟）
+## 🚀 部署
+
+### 方式一：Deploy 按钮（推荐新用户）
+
+适合想直接使用、不关心代码的用户。点击后会自动 Fork 到你的账号并部署。
 
 <p align="center">
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/imwarn/sub-tracker">
@@ -26,55 +30,27 @@
   </a>
 </p>
 
-点击上方按钮，按页面提示操作：
+> ⚠️ 如果提示"已存在同名仓库"，换个名字即可（如 `my-sub-tracker`）。
 
-1. **授权** Cloudflare 账号
-2. **填写环境变量**（可选，也可部署后配置）：
+### 方式二：Connect to Git（推荐仓库 Owner）
+
+适合 Fork 过仓库或自己维护仓库的用户。
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. 左侧 → **Workers & Pages** → **Create Application**
+3. 选择 **Connect to Git** → 授权 GitHub → 选择仓库
+4. Build 配置：
+   - Root directory: **留空**
+   - Build command: **留空** 或 `npm run build`
+   - Entry point: **`src/index.js`**
+5. 点击 **Save and Deploy**
+6. 部署后进入 **Settings** → **Variables and Secrets**，添加：
    - `TG_BOT_TOKEN` — Telegram Bot Token
    - `TG_CHAT_ID` — Telegram Chat ID
-3. 点击 **Deploy**
 
-Cloudflare 会自动：
-- ✅ 创建 KV 命名空间并绑定
-- ✅ 构建并部署 Worker
-- ✅ 配置 Cron 定时任务
+> 此后 push 到 main 分支会自动重新部署。
 
-部署完成后直接访问分配的 `*.workers.dev` 域名即可使用。
-
-> **后续更新**：Fork 后 push 到 main，重新点击 Deploy 按钮即可同步。或使用 [GitHub Actions 自动部署](#github-actions-自动部署)。
-
----
-
-## 🔑 环境变量配置
-
-| 变量名 | 说明 | 必填 |
-|---|---|---|
-| `TG_BOT_TOKEN` | Telegram Bot Token（@BotFather 获取） | 推荐 |
-| `TG_CHAT_ID` | Telegram Chat ID（@userinfobot 获取） | 推荐 |
-
-**配置方式**（三选一）：
-
-1. **Deploy 时填写** — 一键部署页面会提示
-2. **CF Dashboard** — Workers → sub-tracker → Settings → Variables and Secrets
-3. **KV 数据库** — 在 KV 中手动添加 `TG_BOT_TOKEN` / `TG_CHAT_ID` 键值对
-
-> 代码优先读取 Worker 环境变量，其次读 KV 数据库。
-
----
-
-## 🛠️ 其他部署方式
-
-### GitHub Actions 自动部署
-
-适合需要持续部署的场景（push main 自动同步）。
-
-1. Fork 仓库
-2. 添加 GitHub Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`
-3. 推送即自动部署
-
-详见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
-
-### Wrangler CLI 本地开发
+### 方式三：Wrangler CLI（本地开发）
 
 ```bash
 git clone https://github.com/imwarn/sub-tracker.git && cd sub-tracker
@@ -83,6 +59,17 @@ npx wrangler login
 npx wrangler dev          # 本地开发
 npx wrangler deploy       # 部署
 ```
+
+---
+
+## 🔑 环境变量
+
+| 变量名 | 说明 | 配置方式 |
+|---|---|---|
+| `TG_BOT_TOKEN` | Telegram Bot Token | Deploy 时填写 / CF Dashboard / KV |
+| `TG_CHAT_ID` | Telegram Chat ID | 同上 |
+
+代码优先读取 Worker 环境变量，其次读 KV 数据库。
 
 ---
 
