@@ -213,7 +213,7 @@ export function parseCountry(number) {
   if (!number) return null;
 
   // Strip everything except digits
-  let digits = number.replace(/[^\d]/g, '');
+  let digits = number.replace(/[^0-9]/g, '');
   if (!digits) return null;
 
   // Remove leading 00 (international dial prefix)
