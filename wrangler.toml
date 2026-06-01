@@ -2,12 +2,9 @@ name = "sub-tracker"
 main = "src/index.js"
 compatibility_date = "2024-12-01"
 
-# KV 命名空间绑定
-# 创建命令: npx wrangler kv namespace create "sub-tracker"
-# 将输出的 id 填入下方
+# KV 命名空间 - 不写 id，Deploy 按钮会自动创建并绑定
 [[kv_namespaces]]
 binding = "DB"
-id = "YOUR_KV_NAMESPACE_ID"
 
 # 定时任务 - 每天 UTC 01:00 (北京时间 09:00) 检查到期提醒
 [triggers]

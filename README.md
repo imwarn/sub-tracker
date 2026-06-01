@@ -18,97 +18,70 @@
 
 ---
 
-## 🚀 一键部署（5 分钟）
+## 🚀 一键部署（2 分钟）
 
-Fork 后 **不用改任何文件**，只需配置 GitHub Secrets 即可自动部署。
+<p align="center">
+  <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/imwarn/sub-tracker">
+    <img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare">
+  </a>
+</p>
 
-### 第一步：Fork 仓库
+点击上方按钮，按页面提示操作：
 
-点击右上角 **Fork** → 选择你的账号。
+1. **授权** Cloudflare 账号
+2. **填写环境变量**（可选，也可部署后配置）：
+   - `TG_BOT_TOKEN` — Telegram Bot Token
+   - `TG_CHAT_ID` — Telegram Chat ID
+3. 点击 **Deploy**
 
-### 第二步：创建 KV 命名空间
+Cloudflare 会自动：
+- ✅ 创建 KV 命名空间并绑定
+- ✅ 构建并部署 Worker
+- ✅ 配置 Cron 定时任务
 
-1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. 左侧 → **Workers & Pages** → **KV**
-3. **Create a namespace**，名称填 `sub-tracker`
-4. 复制生成的 **ID**（如 `09fe63fac...`）
+部署完成后直接访问分配的 `*.workers.dev` 域名即可使用。
 
-### 第三步：获取 Cloudflare API Token
+> **后续更新**：Fork 后 push 到 main，重新点击 Deploy 按钮即可同步。或使用 [GitHub Actions 自动部署](#github-actions-自动部署)。
 
-1. 访问 [API Tokens 页面](https://dash.cloudflare.com/profile/api-tokens)
-2. **Create Token** → 选择 **Edit Cloudflare Workers** 模板
-3. 复制生成的 Token
+---
 
-### 第四步：配置 GitHub Secrets
+## 🔑 环境变量配置
 
-进入你 Fork 的仓库 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
-
-| Secret 名称 | 值 | 必填 |
+| 变量名 | 说明 | 必填 |
 |---|---|---|
-| `CLOUDFLARE_API_TOKEN` | 第三步的 API Token | ✅ |
-| `CLOUDFLARE_ACCOUNT_ID` | [Dashboard 首页](https://dash.cloudflare.com/) 右侧可见 | ✅ |
-| `KV_NAMESPACE_ID` | 第二步的 KV ID | ✅ |
-| `TG_BOT_TOKEN` | @BotFather 获取的 Token | 可选* |
-| `TG_CHAT_ID` | @userinfobot 获取的 ID | 可选* |
+| `TG_BOT_TOKEN` | Telegram Bot Token（@BotFather 获取） | 推荐 |
+| `TG_CHAT_ID` | Telegram Chat ID（@userinfobot 获取） | 推荐 |
 
-> *TG 密钥可在这里设置（推荐），也可以部署后在 Cloudflare Dashboard → Workers → Settings → Variables 中配置。
+**配置方式**（三选一）：
 
-### 第五步：推送触发部署
+1. **Deploy 时填写** — 一键部署页面会提示
+2. **CF Dashboard** — Workers → sub-tracker → Settings → Variables and Secrets
+3. **KV 数据库** — 在 KV 中手动添加 `TG_BOT_TOKEN` / `TG_CHAT_ID` 键值对
 
-```bash
-# 随便改点什么触发 Actions（比如空提交）
-git commit --allow-empty -m "trigger deploy"
-git push origin main
-```
-
-进入仓库 **Actions** 标签页，等待绿色 ✅ 出现。
-
-部署完成后，在 [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages** → **sub-tracker** → **Settings** → **Domains & Routes** 找到分配的域名访问。
-
-> **此后每次 push 到 main 分支，都会自动重新部署，无需手动操作。**
+> 代码优先读取 Worker 环境变量，其次读 KV 数据库。
 
 ---
 
-## 🔑 配置说明
+## 🛠️ 其他部署方式
 
-### TG 密钥配置（两种方式任选）
+### GitHub Actions 自动部署
 
-**方式 A：GitHub Secrets（推荐）**
-- 设置 `TG_BOT_TOKEN` 和 `TG_CHAT_ID` 两个 Secret
-- CI 自动注入为 Cloudflare Worker 环境变量
-- 无需手动操作 Cloudflare
+适合需要持续部署的场景（push main 自动同步）。
 
-**方式 B：Cloudflare Dashboard**
-- 部署后进入 Worker → Settings → Variables and Secrets
-- 添加 `TG_BOT_TOKEN` 和 `TG_CHAT_ID` 两个环境变量
-- 适合后续需要更换密钥的场景
+1. Fork 仓库
+2. 添加 GitHub Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`
+3. 推送即自动部署
 
-> 两种方式都生效，代码会优先读取 Worker 环境变量，其次读 KV 数据库。
+详见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 
-### KV 命名空间 ID
-
-只在首次部署时需要配置一次。ID 写在 GitHub Secret 中，CI 自动注入 `wrangler.toml`。
-
----
-
-## 🛠️ 本地开发
+### Wrangler CLI 本地开发
 
 ```bash
-git clone https://github.com/你的用户名/sub-tracker.git
-cd sub-tracker
+git clone https://github.com/imwarn/sub-tracker.git && cd sub-tracker
 npm install
-
-# 登录 Cloudflare
 npx wrangler login
-
-# 创建 KV（如果还没有）
-npx wrangler kv namespace create DB
-
-# 本地开发（会读取 wrangler.toml 中的 KV ID）
-npx wrangler dev
-
-# 部署
-npx wrangler deploy
+npx wrangler dev          # 本地开发
+npx wrangler deploy       # 部署
 ```
 
 ---
