@@ -16,16 +16,81 @@
 - 🌍 **智能国旗匹配**：输入带区号的号码，自动显示对应国旗
 - 🎨 **毛玻璃 UI**：深色渐变背景 + Glassmorphism 设计，手机/PC 自适应
 
+---
+
 ## 🚀 部署指南
 
 ### 准备工作
 
 1. 一个 [Cloudflare](https://dash.cloudflare.com/) 账号
-2. 一个 Telegram 账号，搜索 @BotFather 发送 `/newbot` 创建机器人，记录 **Bot Token**
-3. 搜索 @userinfobot 发送任意消息，记录你的数字 **Chat ID**
-4. **主动给你刚建的机器人发送任意一条消息激活它**
+2. 一个 Telegram 账号：
+   - 搜索 `@BotFather` → 发送 `/newbot` → 记录 **Bot Token**
+   - 搜索 `@userinfobot` → 发送任意消息 → 记录你的数字 **Chat ID**
+   - **主动给机器人发一条消息激活它**（机器人不能主动发起会话）
 
-### 方式 1: Wrangler CLI (推荐)
+---
+
+### 方式一：GitHub Actions 自动部署（推荐）
+
+**优势**：push 到 main 分支即自动部署，Worker + Cron + KV 全部自动同步。
+
+#### 第一步：Fork 仓库
+
+Fork [imwarn/sub-tracker](https://github.com/imwarn/sub-tracker) 到你的 GitHub。
+
+#### 第二步：创建 KV 命名空间
+
+登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)：
+
+1. 左侧菜单 → **Workers & Pages** → **KV**
+2. 点击 **Create a namespace**，名称填 `sub-tracker`，点击添加
+3. 复制生成的 **ID**（如 `09fe63fac...`）备用
+
+#### 第三步：添加 TG 密钥到 KV
+
+在刚才创建的 `sub-tracker` KV 命名空间中：
+
+1. 点击 **KV Entries** 选项卡
+2. 添加两条数据：
+   - Key: `TG_BOT_TOKEN` → Value: 你的 Bot Token
+   - Key: `TG_CHAT_ID` → Value: 你的 Chat ID
+
+#### 第四步：获取 Cloudflare API Token
+
+1. 访问 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens)
+2. 点击 **Create Token** → 使用 **Edit Cloudflare Workers** 模板
+3. 记录生成的 Token
+
+#### 第五步：配置 GitHub Secrets
+
+在你 Fork 的仓库中：
+
+1. 进入 **Settings** → **Secrets and variables** → **Actions**
+2. 添加两个 Repository Secrets：
+   - `CLOUDFLARE_API_TOKEN` → 上一步获取的 API Token
+   - `CLOUDFLARE_ACCOUNT_ID` → 在 [Cloudflare Dashboard](https://dash.cloudflare.com/) 右侧栏可见
+
+#### 第六步：修改 wrangler.toml
+
+编辑 `wrangler.toml`，将 `YOUR_KV_NAMESPACE_ID` 替换为第二步复制的真实 KV ID。
+
+#### 第七步：推送部署
+
+```bash
+git push origin main
+```
+
+GitHub Actions 会自动触发部署。进入仓库 **Actions** 标签页可查看部署进度。
+
+部署完成后，在 [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages** 中找到分配的域名，即可访问。
+
+> **此后每次 push 到 main 分支，都会自动重新部署。**
+
+---
+
+### 方式二：Wrangler CLI 手动部署
+
+适合本地开发调试。
 
 ```bash
 # 1. 克隆仓库
@@ -35,30 +100,36 @@ cd sub-tracker
 # 2. 安装依赖
 npm install
 
-# 3. 创建 KV 命名空间
-npx wrangler kv namespace create DB
-# 记录输出的 ID，填入 wrangler.toml 的 id 字段
+# 3. 登录 Cloudflare
+npx wrangler login
 
-# 4. 配置 KV 中的 TG 密钥
+# 4. 创建 KV 命名空间 (名称: sub-tracker)
+npx wrangler kv namespace create DB
+# 记录输出的 id，填入 wrangler.toml
+
+# 5. 添加 TG 密钥
 npx wrangler kv key put TG_BOT_TOKEN "你的BotToken" --binding DB
 npx wrangler kv key put TG_CHAT_ID "你的ChatID" --binding DB
 
-# 5. 本地开发
+# 6. 本地开发
 npx wrangler dev
 
-# 6. 部署
+# 7. 部署
 npx wrangler deploy
 ```
 
-### 方式 2: CF Dashboard + Git
+---
 
-1. Fork 本仓库到你的 GitHub
-2. 在 Cloudflare 创建 KV 命名空间，命名为 `DB`，记录 ID
-3. 编辑 `wrangler.toml`，将 `id` 替换为你的真实 KV ID
-4. 在 KV 中手动添加 `TG_BOT_TOKEN` 和 `TG_CHAT_ID`
-5. CF Dashboard → Workers → Connect to Git → 选择仓库
-6. Entry point 设为 `worker/worker.js`（需先运行 `npm run build`）
-7. 点击部署，访问分配的域名即可使用
+### 方式三：CF Dashboard 手动部署
+
+不推荐（无法自动同步），适合快速验证。
+
+1. Fork 仓库 → 本地运行 `npm run build` → 提交 `worker/worker.js`
+2. Cloudflare Dashboard → Workers & Pages → Create Application → Connect to Git
+3. Entry point 设为 `worker/worker.js`
+4. 手动在 KV 中添加 `TG_BOT_TOKEN` 和 `TG_CHAT_ID`
+
+---
 
 ## 📄 许可证
 

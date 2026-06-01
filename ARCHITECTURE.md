@@ -116,16 +116,24 @@ sub-tracker/
 
 ## 部署方式
 
-### 方式 1: Wrangler CLI (推荐)
+### 方式 1: GitHub Actions 自动部署 (推荐)
+- Fork 仓库 → 配置 GitHub Secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`)
+- 修改 `wrangler.toml` 填入 KV ID
+- Push 到 main 分支自动触发部署 (`.github/workflows/deploy.yml`)
+- Worker + Cron Triggers + KV 绑定全部自动同步
+
+### 方式 2: Wrangler CLI 手动部署
 ```bash
 npm install
-npx wrangler dev          # 本地开发
-npx wrangler deploy       # 部署到 CF
+npx wrangler login
+npx wrangler kv namespace create DB    # KV 命名空间名称: sub-tracker
+npx wrangler dev                       # 本地开发
+npx wrangler deploy                    # 部署到 CF
 ```
 
-### 方式 2: CF Dashboard + Git
+### 方式 3: CF Dashboard 手动部署
 ```bash
-npm run build             # 生成 worker/worker.js
+npm run build                          # 生成 worker/worker.js
 # CF Dashboard → Workers → Connect to Git → Entry point: worker/worker.js
 ```
 
