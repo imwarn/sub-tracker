@@ -176,14 +176,42 @@ export function getHTML() {
             <label class="text-sm text-slate-400 mb-1 block">分类</label>
             <select id="form-category" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
               <option value="">未分类</option>
+              <option value="AI">AI 服务</option>
               <option value="VPN">VPN</option>
               <option value="Cloud">云服务</option>
               <option value="Streaming">流媒体</option>
               <option value="Domain">域名/SSL</option>
               <option value="VPS">VPS/服务器</option>
               <option value="Software">软件订阅</option>
+              <option value="Game">游戏</option>
               <option value="Other">其他</option>
             </select>
+          </div>
+          <div id="field-region" class="hidden">
+            <label class="text-sm text-slate-400 mb-1 block">账号区域</label>
+            <select id="form-region" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              <option value="">未设置</option>
+              <option value="CN">🇨🇳 大陆</option>
+              <option value="HK">🇭🇰 香港</option>
+              <option value="TW">🇹🇼 台湾</option>
+              <option value="US">🇺🇸 美区</option>
+              <option value="JP">🇯🇵 日区</option>
+              <option value="KR">🇰🇷 韩区</option>
+              <option value="TR">🇹🇷 土耳其</option>
+              <option value="NG">🇳🇬 尼日利亚</option>
+              <option value="IN">🇮🇳 印度</option>
+              <option value="BR">🇧🇷 巴西</option>
+              <option value="AR">🇦🇷 阿根廷</option>
+              <option value="PH">🇵🇭 菲律宾</option>
+              <option value="MY">🇲🇾 马来西亚</option>
+              <option value="SG">🇸🇬 新加坡</option>
+              <option value="EU">🇪🇺 欧洲</option>
+              <option value="OTHER">🌍 其他</option>
+            </select>
+          </div>
+          <div id="field-sub-id" class="hidden">
+            <label class="text-sm text-slate-400 mb-1 block">订阅 ID / 账号</label>
+            <input id="form-sub-id" type="text" placeholder="账号邮箱或订阅ID" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">到期日期 *</label>
@@ -447,8 +475,13 @@ function cardHTML(item) {
       (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
   } else {
     const ps = item.price ? (item.billing==='yearly' ? '¥'+item.price+'/年' : item.billing==='once' ? '¥'+item.price+'(一次性)' : '¥'+item.price+'/月') : '';
-    body = (item.category ? '<div class="text-xs text-slate-400 mb-1">'+esc(item.category)+'</div>' : '') +
-      (ps ? '<div class="text-sm text-emerald-400 font-semibold">'+esc(ps)+'</div>' : '');
+    const regionFlags = {'CN':'🇨🇳','HK':'🇭🇰','TW':'🇹🇼','US':'🇺🇸','JP':'🇯🇵','KR':'🇰🇷','TR':'🇹🇷','NG':'🇳🇬','IN':'🇮🇳','BR':'🇧🇷','AR':'🇦🇷','PH':'🇵🇭','MY':'🇲🇾','SG':'🇸🇬','EU':'🇪🇺'};
+    const regionStr = item.region ? (regionFlags[item.region]||'🌍')+' '+item.region : '';
+    const catStr = item.category ? esc(item.category) : '';
+    const metaLine = [catStr, regionStr].filter(Boolean).join(' · ');
+    body = (metaLine ? '<div class="text-xs text-slate-400 mb-1">'+metaLine+'</div>' : '') +
+      (ps ? '<div class="text-sm text-emerald-400 font-semibold">'+esc(ps)+'</div>' : '') +
+      (item.subId ? '<div class="text-xs text-slate-500 mt-1 truncate"><i class="fa-solid fa-id-card mr-1"></i>'+esc(item.subId)+'</div>' : '');
     if (item.url) body += '<a href="'+esc(item.url)+'" target="_blank" class="text-xs text-sky-400 hover:underline mt-1 inline-block"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>访问</a>';
   }
 
@@ -585,11 +618,15 @@ function statusInfo(diff) {
   return { cls:'status-active', text:'剩余 '+diff+'天' };
 }
 
-const FLAG_MAP = {'1':'🇺🇸','7':'🇷🇺','20':'🇪🇬','33':'🇫🇷','34':'🇪🇸','39':'🇮🇹','44':'🇬🇧','49':'🇩🇪','52':'🇲🇽','55':'🇧🇷','60':'🇲🇾','61':'🇦🇺','62':'🇮🇩','63':'🇵🇭','65':'🇸🇬','66':'🇹🇭','81':'🇯🇵','82':'🇰🇷','84':'🇻🇳','86':'🇨🇳','90':'🇹🇷','91':'🇮🇳','852':'🇭🇰','853':'🇲🇴','886':'🇹🇼'};
+const FLAG_MAP = {'1':'🇺🇸','7':'🇷🇺','20':'🇪🇬','33':'🇫🇷','34':'🇪🇸','39':'🇮🇹','44':'🇬🇧','49':'🇩🇪','52':'🇲🇽','55':'🇧🇷','60':'🇲🇾','61':'🇦🇺','62':'🇮🇩','63':'🇵🇭','65':'🇸🇬','66':'🇹🇭','81':'🇯🇵','82':'🇰🇷','84':'🇻🇳','86':'🇨🇳','90':'🇹🇷','91':'🇮🇳','212':'🇲🇦','234':'🇳🇬','351':'🇵🇹','353':'🇮🇪','358':'🇫🇮','380':'🇺🇦','852':'🇭🇰','853':'🇲🇴','855':'🇰🇭','880':'🇧🇩','886':'🇹🇼','966':'🇸🇦','971':'🇦🇪','972':'🇮🇱'};
 function getFlag(num) {
   if (!num) return '';
-  const m = num.match(/^\\+?(\\d{1,3})/);
-  return m ? (FLAG_MAP[m[1]] || '🌍') : '';
+  const digits = num.replace(/[^\d]/g, '');
+  for (const len of [3, 2, 1]) {
+    const prefix = digits.substring(0, len);
+    if (FLAG_MAP[prefix]) return FLAG_MAP[prefix];
+  }
+  return '🌍';
 }
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
@@ -620,6 +657,8 @@ function openModal(type, item) {
   document.getElementById('modal-title').textContent = (item ? '编辑' : '添加') + (type === 'esim' ? ' eSIM' : ' 订阅');
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-category').classList.toggle('hidden', type !== 'subscription');
+  document.getElementById('field-region').classList.toggle('hidden', type !== 'subscription');
+  document.getElementById('field-sub-id').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-price').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
 
@@ -627,6 +666,8 @@ function openModal(type, item) {
     document.getElementById('form-name').value = item.name || '';
     document.getElementById('form-number').value = item.number || '';
     document.getElementById('form-category').value = item.category || '';
+    document.getElementById('form-region').value = item.region || '';
+    document.getElementById('form-sub-id').value = item.subId || '';
     document.getElementById('form-expire').value = item.expireDate || '';
     document.getElementById('form-cycle').value = item.cycle || '';
     document.getElementById('form-price').value = item.price || '';
@@ -652,6 +693,8 @@ async function saveItem(e) {
     name: document.getElementById('form-name').value.trim(),
     number: document.getElementById('form-number').value.trim(),
     category: document.getElementById('form-category').value,
+    region: document.getElementById('form-region').value,
+    subId: document.getElementById('form-sub-id').value.trim(),
     expireDate: document.getElementById('form-expire').value,
     cycle: parseInt(document.getElementById('form-cycle').value) || null,
     price: document.getElementById('form-price').value || null,

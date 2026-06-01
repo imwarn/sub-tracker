@@ -31,8 +31,10 @@ export function createItem(type, data) {
   return {
     ...base,
     category: data.category || '',
+    region: data.region || '',
+    subId: data.subId || '',
     price: data.price || null,
-    billing: data.billing || 'monthly',  // monthly | yearly | once
+    billing: data.billing || 'monthly',
     currency: data.currency || 'CNY',
     autoRenew: data.autoRenew || false,
     remindDays: data.remindDays ?? 3,
@@ -67,7 +69,7 @@ export function mergeUpdate(existing, data) {
   }
   // Subscription fields
   if (existing.type === 'subscription') {
-    for (const key of ['category', 'price', 'billing', 'currency', 'autoRenew', 'remindDays', 'url']) {
+    for (const key of ['category', 'region', 'subId', 'price', 'billing', 'currency', 'autoRenew', 'remindDays', 'url']) {
       if (data[key] !== undefined) updated[key] = data[key];
     }
   }

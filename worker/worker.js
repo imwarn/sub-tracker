@@ -208,9 +208,10 @@ function createItem(type, data) {
   return {
     ...base,
     category: data.category || "",
+    region: data.region || "",
+    subId: data.subId || "",
     price: data.price || null,
     billing: data.billing || "monthly",
-    // monthly | yearly | once
     currency: data.currency || "CNY",
     autoRenew: data.autoRenew || false,
     remindDays: data.remindDays ?? 3,
@@ -238,7 +239,7 @@ function mergeUpdate(existing, data) {
       updated.number = data.number;
   }
   if (existing.type === "subscription") {
-    for (const key of ["category", "price", "billing", "currency", "autoRenew", "remindDays", "url"]) {
+    for (const key of ["category", "region", "subId", "price", "billing", "currency", "autoRenew", "remindDays", "url"]) {
       if (data[key] !== void 0)
         updated[key] = data[key];
     }
@@ -673,14 +674,42 @@ function getHTML() {
             <label class="text-sm text-slate-400 mb-1 block">\u5206\u7C7B</label>
             <select id="form-category" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
               <option value="">\u672A\u5206\u7C7B</option>
+              <option value="AI">AI \u670D\u52A1</option>
               <option value="VPN">VPN</option>
               <option value="Cloud">\u4E91\u670D\u52A1</option>
               <option value="Streaming">\u6D41\u5A92\u4F53</option>
               <option value="Domain">\u57DF\u540D/SSL</option>
               <option value="VPS">VPS/\u670D\u52A1\u5668</option>
               <option value="Software">\u8F6F\u4EF6\u8BA2\u9605</option>
+              <option value="Game">\u6E38\u620F</option>
               <option value="Other">\u5176\u4ED6</option>
             </select>
+          </div>
+          <div id="field-region" class="hidden">
+            <label class="text-sm text-slate-400 mb-1 block">\u8D26\u53F7\u533A\u57DF</label>
+            <select id="form-region" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              <option value="">\u672A\u8BBE\u7F6E</option>
+              <option value="CN">\u{1F1E8}\u{1F1F3} \u5927\u9646</option>
+              <option value="HK">\u{1F1ED}\u{1F1F0} \u9999\u6E2F</option>
+              <option value="TW">\u{1F1F9}\u{1F1FC} \u53F0\u6E7E</option>
+              <option value="US">\u{1F1FA}\u{1F1F8} \u7F8E\u533A</option>
+              <option value="JP">\u{1F1EF}\u{1F1F5} \u65E5\u533A</option>
+              <option value="KR">\u{1F1F0}\u{1F1F7} \u97E9\u533A</option>
+              <option value="TR">\u{1F1F9}\u{1F1F7} \u571F\u8033\u5176</option>
+              <option value="NG">\u{1F1F3}\u{1F1EC} \u5C3C\u65E5\u5229\u4E9A</option>
+              <option value="IN">\u{1F1EE}\u{1F1F3} \u5370\u5EA6</option>
+              <option value="BR">\u{1F1E7}\u{1F1F7} \u5DF4\u897F</option>
+              <option value="AR">\u{1F1E6}\u{1F1F7} \u963F\u6839\u5EF7</option>
+              <option value="PH">\u{1F1F5}\u{1F1ED} \u83F2\u5F8B\u5BBE</option>
+              <option value="MY">\u{1F1F2}\u{1F1FE} \u9A6C\u6765\u897F\u4E9A</option>
+              <option value="SG">\u{1F1F8}\u{1F1EC} \u65B0\u52A0\u5761</option>
+              <option value="EU">\u{1F1EA}\u{1F1FA} \u6B27\u6D32</option>
+              <option value="OTHER">\u{1F30D} \u5176\u4ED6</option>
+            </select>
+          </div>
+          <div id="field-sub-id" class="hidden">
+            <label class="text-sm text-slate-400 mb-1 block">\u8BA2\u9605 ID / \u8D26\u53F7</label>
+            <input id="form-sub-id" type="text" placeholder="\u8D26\u53F7\u90AE\u7BB1\u6216\u8BA2\u9605ID" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u5230\u671F\u65E5\u671F *</label>
@@ -944,8 +973,13 @@ function cardHTML(item) {
       (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
   } else {
     const ps = item.price ? (item.billing==='yearly' ? '\xA5'+item.price+'/\u5E74' : item.billing==='once' ? '\xA5'+item.price+'(\u4E00\u6B21\u6027)' : '\xA5'+item.price+'/\u6708') : '';
-    body = (item.category ? '<div class="text-xs text-slate-400 mb-1">'+esc(item.category)+'</div>' : '') +
-      (ps ? '<div class="text-sm text-emerald-400 font-semibold">'+esc(ps)+'</div>' : '');
+    const regionFlags = {'CN':'\u{1F1E8}\u{1F1F3}','HK':'\u{1F1ED}\u{1F1F0}','TW':'\u{1F1F9}\u{1F1FC}','US':'\u{1F1FA}\u{1F1F8}','JP':'\u{1F1EF}\u{1F1F5}','KR':'\u{1F1F0}\u{1F1F7}','TR':'\u{1F1F9}\u{1F1F7}','NG':'\u{1F1F3}\u{1F1EC}','IN':'\u{1F1EE}\u{1F1F3}','BR':'\u{1F1E7}\u{1F1F7}','AR':'\u{1F1E6}\u{1F1F7}','PH':'\u{1F1F5}\u{1F1ED}','MY':'\u{1F1F2}\u{1F1FE}','SG':'\u{1F1F8}\u{1F1EC}','EU':'\u{1F1EA}\u{1F1FA}'};
+    const regionStr = item.region ? (regionFlags[item.region]||'\u{1F30D}')+' '+item.region : '';
+    const catStr = item.category ? esc(item.category) : '';
+    const metaLine = [catStr, regionStr].filter(Boolean).join(' \xB7 ');
+    body = (metaLine ? '<div class="text-xs text-slate-400 mb-1">'+metaLine+'</div>' : '') +
+      (ps ? '<div class="text-sm text-emerald-400 font-semibold">'+esc(ps)+'</div>' : '') +
+      (item.subId ? '<div class="text-xs text-slate-500 mt-1 truncate"><i class="fa-solid fa-id-card mr-1"></i>'+esc(item.subId)+'</div>' : '');
     if (item.url) body += '<a href="'+esc(item.url)+'" target="_blank" class="text-xs text-sky-400 hover:underline mt-1 inline-block"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>\u8BBF\u95EE</a>';
   }
 
@@ -1082,11 +1116,15 @@ function statusInfo(diff) {
   return { cls:'status-active', text:'\u5269\u4F59 '+diff+'\u5929' };
 }
 
-const FLAG_MAP = {'1':'\u{1F1FA}\u{1F1F8}','7':'\u{1F1F7}\u{1F1FA}','20':'\u{1F1EA}\u{1F1EC}','33':'\u{1F1EB}\u{1F1F7}','34':'\u{1F1EA}\u{1F1F8}','39':'\u{1F1EE}\u{1F1F9}','44':'\u{1F1EC}\u{1F1E7}','49':'\u{1F1E9}\u{1F1EA}','52':'\u{1F1F2}\u{1F1FD}','55':'\u{1F1E7}\u{1F1F7}','60':'\u{1F1F2}\u{1F1FE}','61':'\u{1F1E6}\u{1F1FA}','62':'\u{1F1EE}\u{1F1E9}','63':'\u{1F1F5}\u{1F1ED}','65':'\u{1F1F8}\u{1F1EC}','66':'\u{1F1F9}\u{1F1ED}','81':'\u{1F1EF}\u{1F1F5}','82':'\u{1F1F0}\u{1F1F7}','84':'\u{1F1FB}\u{1F1F3}','86':'\u{1F1E8}\u{1F1F3}','90':'\u{1F1F9}\u{1F1F7}','91':'\u{1F1EE}\u{1F1F3}','852':'\u{1F1ED}\u{1F1F0}','853':'\u{1F1F2}\u{1F1F4}','886':'\u{1F1F9}\u{1F1FC}'};
+const FLAG_MAP = {'1':'\u{1F1FA}\u{1F1F8}','7':'\u{1F1F7}\u{1F1FA}','20':'\u{1F1EA}\u{1F1EC}','33':'\u{1F1EB}\u{1F1F7}','34':'\u{1F1EA}\u{1F1F8}','39':'\u{1F1EE}\u{1F1F9}','44':'\u{1F1EC}\u{1F1E7}','49':'\u{1F1E9}\u{1F1EA}','52':'\u{1F1F2}\u{1F1FD}','55':'\u{1F1E7}\u{1F1F7}','60':'\u{1F1F2}\u{1F1FE}','61':'\u{1F1E6}\u{1F1FA}','62':'\u{1F1EE}\u{1F1E9}','63':'\u{1F1F5}\u{1F1ED}','65':'\u{1F1F8}\u{1F1EC}','66':'\u{1F1F9}\u{1F1ED}','81':'\u{1F1EF}\u{1F1F5}','82':'\u{1F1F0}\u{1F1F7}','84':'\u{1F1FB}\u{1F1F3}','86':'\u{1F1E8}\u{1F1F3}','90':'\u{1F1F9}\u{1F1F7}','91':'\u{1F1EE}\u{1F1F3}','212':'\u{1F1F2}\u{1F1E6}','234':'\u{1F1F3}\u{1F1EC}','351':'\u{1F1F5}\u{1F1F9}','353':'\u{1F1EE}\u{1F1EA}','358':'\u{1F1EB}\u{1F1EE}','380':'\u{1F1FA}\u{1F1E6}','852':'\u{1F1ED}\u{1F1F0}','853':'\u{1F1F2}\u{1F1F4}','855':'\u{1F1F0}\u{1F1ED}','880':'\u{1F1E7}\u{1F1E9}','886':'\u{1F1F9}\u{1F1FC}','966':'\u{1F1F8}\u{1F1E6}','971':'\u{1F1E6}\u{1F1EA}','972':'\u{1F1EE}\u{1F1F1}'};
 function getFlag(num) {
   if (!num) return '';
-  const m = num.match(/^\\+?(\\d{1,3})/);
-  return m ? (FLAG_MAP[m[1]] || '\u{1F30D}') : '';
+  const digits = num.replace(/[^d]/g, '');
+  for (const len of [3, 2, 1]) {
+    const prefix = digits.substring(0, len);
+    if (FLAG_MAP[prefix]) return FLAG_MAP[prefix];
+  }
+  return '\u{1F30D}';
 }
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
@@ -1117,6 +1155,8 @@ function openModal(type, item) {
   document.getElementById('modal-title').textContent = (item ? '\u7F16\u8F91' : '\u6DFB\u52A0') + (type === 'esim' ? ' eSIM' : ' \u8BA2\u9605');
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-category').classList.toggle('hidden', type !== 'subscription');
+  document.getElementById('field-region').classList.toggle('hidden', type !== 'subscription');
+  document.getElementById('field-sub-id').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-price').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
 
@@ -1124,6 +1164,8 @@ function openModal(type, item) {
     document.getElementById('form-name').value = item.name || '';
     document.getElementById('form-number').value = item.number || '';
     document.getElementById('form-category').value = item.category || '';
+    document.getElementById('form-region').value = item.region || '';
+    document.getElementById('form-sub-id').value = item.subId || '';
     document.getElementById('form-expire').value = item.expireDate || '';
     document.getElementById('form-cycle').value = item.cycle || '';
     document.getElementById('form-price').value = item.price || '';
@@ -1149,6 +1191,8 @@ async function saveItem(e) {
     name: document.getElementById('form-name').value.trim(),
     number: document.getElementById('form-number').value.trim(),
     category: document.getElementById('form-category').value,
+    region: document.getElementById('form-region').value,
+    subId: document.getElementById('form-sub-id').value.trim(),
     expireDate: document.getElementById('form-expire').value,
     cycle: parseInt(document.getElementById('form-cycle').value) || null,
     price: document.getElementById('form-price').value || null,
