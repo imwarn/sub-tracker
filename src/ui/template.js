@@ -191,22 +191,22 @@ export function getHTML() {
             <label class="text-sm text-slate-400 mb-1 block">账号区域</label>
             <select id="form-region" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
               <option value="">未设置</option>
-              <option value="CN">🇨🇳 大陆</option>
-              <option value="HK">🇭🇰 香港</option>
-              <option value="TW">🇹🇼 台湾</option>
-              <option value="US">🇺🇸 美区</option>
-              <option value="JP">🇯🇵 日区</option>
-              <option value="KR">🇰🇷 韩区</option>
-              <option value="TR">🇹🇷 土耳其</option>
-              <option value="NG">🇳🇬 尼日利亚</option>
-              <option value="IN">🇮🇳 印度</option>
-              <option value="BR">🇧🇷 巴西</option>
-              <option value="AR">🇦🇷 阿根廷</option>
-              <option value="PH">🇵🇭 菲律宾</option>
-              <option value="MY">🇲🇾 马来西亚</option>
-              <option value="SG">🇸🇬 新加坡</option>
-              <option value="EU">🇪🇺 欧洲</option>
-              <option value="OTHER">🌍 其他</option>
+              <option value="CN">大陆</option>
+              <option value="HK">香港</option>
+              <option value="TW">台湾</option>
+              <option value="US">美区</option>
+              <option value="JP">日区</option>
+              <option value="KR">韩区</option>
+              <option value="TR">土耳其</option>
+              <option value="NG">尼日利亚</option>
+              <option value="IN">印度</option>
+              <option value="BR">巴西</option>
+              <option value="AR">阿根廷</option>
+              <option value="PH">菲律宾</option>
+              <option value="MY">马来西亚</option>
+              <option value="SG">新加坡</option>
+              <option value="EU">欧洲</option>
+              <option value="OTHER">其他</option>
             </select>
           </div>
           <div id="field-sub-id" class="hidden">
@@ -253,21 +253,21 @@ export function getHTML() {
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">货币</label>
                 <select id="form-currency" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-                  <option value="CNY">🇨🇳 CNY ¥</option>
-                  <option value="USD">🇺🇸 USD $</option>
-                  <option value="EUR">🇪🇺 EUR €</option>
-                  <option value="GBP">🇬🇧 GBP £</option>
-                  <option value="JPY">🇯🇵 JPY ¥</option>
-                  <option value="HKD">🇭🇰 HKD $</option>
-                  <option value="TWD">🇹🇼 TWD $</option>
-                  <option value="KRW">🇰🇷 KRW ₩</option>
-                  <option value="TRY">🇹🇷 TRY ₺</option>
-                  <option value="THB">🇹🇭 THB ฿</option>
-                  <option value="NGN">🇳🇬 NGN ₦</option>
-                  <option value="INR">🇮🇳 INR ₹</option>
-                  <option value="PHP">🇵🇭 PHP ₱</option>
-                  <option value="MYR">🇲🇾 MYR RM</option>
-                  <option value="SGD">🇸🇬 SGD $</option>
+                  <option value="CNY">CNY ¥</option>
+                  <option value="USD">USD $</option>
+                  <option value="EUR">EUR €</option>
+                  <option value="GBP">GBP £</option>
+                  <option value="JPY">JPY ¥</option>
+                  <option value="HKD">HKD $</option>
+                  <option value="TWD">TWD $</option>
+                  <option value="KRW">KRW ₩</option>
+                  <option value="TRY">TRY ₺</option>
+                  <option value="THB">THB ฿</option>
+                  <option value="NGN">NGN ₦</option>
+                  <option value="INR">INR ₹</option>
+                  <option value="PHP">PHP ₱</option>
+                  <option value="MYR">MYR RM</option>
+                  <option value="SGD">SGD $</option>
                 </select>
               </div>
               <div>
@@ -494,13 +494,12 @@ function cardHTML(item) {
 
   let body = '';
   if (isEsim) {
-    const flag = getFlag(item.number);
-    body = (flag ? '<div class="text-2xl mb-2">'+flag+'</div>' : '') +
+    const iso = getFlag(item.number);
+    body = (iso ? '<div class="text-xs font-mono text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded mb-2 inline-block">'+esc(iso)+'</div>' : '') +
       (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
   } else {
     const ps = item.price ? (item.billing==='yearly' ? currSym(item.currency)+item.price+'/年' : item.billing==='once' ? currSym(item.currency)+item.price+'(一次性)' : currSym(item.currency)+item.price+'/月') : '';
-    const regionFlags = {'CN':'🇨🇳','HK':'🇭🇰','TW':'🇹🇼','US':'🇺🇸','JP':'🇯🇵','KR':'🇰🇷','TR':'🇹🇷','NG':'🇳🇬','IN':'🇮🇳','BR':'🇧🇷','AR':'🇦🇷','PH':'🇵🇭','MY':'🇲🇾','SG':'🇸🇬','EU':'🇪🇺'};
-    const regionStr = item.region ? (regionFlags[item.region]||'🌍')+' '+item.region : '';
+    const regionStr = item.region ? esc(item.region) : '';
     const catStr = item.category ? esc(item.category) : '';
     const metaLine = [catStr, regionStr].filter(Boolean).join(' · ');
     body = (metaLine ? '<div class="text-xs text-slate-400 mb-1">'+metaLine+'</div>' : '') +
@@ -548,7 +547,7 @@ function listRowHTML(item) {
   const st = statusInfo(diff);
   const isEsim = item.type === 'esim';
   const sub = isEsim ? (item.number || '-') : (item.category || '-');
-  const flag = isEsim ? getFlag(item.number)+' ' : '';
+  const flag = isEsim ? getFlag(item.number) : '';
   const priceStr = !isEsim && item.price ? ' · '+currSym(item.currency)+item.price : '';
 
   return '<div class="list-row grid grid-cols-12 gap-2 px-4 py-3 items-center border-b border-white/5">' +
@@ -642,7 +641,7 @@ function statusInfo(diff) {
   return { cls:'status-active', text:'剩余 '+diff+'天' };
 }
 
-const FLAG_MAP = {'1':'🇺🇸','7':'🇷🇺','20':'🇪🇬','27':'🇿🇦','30':'🇬🇷','31':'🇳🇱','32':'🇧🇪','33':'🇫🇷','34':'🇪🇸','36':'🇭🇺','39':'🇮🇹','40':'🇷🇴','41':'🇨🇭','43':'🇦🇹','44':'🇬🇧','45':'🇩🇰','46':'🇸🇪','47':'🇳🇴','48':'🇵🇱','49':'🇩🇪','51':'🇵🇪','52':'🇲🇽','53':'🇨🇺','54':'🇦🇷','55':'🇧🇷','56':'🇨🇱','57':'🇨🇴','58':'🇻🇪','60':'🇲🇾','61':'🇦🇺','62':'🇮🇩','63':'🇵🇭','64':'🇳🇿','65':'🇸🇬','66':'🇹🇭','81':'🇯🇵','82':'🇰🇷','84':'🇻🇳','86':'🇨🇳','90':'🇹🇷','91':'🇮🇳','92':'🇵🇰','93':'🇦🇫','94':'🇱🇰','95':'🇲🇲','98':'🇮🇷','212':'🇲🇦','213':'🇩🇿','216':'🇹🇳','218':'🇱🇾','220':'🇬🇲','221':'🇸🇳','223':'🇲🇱','224':'🇬🇳','225':'🇨🇮','226':'🇧🇫','227':'🇳🇪','228':'🇹🇬','229':'🇧🇯','230':'🇲🇺','231':'🇱🇷','233':'🇬🇭','234':'🇳🇬','235':'🇹🇩','237':'🇨🇲','242':'🇨🇬','243':'🇨🇩','244':'🇦🇴','249':'🇸🇩','250':'🇷🇼','251':'🇪🇹','252':'🇸🇴','253':'🇩🇯','254':'🇰🇪','255':'🇹🇿','256':'🇺🇬','257':'🇧🇮','258':'🇲🇿','260':'🇿🇲','261':'🇲🇬','263':'🇿🇼','264':'🇳🇦','265':'🇲🇼','266':'🇱🇸','267':'🇧🇼','268':'🇸🇿','269':'🇰🇲','297':'🇦🇼','299':'🇬🇱','350':'🇬🇮','351':'🇵🇹','352':'🇱🇺','353':'🇮🇪','354':'🇮🇸','355':'🇦🇱','356':'🇲🇹','357':'🇨🇾','358':'🇫🇮','359':'🇧🇬','370':'🇱🇹','371':'🇱🇻','372':'🇪🇪','373':'🇲🇩','374':'🇦🇲','375':'🇧🇾','376':'🇦🇩','377':'🇲🇨','380':'🇺🇦','381':'🇷🇸','382':'🇲🇪','385':'🇭🇷','386':'🇸🇮','387':'🇧🇦','389':'🇲🇰','850':'🇰🇵','852':'🇭🇰','853':'🇲🇴','855':'🇰🇭','856':'🇱🇦','880':'🇧🇩','886':'🇹🇼','960':'🇲🇻','961':'🇱🇧','962':'🇯🇴','964':'🇮🇶','965':'🇰🇼','966':'🇸🇦','967':'🇾🇪','968':'🇴🇲','971':'🇦🇪','972':'🇮🇱','973':'🇧🇭','974':'🇶🇦','975':'🇧🇹','976':'🇲🇳','977':'🇳🇵','992':'🇹🇯','994':'🇦🇿','995':'🇬🇪','996':'🇰🇬','998':'🇺🇿'};
+const FLAG_MAP = {'1':'US','7':'RU','20':'EG','27':'ZA','30':'GR','31':'NL','32':'BE','33':'FR','34':'ES','36':'HU','39':'IT','40':'RO','41':'CH','43':'AT','44':'GB','45':'DK','46':'SE','47':'NO','48':'PL','49':'DE','51':'PE','52':'MX','53':'CU','54':'AR','55':'BR','56':'CL','57':'CO','58':'VE','60':'MY','61':'AU','62':'ID','63':'PH','64':'NZ','65':'SG','66':'TH','81':'JP','82':'KR','84':'VN','86':'CN','90':'TR','91':'IN','92':'PK','93':'AF','94':'LK','95':'MM','98':'IR','212':'MA','213':'DZ','216':'TN','218':'LY','220':'GM','221':'SN','223':'ML','224':'GN','225':'CI','226':'BF','227':'NE','228':'TG','229':'BJ','230':'MU','231':'LR','233':'GH','234':'NG','235':'TD','237':'CM','242':'CG','243':'CD','244':'AO','249':'SD','250':'RW','251':'ET','252':'SO','253':'DJ','254':'KE','255':'TZ','256':'UG','257':'BI','258':'MZ','260':'ZM','261':'MG','263':'ZW','264':'NA','265':'MW','266':'LS','267':'BW','268':'SZ','269':'KM','297':'AW','299':'GL','350':'GI','351':'PT','352':'LU','353':'IE','354':'IS','355':'AL','356':'MT','357':'CY','358':'FI','359':'BG','370':'LT','371':'LV','372':'EE','373':'MD','374':'AM','375':'BY','376':'AD','377':'MC','380':'UA','381':'RS','382':'ME','385':'HR','386':'SI','387':'BA','389':'MK','850':'KP','852':'HK','853':'MO','855':'KH','856':'LA','880':'BD','886':'TW','960':'MV','961':'LB','962':'JO','964':'IQ','965':'KW','966':'SA','967':'YE','968':'OM','971':'AE','972':'IL','973':'BH','974':'QA','975':'BT','976':'MN','977':'NP','992':'TJ','994':'AZ','995':'GE','996':'KG','998':'UZ'};
 function getFlag(num) {
   if (!num) return '';
   let digits = num.replace(/[^0-9]/g, '');
@@ -653,7 +652,7 @@ function getFlag(num) {
       if (FLAG_MAP[prefix]) return FLAG_MAP[prefix];
     }
   }
-  return '🌍';
+  return '';
 }
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
