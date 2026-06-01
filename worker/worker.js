@@ -1,3 +1,153 @@
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// src/data/store.js
+var store_exports = {};
+__export(store_exports, {
+  addItem: () => addItem,
+  deleteItem: () => deleteItem,
+  getAllItems: () => getAllItems,
+  getConfig: () => getConfig,
+  getItemById: () => getItemById,
+  getItemsByType: () => getItemsByType,
+  saveAllItems: () => saveAllItems,
+  setConfig: () => setConfig,
+  updateItem: () => updateItem
+});
+async function getAllItems(db) {
+  try {
+    const items = await db.get(ITEMS_KEY, { type: "json" });
+    return items || [];
+  } catch {
+    return [];
+  }
+}
+async function saveAllItems(db, items) {
+  await db.put(ITEMS_KEY, JSON.stringify(items));
+}
+async function getItemById(db, id) {
+  const items = await getAllItems(db);
+  return items.find((item) => item.id === id) || null;
+}
+async function addItem(db, item) {
+  const items = await getAllItems(db);
+  items.push(item);
+  await saveAllItems(db, items);
+  return item;
+}
+async function updateItem(db, id, updater) {
+  const items = await getAllItems(db);
+  const idx = items.findIndex((item) => item.id === id);
+  if (idx === -1)
+    return null;
+  items[idx] = updater(items[idx]);
+  await saveAllItems(db, items);
+  return items[idx];
+}
+async function deleteItem(db, id) {
+  const items = await getAllItems(db);
+  const filtered = items.filter((item) => item.id !== id);
+  if (filtered.length === items.length)
+    return false;
+  await saveAllItems(db, filtered);
+  return true;
+}
+async function getItemsByType(db, type) {
+  const items = await getAllItems(db);
+  return items.filter((item) => item.type === type);
+}
+async function getConfig(db, key) {
+  return await db.get(key);
+}
+async function setConfig(db, key, value, options) {
+  await db.put(key, value, options);
+}
+var ITEMS_KEY;
+var init_store = __esm({
+  "src/data/store.js"() {
+    ITEMS_KEY = "items";
+  }
+});
+
+// src/utils/date.js
+var date_exports = {};
+__export(date_exports, {
+  addDays: () => addDays,
+  daysUntil: () => daysUntil,
+  formatDate: () => formatDate,
+  getStatusText: () => getStatusText,
+  todayMidnight: () => todayMidnight,
+  todayString: () => todayString
+});
+function todayString() {
+  const now = /* @__PURE__ */ new Date();
+  const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
+  return local.toISOString().split("T")[0];
+}
+function todayMidnight() {
+  const now = /* @__PURE__ */ new Date();
+  const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
+  local.setUTCHours(0, 0, 0, 0);
+  return local;
+}
+function daysUntil(expireDate) {
+  const today = todayMidnight();
+  const exp = /* @__PURE__ */ new Date(expireDate + "T00:00:00Z");
+  return Math.ceil((exp - today) / 864e5);
+}
+function addDays(dateStr, days) {
+  const d = /* @__PURE__ */ new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split("T")[0];
+}
+function formatDate(dateStr) {
+  if (!dateStr)
+    return "\u672A\u8BBE\u7F6E";
+  const d = /* @__PURE__ */ new Date(dateStr + "T00:00:00Z");
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  return `${m}\u6708${day}\u65E5`;
+}
+function getStatusText(days) {
+  if (days < 0)
+    return `\u5DF2\u8FC7\u671F ${Math.abs(days)} \u5929`;
+  if (days === 0)
+    return "\u4ECA\u5929\u5230\u671F";
+  return `\u5269\u4F59 ${days} \u5929`;
+}
+var TZ_OFFSET;
+var init_date = __esm({
+  "src/utils/date.js"() {
+    TZ_OFFSET = 8;
+  }
+});
+
+// src/services/telegram.js
+var telegram_exports = {};
+__export(telegram_exports, {
+  sendTelegram: () => sendTelegram
+});
+async function sendTelegram(token, chatId, text) {
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" })
+  });
+  return res.ok;
+}
+var init_telegram = __esm({
+  "src/services/telegram.js"() {
+  }
+});
+
 // src/utils/response.js
 var CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -28,50 +178,8 @@ function corsPreFlight() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
-// src/data/store.js
-var ITEMS_KEY = "items";
-async function getAllItems(db) {
-  try {
-    const items = await db.get(ITEMS_KEY, { type: "json" });
-    return items || [];
-  } catch {
-    return [];
-  }
-}
-async function saveAllItems(db, items) {
-  await db.put(ITEMS_KEY, JSON.stringify(items));
-}
-async function addItem(db, item) {
-  const items = await getAllItems(db);
-  items.push(item);
-  await saveAllItems(db, items);
-  return item;
-}
-async function updateItem(db, id, updater) {
-  const items = await getAllItems(db);
-  const idx = items.findIndex((item) => item.id === id);
-  if (idx === -1)
-    return null;
-  items[idx] = updater(items[idx]);
-  await saveAllItems(db, items);
-  return items[idx];
-}
-async function deleteItem(db, id) {
-  const items = await getAllItems(db);
-  const filtered = items.filter((item) => item.id !== id);
-  if (filtered.length === items.length)
-    return false;
-  await saveAllItems(db, filtered);
-  return true;
-}
-async function getConfig(db, key) {
-  return await db.get(key);
-}
-async function setConfig(db, key, value, options) {
-  await db.put(key, value, options);
-}
-
 // src/handlers/auth.js
+init_store();
 async function handleAuth(request, env, path) {
   if (request.method === "OPTIONS") {
     return corsPreFlight();
@@ -242,21 +350,9 @@ function mergeUpdate(existing, data) {
   return updated;
 }
 
-// src/utils/date.js
-var TZ_OFFSET = 8;
-function todayMidnight() {
-  const now = /* @__PURE__ */ new Date();
-  const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
-  local.setUTCHours(0, 0, 0, 0);
-  return local;
-}
-function addDays(dateStr, days) {
-  const d = /* @__PURE__ */ new Date(dateStr + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().split("T")[0];
-}
-
 // src/handlers/items.js
+init_store();
+init_date();
 async function handleItems(request, env, path) {
   if (request.method === "OPTIONS")
     return corsPreFlight();
@@ -290,6 +386,9 @@ async function handleItems(request, env, path) {
     }
     if (request.method === "POST" && action === "/renew") {
       return await renewItem(env, id);
+    }
+    if (request.method === "POST" && action === "/test-notify") {
+      return await testNotify(env, id);
     }
   }
   return null;
@@ -427,6 +526,46 @@ async function importJSON(request, env) {
     return errorResponse("\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", 400);
   }
 }
+async function testNotify(env, id) {
+  const { getConfig: getConfig2 } = await Promise.resolve().then(() => (init_store(), store_exports));
+  const { sendTelegram: sendTelegram2 } = await Promise.resolve().then(() => (init_telegram(), telegram_exports));
+  const { daysUntil: daysUntil2, getStatusText: getStatusText2 } = await Promise.resolve().then(() => (init_date(), date_exports));
+  const item = await getItemById(env.DB, id);
+  if (!item)
+    return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404);
+  let tgToken = env.TG_BOT_TOKEN;
+  let tgChat = env.TG_CHAT_ID;
+  try {
+    if (!tgToken)
+      tgToken = await getConfig2(env.DB, "TG_BOT_TOKEN");
+    if (!tgChat)
+      tgChat = await getConfig2(env.DB, "TG_CHAT_ID");
+  } catch {
+  }
+  if (!tgToken || !tgChat) {
+    return errorResponse("TG \u5BC6\u94A5\u672A\u914D\u7F6E\uFF0C\u65E0\u6CD5\u53D1\u9001\u6D4B\u8BD5\u901A\u77E5");
+  }
+  const diff = daysUntil2(item.expireDate);
+  const statusText = getStatusText2(diff);
+  const emoji = diff <= 0 ? "\u{1F6A8}" : diff <= 15 ? "\u26A0\uFE0F" : "\u{1F4E2}";
+  const typeLabel = item.type === "esim" ? "eSIM \u4FDD\u53F7" : "\u8BA2\u9605\u7EED\u8D39";
+  const msg = [
+    `${emoji} <b>\u3010${typeLabel} \xB7 \u6D4B\u8BD5\u901A\u77E5\u3011</b>`,
+    "",
+    `\u{1F4E6} \u540D\u79F0: ${item.name}`,
+    item.number ? `\u{1F4DE} \u53F7\u7801: ${item.number}` : "",
+    item.category ? `\u{1F3F7}\uFE0F \u5206\u7C7B: ${item.category}` : "",
+    `\u{1F4C5} \u5230\u671F: ${item.expireDate}`,
+    `\u23F3 \u72B6\u6001: ${statusText}`,
+    item.remark ? `\u{1F4DD} \u5907\u6CE8: ${item.remark}` : "",
+    "",
+    "<i>\u8FD9\u662F\u4E00\u6761\u6D4B\u8BD5\u901A\u77E5\uFF0C\u786E\u8BA4\u901A\u77E5\u529F\u80FD\u6B63\u5E38\u3002</i>"
+  ].filter(Boolean).join("\n");
+  const ok = await sendTelegram2(tgToken, tgChat, msg);
+  if (ok)
+    return successResponse();
+  return errorResponse("\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5 TG \u914D\u7F6E");
+}
 
 // src/ui/template.js
 function getHTML() {
@@ -518,7 +657,7 @@ function getHTML() {
           <button onclick="toggleMenu()" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
             <i class="fa-solid fa-ellipsis-vertical"></i>
           </button>
-          <div id="dropdown-menu" class="hidden absolute right-0 top-full mt-2 glass rounded-xl p-2 min-w-[160px] z-40">
+          <div id="dropdown-menu" class="hidden absolute right-0 top-full mt-2 glass rounded-xl p-2 min-w-[160px] z-[60]">
             <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
               <i class="fa-solid fa-download mr-2 text-emerald-400"></i>\u5BFC\u51FA JSON
             </button>
@@ -620,11 +759,34 @@ function getHTML() {
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u5230\u671F\u65E5\u671F *</label>
-            <input id="form-expire" type="date" required class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            <input id="form-expire" type="date" required class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">\u4FDD\u53F7/\u7EED\u8D39\u5468\u671F (\u5929)</label>
             <input id="form-cycle" type="number" min="1" placeholder="\u5982: 180" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-sm text-slate-400 mb-2 block">\u63D0\u9192\u65F6\u95F4\uFF08\u53EF\u591A\u9009\uFF09</label>
+            <div class="flex flex-wrap gap-2" id="remind-checkboxes">
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="30" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">30\u5929\u524D</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="15" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">15\u5929\u524D</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="7" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">7\u5929\u524D</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="3" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">3\u5929\u524D</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="1" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">1\u5929\u524D</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="0" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">\u5F53\u5929</span>
+              </label>
+            </div>
           </div>
           <div id="field-price" class="hidden">
             <div class="grid grid-cols-2 gap-3">
@@ -859,6 +1021,7 @@ function cardHTML(item) {
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
     renewBtn +
+    '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors" title="\u6D4B\u8BD5\u901A\u77E5"><i class="fa-solid fa-bell"></i></button>' +
     '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
     '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
     '</div></div>';
@@ -893,6 +1056,7 @@ function listRowHTML(item) {
     '<div class="col-span-2 hidden sm:block text-xs font-semibold '+st.cls+'">'+st.text+'</div>' +
     '<div class="col-span-2 flex justify-end gap-1">' +
       (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
+      '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="\u6D4B\u8BD5\u901A\u77E5"><i class="fa-solid fa-bell"></i></button>' +
       '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
       '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
     '</div></div>';
@@ -1008,8 +1172,10 @@ function openModal(type, item) {
     document.getElementById('form-billing').value = item.billing || 'monthly';
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
+    setSelectedRemindDays(item.remindDays);
   } else {
     document.getElementById('item-form').reset();
+    setSelectedRemindDays([3, 1, 0]); // defaults
   }
   document.getElementById('modal-overlay').classList.remove('hidden');
   document.getElementById('modal-overlay').classList.add('flex');
@@ -1031,6 +1197,7 @@ async function saveItem(e) {
     billing: document.getElementById('form-billing').value,
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
+    remindDays: getSelectedRemindDays(),
   };
 
   const res = id ? await api('PUT', '/api/items/'+id, body) : await api('POST', '/api/items', body);
@@ -1052,6 +1219,24 @@ async function renewItem(id) {
   const res = await api('POST', '/api/items/'+id+'/renew');
   const data = await res.json();
   if (data.success) await loadItems(); else alert(data.message || '\u7EED\u671F\u5931\u8D25');
+}
+
+async function testNotify(id) {
+  const res = await api('POST', '/api/items/'+id+'/test-notify');
+  const data = await res.json();
+  if (data.success) alert('\u2705 \u6D4B\u8BD5\u901A\u77E5\u5DF2\u53D1\u9001\uFF0C\u8BF7\u68C0\u67E5 Telegram');
+  else alert('\u274C ' + (data.message || '\u53D1\u9001\u5931\u8D25'));
+}
+
+function getSelectedRemindDays() {
+  return Array.from(document.querySelectorAll('.remind-day:checked')).map(cb => parseInt(cb.value)).sort((a,b) => b-a);
+}
+
+function setSelectedRemindDays(days) {
+  if (!days || !Array.isArray(days)) days = [3, 1, 0];
+  document.querySelectorAll('.remind-day').forEach(cb => {
+    cb.checked = days.includes(parseInt(cb.value));
+  });
 }
 
 // ==================== IMPORT / EXPORT ====================
@@ -1132,18 +1317,11 @@ async function route(request, env) {
   return errorResponse("Not Found", 404);
 }
 
-// src/services/telegram.js
-async function sendTelegram(token, chatId, text) {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" })
-  });
-  return res.ok;
-}
-
 // src/services/reminder.js
+init_store();
+init_telegram();
+init_date();
+var DEFAULT_REMIND_DAYS = [3, 1, 0];
 async function checkReminders(env) {
   let tgToken = env.TG_BOT_TOKEN;
   let tgChat = env.TG_CHAT_ID;
@@ -1154,6 +1332,8 @@ async function checkReminders(env) {
       tgChat = await getConfig(env.DB, "TG_CHAT_ID");
   } catch {
   }
+  if (!tgToken || !tgChat)
+    return;
   const items = await getAllItems(env.DB);
   if (!items.length)
     return;
@@ -1167,36 +1347,35 @@ async function checkReminders(env) {
     const expDate = /* @__PURE__ */ new Date(item.expireDate + "T00:00:00Z");
     expDate.setUTCHours(0, 0, 0, 0);
     const diffDays = Math.ceil((expDate - today) / 864e5);
+    const remindDays = Array.isArray(item.remindDays) && item.remindDays.length > 0 ? item.remindDays : DEFAULT_REMIND_DAYS;
+    if (!remindDays.includes(diffDays))
+      continue;
     const cycleText = item.cycle ? `${item.cycle}\u5929` : "\u672A\u8BBE\u7F6E";
     const remarkText = item.remark ? `
 \u{1F4DD} \u5907\u6CE8: ${item.remark}` : "";
     const typeLabel = item.type === "esim" ? "eSIM \u4FDD\u53F7" : "\u8BA2\u9605\u7EED\u8D39";
     const typeEmoji = item.type === "esim" ? "\u{1F4F1}" : "\u{1F4E6}";
-    if (diffDays > 0 && diffDays <= 15) {
-      messages.push(
-        `\u26A0\uFE0F \u3010${typeLabel}\u63D0\u9192\u3011
+    let urgency;
+    if (diffDays < 0)
+      urgency = "\u274C";
+    else if (diffDays === 0)
+      urgency = "\u{1F6A8}";
+    else if (diffDays <= 3)
+      urgency = "\u26A0\uFE0F";
+    else
+      urgency = "\u{1F4E2}";
+    const statusText = diffDays < 0 ? `\u5DF2\u8FC7\u671F ${Math.abs(diffDays)} \u5929` : diffDays === 0 ? "\u4ECA\u5929\u5230\u671F\uFF01" : `\u5269\u4F59 ${diffDays} \u5929`;
+    messages.push(
+      `${urgency} \u3010${typeLabel}\u63D0\u9192\u3011
 ${typeEmoji} \u540D\u79F0: ${item.name}
 ` + (item.number ? `\u{1F4DE} \u53F7\u7801: ${item.number}
 ` : "") + `\u{1F504} \u5468\u671F: ${cycleText}
 \u{1F4C5} \u5230\u671F: ${item.expireDate}
-\u23F3 \u5269\u4F59: ${diffDays} \u5929\uFF01${remarkText}
-\u{1F449} \u8BF7\u5C3D\u5FEB\u5904\u7406\uFF01`
-      );
-    }
-    if (diffDays === 0) {
-      messages.push(
-        `\u{1F6A8} \u3010${typeLabel}\u7D27\u6025\u63D0\u9192\u3011
-${typeEmoji} ${item.name} \u4ECA\u5929\u5230\u671F\uFF01${remarkText}`
-      );
-    }
-    if (diffDays < 0 && Math.abs(diffDays) % 7 === 0) {
-      messages.push(
-        `\u274C \u3010${typeLabel}\u505C\u673A\u8B66\u544A\u3011
-${typeEmoji} ${item.name} \u5DF2\u8FC7\u671F ${Math.abs(diffDays)} \u5929\u3002${remarkText}`
-      );
-    }
+\u23F3 ${statusText}${remarkText}
+` + (diffDays > 0 ? `\u{1F449} \u8BF7\u5C3D\u5FEB\u5904\u7406\uFF01` : "")
+    );
   }
-  if (messages.length > 0 && tgToken && tgChat) {
+  if (messages.length > 0) {
     const text = messages.join("\n\n---\n\n");
     await sendTelegram(tgToken, tgChat, text);
   }

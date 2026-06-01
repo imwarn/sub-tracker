@@ -15,7 +15,7 @@
 import { errorResponse, successResponse, jsonResponse, corsPreFlight } from '../utils/response.js';
 import { requireAuth } from './auth.js';
 import { createItem, validateItem, mergeUpdate } from '../data/schema.js';
-import { getAllItems, addItem, updateItem, deleteItem, saveAllItems } from '../data/store.js';
+import { getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById } from '../data/store.js';
 import { addDays } from '../utils/date.js';
 
 export async function handleItems(request, env, path) {
@@ -66,6 +66,10 @@ export async function handleItems(request, env, path) {
 
     if (request.method === 'POST' && action === '/renew') {
       return await renewItem(env, id);
+    }
+
+    if (request.method === 'POST' && action === '/test-notify') {
+      return await testNotify(env, id);
     }
   }
 
@@ -223,4 +227,46 @@ async function importJSON(request, env) {
   } catch {
     return errorResponse('导入失败：JSON 解析错误', 400);
   }
+}
+
+async function testNotify(env, id) {
+  const { getConfig } = await import('../data/store.js');
+  const { sendTelegram } = await import('../services/telegram.js');
+  const { daysUntil, getStatusText } = await import('../utils/date.js');
+
+  const item = await getItemById(env.DB, id);
+  if (!item) return errorResponse('未找到记录', 404);
+
+  let tgToken = env.TG_BOT_TOKEN;
+  let tgChat = env.TG_CHAT_ID;
+  try {
+    if (!tgToken) tgToken = await getConfig(env.DB, 'TG_BOT_TOKEN');
+    if (!tgChat) tgChat = await getConfig(env.DB, 'TG_CHAT_ID');
+  } catch {}
+
+  if (!tgToken || !tgChat) {
+    return errorResponse('TG 密钥未配置，无法发送测试通知');
+  }
+
+  const diff = daysUntil(item.expireDate);
+  const statusText = getStatusText(diff);
+  const emoji = diff <= 0 ? '🚨' : (diff <= 15 ? '⚠️' : '📢');
+  const typeLabel = item.type === 'esim' ? 'eSIM 保号' : '订阅续费';
+
+  const msg = [
+    `${emoji} <b>【${typeLabel} · 测试通知】</b>`,
+    '',
+    `📦 名称: ${item.name}`,
+    item.number ? `📞 号码: ${item.number}` : '',
+    item.category ? `🏷️ 分类: ${item.category}` : '',
+    `📅 到期: ${item.expireDate}`,
+    `⏳ 状态: ${statusText}`,
+    item.remark ? `📝 备注: ${item.remark}` : '',
+    '',
+    '<i>这是一条测试通知，确认通知功能正常。</i>',
+  ].filter(Boolean).join('\n');
+
+  const ok = await sendTelegram(tgToken, tgChat, msg);
+  if (ok) return successResponse();
+  return errorResponse('发送失败，请检查 TG 配置');
 }

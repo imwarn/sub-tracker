@@ -93,7 +93,7 @@ export function getHTML() {
           <button onclick="toggleMenu()" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
             <i class="fa-solid fa-ellipsis-vertical"></i>
           </button>
-          <div id="dropdown-menu" class="hidden absolute right-0 top-full mt-2 glass rounded-xl p-2 min-w-[160px] z-40">
+          <div id="dropdown-menu" class="hidden absolute right-0 top-full mt-2 glass rounded-xl p-2 min-w-[160px] z-[60]">
             <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors">
               <i class="fa-solid fa-download mr-2 text-emerald-400"></i>导出 JSON
             </button>
@@ -195,11 +195,34 @@ export function getHTML() {
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">到期日期 *</label>
-            <input id="form-expire" type="date" required class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            <input id="form-expire" type="date" required class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">保号/续费周期 (天)</label>
             <input id="form-cycle" type="number" min="1" placeholder="如: 180" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-sm text-slate-400 mb-2 block">提醒时间（可多选）</label>
+            <div class="flex flex-wrap gap-2" id="remind-checkboxes">
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="30" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">30天前</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="15" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">15天前</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="7" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">7天前</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="3" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">3天前</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="1" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">1天前</span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" value="0" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">当天</span>
+              </label>
+            </div>
           </div>
           <div id="field-price" class="hidden">
             <div class="grid grid-cols-2 gap-3">
@@ -434,6 +457,7 @@ function cardHTML(item) {
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
     renewBtn +
+    '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
     '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
     '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
     '</div></div>';
@@ -468,6 +492,7 @@ function listRowHTML(item) {
     '<div class="col-span-2 hidden sm:block text-xs font-semibold '+st.cls+'">'+st.text+'</div>' +
     '<div class="col-span-2 flex justify-end gap-1">' +
       (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+      '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
       '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
       '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
     '</div></div>';
@@ -583,8 +608,10 @@ function openModal(type, item) {
     document.getElementById('form-billing').value = item.billing || 'monthly';
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
+    setSelectedRemindDays(item.remindDays);
   } else {
     document.getElementById('item-form').reset();
+    setSelectedRemindDays([3, 1, 0]); // defaults
   }
   document.getElementById('modal-overlay').classList.remove('hidden');
   document.getElementById('modal-overlay').classList.add('flex');
@@ -606,6 +633,7 @@ async function saveItem(e) {
     billing: document.getElementById('form-billing').value,
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
+    remindDays: getSelectedRemindDays(),
   };
 
   const res = id ? await api('PUT', '/api/items/'+id, body) : await api('POST', '/api/items', body);
@@ -627,6 +655,24 @@ async function renewItem(id) {
   const res = await api('POST', '/api/items/'+id+'/renew');
   const data = await res.json();
   if (data.success) await loadItems(); else alert(data.message || '续期失败');
+}
+
+async function testNotify(id) {
+  const res = await api('POST', '/api/items/'+id+'/test-notify');
+  const data = await res.json();
+  if (data.success) alert('✅ 测试通知已发送，请检查 Telegram');
+  else alert('❌ ' + (data.message || '发送失败'));
+}
+
+function getSelectedRemindDays() {
+  return Array.from(document.querySelectorAll('.remind-day:checked')).map(cb => parseInt(cb.value)).sort((a,b) => b-a);
+}
+
+function setSelectedRemindDays(days) {
+  if (!days || !Array.isArray(days)) days = [3, 1, 0];
+  document.querySelectorAll('.remind-day').forEach(cb => {
+    cb.checked = days.includes(parseInt(cb.value));
+  });
 }
 
 // ==================== IMPORT / EXPORT ====================
