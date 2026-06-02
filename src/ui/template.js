@@ -240,7 +240,7 @@ export function getHTML() {
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">到期日期 *</label>
-            <input id="form-expire" type="date" required min="2020-01-01" max="2035-12-31" class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
+            <input id="form-expire" type="date" min="2020-01-01" max="2035-12-31" class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
           </div>
           <div>
             <label class="text-sm text-slate-400 mb-1 block">保号/续费周期 (天)</label>
@@ -912,9 +912,16 @@ async function saveItem(e) {
     billingDay: document.getElementById('form-billing-day').value,
   };
 
+  // Client-side validation for non-balance types
+  if (body.type !== 'balance' && !body.expireDate) {
+    alert('到期日期不能为空'); return;
+  }
+
   const res = id ? await api('PUT', '/api/items/'+id, body) : await api('POST', '/api/items', body);
   const data = await res.json();
-  if (data.success) { closeModal(); await loadItems(); } else alert(data.message || '保存失败');
+  if (data.success) { closeModal(); await loadItems(); }
+  else if (data.message) alert(data.message);
+  else alert('保存失败');
 }
 
 // ==================== ACTIONS ====================
