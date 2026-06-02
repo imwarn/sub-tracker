@@ -43,6 +43,13 @@ export function getHTML() {
     .cal-day { min-height:80px; } .cal-day:hover { background:rgba(56,189,248,0.08); }
     .cal-event { font-size:0.65rem; padding:1px 4px; border-radius:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     select.glass-input option { background:#1e293b; color:#f1f5f9; }
+    /* Mobile responsive overrides */
+    @media (max-width: 639px) {
+      .cal-day { min-height:48px; padding:2px; }
+      .cal-event { font-size:0; padding:0; width:6px; height:6px; border-radius:50%; display:inline-block; margin:1px; }
+      .glass-card { padding:14px !important; }
+      .glass-card .btn-touch { min-height:36px; min-width:36px; }
+    }
   </style>
 </head>
 <body class="text-slate-200 min-h-screen">
@@ -98,7 +105,7 @@ export function getHTML() {
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6" id="stats-bar"></div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6" id="stats-bar"></div>
 
     <!-- View toggle + Filter -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
@@ -245,7 +252,7 @@ export function getHTML() {
             </div>
           </div>
           <div id="field-price" class="hidden">
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">费用</label>
                 <input id="form-price" type="number" step="0.01" min="0" placeholder="9.99" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -512,7 +519,7 @@ function cardHTML(item) {
   }
 
   const renewBtn = isEsim && item.cycle ?
-    '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> 续期</button>' : '';
+    '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> 续期</button>' : '';
 
   return '<div class="glass-card rounded-xl p-5">' +
     '<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2">' +
@@ -526,10 +533,10 @@ function cardHTML(item) {
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
     renewBtn +
-    '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
-    '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
-    '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
-    '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
+    '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
+    '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
+    '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
+    '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
     '</div></div>';
 }
 
@@ -537,9 +544,9 @@ function cardHTML(item) {
 function renderList(items, area) {
   let html = '<div class="glass rounded-xl overflow-hidden">';
   html += '<div class="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold text-slate-400 border-b border-white/10 bg-white/5">' +
-    '<div class="col-span-4">名称</div><div class="col-span-2 hidden sm:block">类型/号码</div>' +
-    '<div class="col-span-2">到期</div><div class="col-span-2 hidden sm:block">状态</div>' +
-    '<div class="col-span-2 text-right">操作</div></div>';
+    '<div class="col-span-4 sm:col-span-4">名称</div><div class="col-span-2 hidden sm:block">类型/号码</div>' +
+    '<div class="col-span-3 sm:col-span-2">到期</div><div class="col-span-2 hidden sm:block">状态</div>' +
+    '<div class="col-span-3 sm:col-span-2 text-right">操作</div></div>';
   html += items.map(i => listRowHTML(i)).join('');
   html += '</div>';
   area.innerHTML = html;
@@ -554,13 +561,13 @@ function listRowHTML(item) {
   const priceStr = !isEsim && item.price ? ' · '+currSym(item.currency)+item.price : '';
 
   return '<div class="list-row grid grid-cols-12 gap-2 px-4 py-3 items-center border-b border-white/5">' +
-    '<div class="col-span-4 flex items-center gap-2 min-w-0">' +
+    '<div class="col-span-4 sm:col-span-4 flex items-center gap-2 min-w-0">' +
       '<i class="fa-solid '+(isEsim?'fa-sim-card text-cyan-400':'fa-credit-card text-violet-400')+' text-sm flex-shrink-0"></i>' +
       '<span class="truncate text-sm font-medium text-white">'+esc(item.name)+priceStr+'</span></div>' +
     '<div class="col-span-2 hidden sm:block text-xs text-slate-400 truncate">'+flag+esc(sub)+'</div>' +
-    '<div class="col-span-2 text-xs text-slate-300">'+(item.expireDate||'-')+'</div>' +
+    '<div class="col-span-3 sm:col-span-2 text-xs text-slate-300">'+(item.expireDate||'-')+'</div>' +
     '<div class="col-span-2 hidden sm:block text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</div>' +
-    '<div class="col-span-2 flex justify-end gap-1">' +
+    '<div class="col-span-3 sm:col-span-2 flex justify-end gap-1">' +
       (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
       '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
       '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
