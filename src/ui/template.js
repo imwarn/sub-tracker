@@ -576,9 +576,9 @@ function cardHTML(item) {
   }
 
   const renewBtn = isEsim && item.cycle ?
-    '<button onclick="renewItem(\''+item.id+'\')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> 续期</button>' : '';
+    '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> 续期</button>' : '';
   const rechargeBtn = isBalance ?
-    '<button onclick="rechargeItem(\''+item.id+'\')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors"><i class="fa-solid fa-plus-circle"></i> 充值</button>' : '';
+    '<button onclick="rechargeItem(\\''+item.id+'\\')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors"><i class="fa-solid fa-plus-circle"></i> 充值</button>' : '';
 
   return '<div class="glass-card rounded-xl p-5">' +
     '<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2">' +
@@ -594,10 +594,10 @@ function cardHTML(item) {
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
     rechargeBtn +
     renewBtn +
-    '<button onclick="toggleStatus(\''+item.id+'\')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
-    '<button onclick="testNotify(\''+item.id+'\')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
-    '<button onclick="editItem(\''+item.id+'\')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
-    '<button onclick="deleteItem(\''+item.id+'\')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
+    '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
+    '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
+    '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
+    '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
     '</div></div>';
 }
 
@@ -654,8 +654,8 @@ function listRowMobileHTML(item) {
         (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
       '</div>' +
       '<div class="flex gap-1 flex-shrink-0">' +
-        (isBalance ? '<button onclick="rechargeItem(\''+item.id+'\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
-        (isEsim && item.cycle ? '<button onclick="renewItem(\''+item.id+'\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+        (isBalance ? '<button onclick="rechargeItem(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
+        (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
         '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
         '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
         '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
@@ -697,8 +697,8 @@ function listRowHTML(item) {
     '<div class="col-span-3 sm:col-span-2 text-xs text-slate-300">'+dateCol+'</div>' +
     '<div class="col-span-2 hidden sm:block text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</div>' +
     '<div class="col-span-3 sm:col-span-2 flex justify-end gap-1">' +
-      (isBalance ? '<button onclick="rechargeItem(\''+item.id+'\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
-      (isEsim && item.cycle ? '<button onclick="renewItem(\''+item.id+'\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+      (isBalance ? '<button onclick="rechargeItem(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
+      (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
       '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
       '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
       '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
@@ -762,7 +762,7 @@ function renderCalendar(items, area) {
       if (e.type === 'balance') bg = 'bg-amber-500/30 text-amber-300';
       else if (e.type === 'esim') bg = 'bg-cyan-500/30 text-cyan-300';
       else bg = 'bg-violet-500/30 text-violet-300';
-      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem(\''+e.id+'\')" title="'+esc(e.name)+'（点击编辑）">'+esc(e.name)+'</div>';
+      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem(\\''+e.id+'\\')" title="'+esc(e.name)+'（点击编辑）">'+esc(e.name)+'</div>';
     });
     html += '</div>';
   }
@@ -943,12 +943,12 @@ async function testNotify(id) {
 async function rechargeItem(id) {
   const item = allItems.find(i => i.id === id);
   if (!item) return;
-  const amount = prompt('充值金额（负数为校正扣减）：\n当前余额: '+currSym(item.currency)+item.balance, '');
+  const amount = prompt('充值金额（负数为校正扣减）：\\n当前余额: '+currSym(item.currency)+item.balance, '');
   if (amount === null || amount.trim() === '') return;
   const note = prompt('备注（可留空）：', '') || '';
   const res = await api('POST', '/api/items/'+id+'/recharge', { amount: parseFloat(amount), note });
   const data = await res.json();
-  if (data.success) { await loadItems(); alert('✅ 充值成功！新余额: '+currSym(item.currency)+data.newBalance+'\n预计停机: '+data.predictedSuspendDate); }
+  if (data.success) { await loadItems(); alert('✅ 充值成功！新余额: '+currSym(item.currency)+data.newBalance+'\\n预计停机: '+data.predictedSuspendDate); }
   else alert('❌ ' + (data.message || '充值失败'));
 }
 
