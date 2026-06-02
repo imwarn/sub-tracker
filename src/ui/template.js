@@ -9,8 +9,9 @@ export function getHTML() {
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sub-Tracker | eSIM 保号 & 订阅管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Sub-Tracker | eSIM 保号 & 订阅管理</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
@@ -49,6 +50,10 @@ export function getHTML() {
       .cal-event { font-size:0; padding:0; width:6px; height:6px; border-radius:50%; display:inline-block; margin:1px; }
       .glass-card { padding:14px !important; }
       .glass-card .btn-touch { min-height:36px; min-width:36px; }
+      /* Prevent iOS zoom on input focus (font < 16px triggers zoom) */
+      input, select, textarea { font-size: 16px !important; }
+      /* Safe area insets for notched devices */
+      body { padding-bottom: env(safe-area-inset-bottom); }
     }
   </style>
 </head>
@@ -63,8 +68,8 @@ export function getHTML() {
       <h2 class="text-2xl font-bold text-white mb-2">安全验证</h2>
       <p class="text-slate-400 text-sm mb-8">向你的 Telegram 机器人获取验证码登录</p>
       <div class="mb-6">
-        <input id="otp-input" type="text" maxlength="6" placeholder="输入 6 位验证码"
-          class="glass-input w-full px-4 py-4 rounded-xl text-center text-2xl tracking-[0.5em] font-mono">
+        <input id="otp-input" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="输入 6 位验证码"
+          class="glass-input w-full px-4 py-4 rounded-xl text-center text-xl sm:text-2xl tracking-[0.3em] sm:tracking-[0.5em] font-mono">
       </div>
       <div class="flex flex-col gap-3">
         <button onclick="verifyOTP()" class="btn-primary w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2">
@@ -81,25 +86,29 @@ export function getHTML() {
   <!-- ========== DASHBOARD ========== -->
   <div id="dashboard-view" class="hidden max-w-6xl mx-auto p-4 md:p-8">
     <!-- Header -->
-    <div class="glass rounded-2xl p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
-          <i class="fa-solid fa-chart-line text-sky-400"></i> Sub-Tracker
-        </h1>
-        <p class="text-slate-400 mt-1 text-sm">eSIM 保号 & 订阅费用管理看板</p>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap justify-center">
-        <span class="text-sm text-slate-400 bg-white/5 px-3 py-1.5 rounded-full" id="today-display"></span>
-        <button onclick="openModal('esim')" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-sim-card"></i> eSIM
-        </button>
-        <button onclick="openModal('subscription')" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-credit-card"></i> 订阅
-        </button>
-        <div class="relative" id="menu-trigger">
-          <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
-            <i class="fa-solid fa-ellipsis-vertical"></i>
-          </button>
+    <div class="glass rounded-2xl p-5 sm:p-6 mb-6">
+      <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div>
+          <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
+            <i class="fa-solid fa-chart-line text-sky-400"></i> Sub-Tracker
+          </h1>
+          <p class="text-slate-400 mt-1 text-xs sm:text-sm">eSIM 保号 & 订阅费用管理看板</p>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <span class="text-xs sm:text-sm text-slate-400 bg-white/5 px-3 py-1.5 rounded-full self-start sm:self-auto" id="today-display"></span>
+          <div class="flex items-center gap-2">
+            <button onclick="openModal('esim')" class="btn-primary px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <i class="fa-solid fa-sim-card"></i> eSIM
+            </button>
+            <button onclick="openModal('subscription')" class="btn-primary px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <i class="fa-solid fa-credit-card"></i> 订阅
+            </button>
+            <div class="relative" id="menu-trigger">
+              <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -108,8 +117,8 @@ export function getHTML() {
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6" id="stats-bar"></div>
 
     <!-- View toggle + Filter -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-      <div class="flex gap-2 flex-wrap">
+    <div class="flex flex-wrap items-center gap-3 mb-6">
+      <div class="flex gap-2 flex-wrap basis-0 grow">
         <button onclick="setFilter('all')" data-filter="all" class="filter-tab tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all">
           <i class="fa-solid fa-globe mr-1"></i>全部
         </button>
@@ -120,7 +129,7 @@ export function getHTML() {
           <i class="fa-solid fa-credit-card mr-1"></i>订阅
         </button>
       </div>
-      <div class="flex gap-1 glass rounded-lg p-1">
+      <div class="flex gap-1 glass rounded-lg p-1 flex-shrink-0">
         <button onclick="setView('grid')" data-view="grid" class="view-tab tab-active px-3 py-1.5 rounded-md text-xs transition-all" title="卡片视图">
           <i class="fa-solid fa-grip"></i>
         </button>
