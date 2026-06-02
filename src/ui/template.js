@@ -46,8 +46,8 @@ export function getHTML() {
     select.glass-input option { background:#1e293b; color:#f1f5f9; }
     /* Mobile responsive overrides */
     @media (max-width: 639px) {
-      .cal-day { min-height:48px; padding:2px; }
-      .cal-event { font-size:0; padding:0; width:6px; height:6px; border-radius:50%; display:inline-block; margin:1px; }
+      .cal-day { min-height:52px; padding:2px; }
+      .cal-event { font-size:0.55rem; padding:0 2px; border-radius:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; display:block; }
       .glass-card { padding:14px !important; }
       .glass-card .btn-touch { min-height:36px; min-width:36px; }
       /* Prevent iOS zoom on input focus (font < 16px triggers zoom) */
@@ -551,14 +551,58 @@ function cardHTML(item) {
 
 // -- List view --
 function renderList(items, area) {
+  const isMobile = window.innerWidth < 640;
+  if (isMobile) {
+    // Mobile: stacked card layout, no grid table
+    let html = '<div class="space-y-2">';
+    html += items.map(i => listRowMobileHTML(i)).join('');
+    html += '</div>';
+    area.innerHTML = html;
+    return;
+  }
+  // Desktop: grid table
   let html = '<div class="glass rounded-xl overflow-hidden">';
-  html += '<div class="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold text-slate-400 border-b border-white/10 bg-white/5">' +
-    '<div class="col-span-4 sm:col-span-4">名称</div><div class="col-span-2 hidden sm:block">类型/号码</div>' +
-    '<div class="col-span-3 sm:col-span-2">到期</div><div class="col-span-2 hidden sm:block">状态</div>' +
-    '<div class="col-span-3 sm:col-span-2 text-right">操作</div></div>';
+  html += '<div class="hidden sm:grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold text-slate-400 border-b border-white/10 bg-white/5">' +
+    '<div class="col-span-4">名称</div><div class="col-span-2">类型/号码</div>' +
+    '<div class="col-span-2">到期</div><div class="col-span-2">状态</div>' +
+    '<div class="col-span-2 text-right">操作</div></div>';
   html += items.map(i => listRowHTML(i)).join('');
   html += '</div>';
   area.innerHTML = html;
+}
+
+function listRowMobileHTML(item) {
+  const diff = getDiff(item);
+  const st = statusInfo(diff);
+  const isEsim = item.type === 'esim';
+  const tc = isEsim ? 'text-cyan-400' : 'text-violet-400';
+  const ti = isEsim ? 'fa-sim-card' : 'fa-credit-card';
+  const statusText = item.status==='paused' ? '已暂停' : (st.text || '未设置');
+  const statusCls = item.status==='paused' ? 'text-slate-500' : st.cls;
+
+  return '<div class="glass-card rounded-xl p-4">' +
+    '<div class="flex items-center justify-between mb-2">' +
+      '<div class="flex items-center gap-2 min-w-0">' +
+        '<i class="fa-solid '+ti+' '+tc+' text-sm flex-shrink-0"></i>' +
+        '<span class="text-sm font-semibold text-white truncate">'+esc(item.name)+'</span>' +
+      '</div>' +
+      '<span class="text-xs font-semibold '+statusCls+' flex-shrink-0 ml-2">'+statusText+'</span>' +
+    '</div>' +
+    '<div class="flex items-center justify-between">' +
+      '<div class="text-xs text-slate-400">' +
+        (item.expireDate ? '<i class="fa-regular fa-calendar mr-1"></i>'+item.expireDate : '') +
+        (item.number ? '<span class="ml-2 font-mono">'+esc(item.number)+'</span>' : '') +
+        (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
+      '</div>' +
+      '<div class="flex gap-1 flex-shrink-0">' +
+        (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+        '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
+        '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
+        '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
+        '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
 }
 
 function listRowHTML(item) {
@@ -633,7 +677,7 @@ function renderCalendar(items, area) {
     dayEvents.forEach(e => {
       const isEsim = e.type === 'esim';
       const bg = isEsim ? 'bg-cyan-500/30 text-cyan-300' : 'bg-violet-500/30 text-violet-300';
-      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem(\\''+e.id+'\\')" title="'+esc(e.name)+'">'+esc(e.name)+'</div>';
+      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem(\\''+e.id+'\\')" title="'+esc(e.name)+'（点击编辑）">'+esc(e.name)+'</div>';
     });
     html += '</div>';
   }
