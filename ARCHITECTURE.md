@@ -35,7 +35,7 @@ sub-tracker/
 │   │   └── store.js          # KV 读写操作封装
 │   ├── utils/
 │   │   ├── response.js       # HTTP 响应工具 (JSON/CORS)
-│   │   ├── country.js        # 国旗匹配 (E.164 完整码表)
+│   │   ├── country.js        # 国码匹配 (E.164 完整码表)
 │   │   └── date.js           # 日期工具 (UTC+8) + 预计停机日计算
 │   └── ui/
 │       └── template.js       # 完整前端 HTML/JS 模板
@@ -140,7 +140,7 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 | eSIM 保号管理 | ✅ | 添加/编辑/删除/一键续期 |
 | 订阅费用管理 | ✅ | 分类/区域/费用/计费周期 |
 | 话费余额管理 | ✅ | 余额/月租/扣费日/预计停机日/充值校正 |
-| 国旗自动匹配 | ✅ | E.164 完整国家/地区码 |
+| 区域自动识别 | ✅ | E.164 完整国家/地区码 |
 | 货币单位 | ✅ | 15 种常用货币 (CNY/USD/EUR/GBP/JPY...) |
 | 费用统计 | ✅ | 月度支出（含话费月租）统计栏 |
 | 搜索/筛选 | ✅ | 按类型筛选（eSIM/订阅/话费/全部）+ 关键词搜索 |
@@ -190,9 +190,9 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 
 ### ✅ 已完成
 
-- [x] **Phase 1**: eSIM 保号管理 — CRUD、一键续期、国旗匹配
+- [x] **Phase 1**: eSIM 保号管理 — CRUD、一键续期、国码匹配
 - [x] **Phase 2**: 订阅费用管理 — 分类/区域/费用/计费周期
-- [x] **Phase 2.1**: 国旗识别 — E.164 完整覆盖国家/地区码
+- [x] **Phase 2.1**: 区域识别 — E.164 完整覆盖国家/地区码
 - [x] **Phase 2.2**: 货币单位 — 15 种常用货币，卡片/列表/统计/通知全链路
 - [x] **Phase 2.3**: TG 配置防覆盖 — 移除 [vars]，deploy.sh 管理 secrets
 - [x] **Phase 3**: 数据导入导出 — JSON/CSV
@@ -236,7 +236,7 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 1. **单 KV key 存所有 items**：简单直接，数据量小（个人使用）无需分页
 2. **前端内嵌 Worker**：`template.js` 返回完整 HTML，无需 CDN 托管前端
 3. **esbuild 打包**：开发时拆分模块，构建时合并为单文件，兼容 CF Dashboard 部署
-4. **国旗匹配**：后端 `country.js` 导出 `getFlag()`，前端 `template.js` 内联 `FLAG_MAP`（独立维护，保证一致性），3→2→1 位前缀匹配
+4. **国码匹配**：后端 `country.js` 导出 `getFlag()`，前端 `template.js` 内联 `FLAG_MAP`（独立维护，保证一致性），3→2→1 位前缀匹配
 5. **货币处理**：`currSym()` 函数统一获取货币符号，`CURRENCY_SYMBOLS` map 在 template.js、reminder.js、items.js 各维护一份
 6. **三种 item 类型独立**：esim / subscription / balance 各自有专有字段和业务逻辑，共享基础 CRUD 框架
 7. **话费停机日计算**：`calcSuspendDate()` 基于余额/月租/扣费日推算，前端实时计算 + 后端 cron 提醒双保障
