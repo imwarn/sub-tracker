@@ -2,7 +2,7 @@
 
 ## 概述
 
-Sub-Tracker 是一个基于 Cloudflare Workers + KV 的个人资产管理看板，融合了 eSIM 保号管理（Number-preservation）和订阅费用管理（laowang-subscription）的功能。
+Sub-Tracker 是一个基于 Cloudflare Workers + KV 的个人资产管理看板，融合了 eSIM 保号管理、订阅费用管理和话费余额管理的功能。
 
 GitHub: https://github.com/imwarn/sub-tracker
 
@@ -12,7 +12,7 @@ GitHub: https://github.com/imwarn/sub-tracker
 |---|------|------|
 | 运行时 | Cloudflare Workers | 全球边缘节点，零冷启动 |
 | 存储 | Cloudflare KV | 键值数据库，免费额度 100K 读/天 |
-| 定时 | CF Cron Triggers | 每日自动检查到期提醒 |
+| 定时 | CF Cron Triggers | 每日自动检查到期/停机提醒 |
 | 前端 | 原生 HTML + TailwindCSS CDN | 内嵌 Worker，无需额外托管 |
 | 构建 | esbuild | `src/` → `worker/worker.js` 单文件打包 |
 | 认证 | Telegram OTP | 6位动态码，防爆破机制 |
@@ -26,17 +26,17 @@ sub-tracker/
 │   ├── router.js             # 请求路由分发
 │   ├── handlers/
 │   │   ├── auth.js           # 认证: TG OTP 登录
-│   │   └── items.js          # 业务: 统一 CRUD + 导入导出 + 测试通知
+│   │   └── items.js          # 业务: 统一 CRUD + 导入导出 + 充值 + 测试通知
 │   ├── services/
 │   │   ├── telegram.js       # Telegram 消息发送
-│   │   └── reminder.js       # 到期提醒逻辑 (支持货币显示)
+│   │   └── reminder.js       # 到期/停机提醒逻辑 (支持货币显示)
 │   ├── data/
 │   │   ├── schema.js         # 数据模型定义 & 校验
 │   │   └── store.js          # KV 读写操作封装
 │   ├── utils/
 │   │   ├── response.js       # HTTP 响应工具 (JSON/CORS)
-│   │   ├── country.js        # 国旗匹配 (E.164 完整 140+ 国码)
-│   │   └── date.js           # 日期工具 (UTC+8)
+│   │   ├── country.js        # 国旗匹配 (E.164 完整码表)
+│   │   └── date.js           # 日期工具 (UTC+8) + 预计停机日计算
 │   └── ui/
 │       └── template.js       # 完整前端 HTML/JS 模板
 ├── scripts/
@@ -56,7 +56,7 @@ sub-tracker/
 
 | Key | 类型 | 说明 |
 |-----|------|------|
-| `items` | JSON Array | 所有条目 (eSIM + 订阅) |
+| `items` | JSON Array | 所有条目 (eSIM + 订阅 + 话费) |
 | `TG_BOT_TOKEN` | Secret | Telegram Bot Token (通过 Dashboard 或 wrangler secret 设置) |
 | `TG_CHAT_ID` | Secret | Telegram Chat ID (通过 Dashboard 或 wrangler secret 设置) |
 | `admin_auth_code` | String (TTL 300s) | 当前 OTP 验证码 |
@@ -68,16 +68,16 @@ sub-tracker/
 ```json
 {
   "id": "1717200000000",
-  "type": "esim | subscription",
+  "type": "esim | subscription | balance",
   "name": "T-Mobile eSIM",
-  "expireDate": "2026-08-01",
-  "cycle": 180,
   "remark": "备用号码",
   "status": "active | paused",
   "createdAt": "2026-06-01T00:00:00Z",
 
   // eSIM 专有字段
   "number": "+120****1234",
+  "expireDate": "2026-08-01",
+  "cycle": 180,
 
   // 订阅专有字段
   "category": "VPN | Cloud | AI 服务 | 游戏 | ...",
@@ -88,8 +88,28 @@ sub-tracker/
   "billing": "monthly | yearly | once",
   "autoRenew": false,
   "remindDays": [3, 1, 0],
-  "url": "https://netflix.com"
+  "url": "https://netflix.com",
+
+  // 话费专有字段
+  "number": "+861****8000",
+  "balance": 50.00,
+  "monthlyFee": 18.00,
+  "billingDay": 5,
+  "currency": "CNY",
+  "remindDays": [3, 1, 0],
+  "predictedSuspendDate": "2026-08-05",
+  "lastRecharge": { "amount": 50, "date": "2026-06-01", "note": "微信充值" }
 }
+```
+
+### 话费预计停机日计算
+
+```
+N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
+若今天 ≤ 本月扣费日: 基准月 = 本月
+若今天 > 本月扣费日: 基准月 = 下月
+预计停机日 = 基准月 + N 个月的扣费日
+扣费日不存在时 fallback 到当月最后一天
 ```
 
 ## API 路由
@@ -99,11 +119,12 @@ sub-tracker/
 | POST | `/api/auth/send` | 发送 OTP 到 TG | ✗ |
 | POST | `/api/auth/verify` | 验证 OTP，返回 token | ✗ |
 | GET | `/api/auth/check` | 检查会话有效性 | ✓ |
-| GET | `/api/items` | 获取所有条目 (?type=esim\|subscription) | ✓ |
+| GET | `/api/items` | 获取所有条目 (?type=esim\|subscription\|balance) | ✓ |
 | POST | `/api/items` | 创建新条目 | ✓ |
 | PUT | `/api/items/:id` | 更新条目 | ✓ |
 | DELETE | `/api/items/:id` | 删除条目 | ✓ |
 | POST | `/api/items/:id/renew` | 一键续期 (eSIM) | ✓ |
+| POST | `/api/items/:id/recharge` | 充值/校正余额 (话费) | ✓ |
 | POST | `/api/items/:id/test-notify` | 测试 TG 通知 | ✓ |
 | GET | `/api/items/export/json` | 导出 JSON | ✓ |
 | GET | `/api/items/export/csv` | 导出 CSV | ✓ |
@@ -118,11 +139,12 @@ sub-tracker/
 | 三种视图 | ✅ | 卡片/列表/日历，切换自如 |
 | eSIM 保号管理 | ✅ | 添加/编辑/删除/一键续期 |
 | 订阅费用管理 | ✅ | 分类/区域/费用/计费周期 |
-| 国旗自动匹配 | ✅ | E.164 完整 140+ 国家/地区码 |
+| 话费余额管理 | ✅ | 余额/月租/扣费日/预计停机日/充值校正 |
+| 国旗自动匹配 | ✅ | E.164 完整国家/地区码 |
 | 货币单位 | ✅ | 15 种常用货币 (CNY/USD/EUR/GBP/JPY...) |
-| 费用统计 | ✅ | 月度支出/年度预算统计栏 |
-| 搜索/筛选 | ✅ | 按类型筛选 + 关键词搜索 |
-| 到期提醒 | ✅ | Cron 每日检查，TG 推送 (支持自定义提前提醒天数) |
+| 费用统计 | ✅ | 月度支出（含话费月租）统计栏 |
+| 搜索/筛选 | ✅ | 按类型筛选（eSIM/订阅/话费/全部）+ 关键词搜索 |
+| 到期/停机提醒 | ✅ | Cron 每日检查，TG 推送，支持自定义提前提醒天数 |
 | 测试通知 | ✅ | 单条记录发送测试 TG 通知 |
 | 数据导入导出 | ✅ | JSON/CSV 导出，JSON 导入 |
 | 毛玻璃 UI | ✅ | 深色渐变 + glass morphism |
@@ -148,7 +170,7 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 
 ### 方式 2: CF Dashboard Connect to Git
 - 关联 GitHub 仓库 imwarn/sub-tracker
-- Entry point: `worker/worker.js`（或 `src/index.js` + esbuild 构建命令）
+- Entry point: `src/index.js`
 - 在 Dashboard → Settings → Variables and Secrets 设置 TG 密钥
 - Push 到 main 自动部署
 
@@ -170,32 +192,33 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 
 - [x] **Phase 1**: eSIM 保号管理 — CRUD、一键续期、国旗匹配
 - [x] **Phase 2**: 订阅费用管理 — 分类/区域/费用/计费周期
-- [x] **Phase 2.1**: 国旗识别 — E.164 完整覆盖 140+ 国家/地区码
+- [x] **Phase 2.1**: 国旗识别 — E.164 完整覆盖国家/地区码
 - [x] **Phase 2.2**: 货币单位 — 15 种常用货币，卡片/列表/统计/通知全链路
 - [x] **Phase 2.3**: TG 配置防覆盖 — 移除 [vars]，deploy.sh 管理 secrets
 - [x] **Phase 3**: 数据导入导出 — JSON/CSV
 - [x] **Phase 3.1**: 测试通知 — 单条记录发送测试 TG 消息
+- [x] **Phase 4**: 话费余额管理 — 余额/月租/扣费日/预计停机日/充值校正/停机提醒
 
 ### 🔲 待开发
 
-- [ ] **Phase 4: 多渠道推送**
+- [ ] **Phase 5: 多渠道推送**
   - [ ] Bark 推送 (iOS)
   - [ ] 企业微信推送
   - [ ] Webhook 通用推送
   - [ ] 推送渠道设置页面
 
-- [ ] **Phase 5: 数据统计增强**
+- [ ] **Phase 6: 数据统计增强**
   - [ ] 按分类统计订阅支出饼图
   - [ ] 月度/年度支出趋势折线图
   - [ ] 多货币汇率换算（或分货币统计）
 
-- [ ] **Phase 6: 高级功能**
+- [ ] **Phase 7: 高级功能**
   - [ ] 订阅自动续费提醒（结合 autoRenew 字段）
   - [ ] eSIM 保号操作记录（上次保号时间）
   - [ ] 批量操作（批量暂停/删除）
   - [ ] 暗色/亮色主题切换
 
-- [ ] **Phase 7: 移动端优化**
+- [ ] **Phase 8: 移动端优化**
   - [ ] PWA 支持 (manifest + service worker)
   - [ ] 离线缓存
   - [ ] iOS/Android 添加到主屏幕
@@ -213,8 +236,10 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 1. **单 KV key 存所有 items**：简单直接，数据量小（个人使用）无需分页
 2. **前端内嵌 Worker**：`template.js` 返回完整 HTML，无需 CDN 托管前端
 3. **esbuild 打包**：开发时拆分模块，构建时合并为单文件，兼容 CF Dashboard 部署
-4. **国旗匹配**：前后端各维护一份 FLAG_MAP（保证一致性），3→2→1 位前缀匹配
-5. **货币处理**：`currSym()` 函数统一获取货币符号，`CURRENCY_SYMBOLS` map 在 template.js 和 reminder.js 各维护一份
+4. **国旗匹配**：后端 `country.js` 导出 `getFlag()`，前端 `template.js` 内联 `FLAG_MAP`（独立维护，保证一致性），3→2→1 位前缀匹配
+5. **货币处理**：`currSym()` 函数统一获取货币符号，`CURRENCY_SYMBOLS` map 在 template.js、reminder.js、items.js 各维护一份
+6. **三种 item 类型独立**：esim / subscription / balance 各自有专有字段和业务逻辑，共享基础 CRUD 框架
+7. **话费停机日计算**：`calcSuspendDate()` 基于余额/月租/扣费日推算，前端实时计算 + 后端 cron 提醒双保障
 
 ### 调试技巧
 
@@ -242,6 +267,13 @@ print(repr(c[idx:idx+200]))
    - 修复：用 `[0-9]` 替代 `\d`，字符类不含反斜杠，esbuild 不会破坏
    - 规则：**项目中所有正则一律用 `[0-9]` 不用 `\d`**
 2. **tree-shaking**：未被 import 的函数会被删除（如后端 `parseCountry`），前端代码内嵌在 `template.js` 不受影响
+
+### ⚠️ 模板字符串转义踩坑
+
+1. **onclick 处理器**：模板字面量中需要 `\\\\''` (4个反斜杠) 才能在 HTML 输出中产生 `\\'` (2个反斜杠+引号)，保证浏览器 JS 的 onclick 字符串正确转义
+2. **`\n` 转义**：模板字面量中 `\n` 会变成真实换行（破坏 JS 语法），需要 `\\\\n` 才能在输出中保留为 `\\n` (浏览器 JS 的换行转义)
+3. **hidden + required**：浏览器无法聚焦隐藏的 `required` 字段，改用 JS 端按类型校验
+4. **验证方法**：`new Function(script)` 检查渲染后 JS 语法，`node --check` 检查源文件
 
 ### 修改 checklist
 
