@@ -53,6 +53,8 @@
 
 ### 方式三：Wrangler CLI（本地开发）
 
+需要 Node.js 22 或更高版本。
+
 ```bash
 git clone https://github.com/imwarn/sub-tracker.git && cd sub-tracker
 npm install

@@ -14,7 +14,7 @@ GitHub: https://github.com/imwarn/sub-tracker
 | 存储 | Cloudflare KV | 键值数据库，免费额度 100K 读/天 |
 | 定时 | CF Cron Triggers | 每日自动检查到期/停机提醒 |
 | 前端 | 原生 HTML + TailwindCSS CDN | 内嵌 Worker，无需额外托管 |
-| 构建 | esbuild | `src/` → `worker/worker.js` 单文件打包 |
+| 构建 | Node.js 22 + esbuild | `src/` → `worker/worker.js` 单文件打包 |
 | 认证 | Telegram OTP | 6位动态码，防爆破机制 |
 
 ## 目录结构
@@ -236,8 +236,8 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 1. **单 KV key 存所有 items**：简单直接，数据量小（个人使用）无需分页
 2. **前端内嵌 Worker**：`template.js` 返回完整 HTML，无需 CDN 托管前端
 3. **esbuild 打包**：开发时拆分模块，构建时合并为单文件，兼容 CF Dashboard 部署
-4. **国码匹配**：后端 `country.js` 导出 `getFlag()`，前端 `template.js` 内联 `FLAG_MAP`（独立维护，保证一致性），3→2→1 位前缀匹配
-5. **货币处理**：`currSym()` 函数统一获取货币符号，`CURRENCY_SYMBOLS` map 在 template.js、reminder.js、items.js 各维护一份
+4. **国码匹配**：后端 `country.js` 导出完整前缀表，前端 `FLAG_MAP` 由 `getHTML()` 渲染时生成，3→2→1 位前缀匹配
+5. **货币处理**：`src/data/constants.js` 统一维护货币符号，前端模板和通知逻辑共享同一来源
 6. **三种 item 类型独立**：esim / subscription / balance 各自有专有字段和业务逻辑，共享基础 CRUD 框架
 7. **话费停机日计算**：`calcSuspendDate()` 基于余额/月租/扣费日推算，前端实时计算 + 后端 cron 提醒双保障
 

@@ -32,7 +32,7 @@
       "billing": "monthly",
       "currency": "USD",
       "autoRenew": true,
-      "remindDays": 3,
+      "remindDays": [3, 1, 0],
       "url": "https://chat.openai.com",
       "remark": "",
       "status": "active"
@@ -48,7 +48,7 @@
       "billing": "yearly",
       "currency": "TRY",
       "autoRenew": false,
-      "remindDays": 7,
+      "remindDays": [7, 3, 1],
       "url": "https://youtube.com/premium",
       "remark": "土耳其区",
       "status": "active"

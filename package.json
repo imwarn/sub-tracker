@@ -2,11 +2,12 @@
   "name": "sub-tracker",
   "version": "1.0.0",
   "description": "eSIM 保号 & 订阅费用管理看板 - Cloudflare Workers + KV",
-  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "bash scripts/deploy.sh",
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js",
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "keywords": [
     "esim",
@@ -14,9 +15,12 @@
     "cloudflare-workers",
     "tracker"
   ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "license": "MIT",
   "devDependencies": {
-    "esbuild": "^0.20.0",
+    "esbuild": "^0.28.0",
     "wrangler": "^4.96.0"
   }
 }

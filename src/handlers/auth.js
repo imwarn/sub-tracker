@@ -5,6 +5,8 @@
 import { errorResponse, successResponse, corsPreFlight } from '../utils/response.js';
 import { getConfig, setConfig } from '../data/store.js';
 
+const OTP_SEND_COOLDOWN_KEY = 'admin_auth_send_cooldown';
+
 /**
  * Handle auth-related routes
  */
@@ -22,6 +24,11 @@ export async function handleAuth(request, env, path) {
   // POST /api/auth/verify - Verify OTP code
   if (path === '/api/auth/verify' && request.method === 'POST') {
     return await verifyOTP(request, env);
+  }
+
+  // POST /api/auth/logout - Revoke current session token
+  if (path === '/api/auth/logout' && request.method === 'POST') {
+    return await logoutSession(request, env);
   }
 
   // GET /api/auth/check - Check session validity
@@ -45,10 +52,28 @@ async function getTGConfig(env) {
   return { token, chatId };
 }
 
+function generateOTP() {
+  const range = 900000;
+  const max = 0xFFFFFFFF;
+  const limit = max - (max % range);
+  const values = new Uint32Array(1);
+
+  do {
+    crypto.getRandomValues(values);
+  } while (values[0] >= limit);
+
+  return String(100000 + (values[0] % range));
+}
+
 /**
  * Send 6-digit OTP to user's Telegram
  */
 async function sendOTP(env) {
+  const cooldown = await getConfig(env.DB, OTP_SEND_COOLDOWN_KEY);
+  if (cooldown) {
+    return errorResponse('验证码发送过于频繁，请稍后再试', 429);
+  }
+
   const { token, chatId } = await getTGConfig(env);
 
   if (!token || !chatId) {
@@ -63,7 +88,7 @@ async function sendOTP(env) {
     );
   }
 
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = generateOTP();
 
   // Store code with 5min TTL, reset attempts
   await setConfig(env.DB, 'admin_auth_code', code, { expirationTtl: 300 });
@@ -87,6 +112,7 @@ async function sendOTP(env) {
   });
 
   if (res.ok) {
+    await setConfig(env.DB, OTP_SEND_COOLDOWN_KEY, '1', { expirationTtl: 60 });
     return successResponse();
   }
   return errorResponse('TG 消息发送失败，请检查 Bot Token 是否有效、是否已激活', 500);
@@ -103,6 +129,7 @@ async function verifyOTP(request, env) {
     let attempts = parseInt(await getConfig(env.DB, 'admin_auth_attempts')) || 0;
     if (attempts >= 5) {
       await env.DB.delete('admin_auth_code');
+      await env.DB.delete('admin_auth_attempts');
       return errorResponse('错误次数过多，验证码已作废。请重新获取！', 403);
     }
 
@@ -126,6 +153,14 @@ async function verifyOTP(request, env) {
   } catch {
     return errorResponse('校验失败', 500);
   }
+}
+
+async function logoutSession(request, env) {
+  const token = request.headers.get('Authorization');
+  if (token) {
+    await env.DB.delete(`session_token_${token}`);
+  }
+  return successResponse();
 }
 
 /**

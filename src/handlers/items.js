@@ -12,14 +12,17 @@
  *   POST   /api/items/import/json  - Import from JSON
  */
 
-import { errorResponse, successResponse, jsonResponse, corsPreFlight } from '../utils/response.js';
+import { downloadResponse, errorResponse, successResponse, jsonResponse, corsPreFlight } from '../utils/response.js';
 import { requireAuth } from './auth.js';
 import { createItem, validateItem, mergeUpdate } from '../data/schema.js';
 import { getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById, getConfig } from '../data/store.js';
 import { addDays, daysUntil, getStatusText, calcSuspendDate } from '../utils/date.js';
-import { sendTelegram } from '../services/telegram.js';
+import { escapeTelegramHTML, sendTelegram } from '../services/telegram.js';
+import { CURRENCY_SYMBOLS, ITEM_TYPES } from '../data/constants.js';
 
-const CURRENCY_SYMBOLS = {'CNY':'¥','USD':'$','EUR':'€','GBP':'£','JPY':'¥','HKD':'$','TWD':'$','KRW':'₩','TRY':'₺','THB':'฿','NGN':'₦','INR':'₹','PHP':'₱','MYR':'RM','SGD':'$'};
+function tg(s) {
+  return escapeTelegramHTML(s);
+}
 
 export async function handleItems(request, env, path) {
   if (request.method === 'OPTIONS') return corsPreFlight();
@@ -100,7 +103,7 @@ async function createNewItem(request, env) {
     const body = await request.json();
     const type = body.type || 'esim';
 
-    if (!['esim', 'subscription', 'balance'].includes(type)) {
+    if (!ITEM_TYPES.includes(type)) {
       return errorResponse('无效的类型');
     }
 
@@ -119,13 +122,16 @@ async function updateExistingItem(request, env, id) {
   try {
     const body = await request.json();
     const result = await updateItem(env.DB, id, existing => {
-      return mergeUpdate(existing, body);
+      const updated = mergeUpdate(existing, body);
+      const err = validateItem(updated.type, updated);
+      if (err) throw new Error(err);
+      return updated;
     });
 
     if (!result) return errorResponse('未找到记录', 404);
     return successResponse();
-  } catch {
-    return errorResponse('更新失败', 400);
+  } catch (e) {
+    return errorResponse(e.message || '更新失败', 400);
   }
 }
 
@@ -136,16 +142,23 @@ async function deleteExistingItem(env, id) {
 }
 
 async function renewItem(env, id) {
-  const result = await updateItem(env.DB, id, existing => {
-    if (!existing.cycle) {
-      throw new Error('未设置保号周期，无法续期');
-    }
-    const newExpire = addDays(existing.expireDate, existing.cycle);
-    return { ...existing, expireDate: newExpire, status: 'active' };
-  });
+  try {
+    const result = await updateItem(env.DB, id, existing => {
+      if (existing.type !== 'esim') {
+        throw new Error('仅 eSIM 类型支持一键续期');
+      }
+      if (!existing.cycle) {
+        throw new Error('未设置保号周期，无法续期');
+      }
+      const newExpire = addDays(existing.expireDate, existing.cycle);
+      return { ...existing, expireDate: newExpire, status: 'active' };
+    });
 
-  if (!result) return errorResponse('未找到记录', 404);
-  return successResponse({ newExpireDate: result.expireDate });
+    if (!result) return errorResponse('未找到记录', 404);
+    return successResponse({ newExpireDate: result.expireDate });
+  } catch (e) {
+    return errorResponse(e.message || '续期失败', 400);
+  }
 }
 
 async function rechargeItem(request, env, id) {
@@ -191,12 +204,11 @@ async function exportJSON(env) {
     items: items.map(({ id, createdAt, ...rest }) => rest), // strip id/createdAt for clean import
   };
 
-  return new Response(JSON.stringify(exportData, null, 2), {
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Disposition': `attachment; filename=sub-tracker-${new Date().toISOString().split('T')[0]}.json`,
-    },
-  });
+  return downloadResponse(
+    JSON.stringify(exportData, null, 2),
+    'application/json',
+    `sub-tracker-${new Date().toISOString().split('T')[0]}.json`
+  );
 }
 
 async function exportCSV(env) {
@@ -231,12 +243,11 @@ async function exportCSV(env) {
   const bom = '\uFEFF'; // Excel UTF-8 BOM
   const csv = bom + [headers.join(','), ...rows].join('\n');
 
-  return new Response(csv, {
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename=sub-tracker-${new Date().toISOString().split('T')[0]}.csv`,
-    },
-  });
+  return downloadResponse(
+    csv,
+    'text/csv; charset=utf-8',
+    `sub-tracker-${new Date().toISOString().split('T')[0]}.csv`
+  );
 }
 
 function csvEscape(s) {
@@ -259,10 +270,29 @@ async function importJSON(request, env) {
 
     const existing = await getAllItems(env.DB);
     let added = 0;
+    let skipped = 0;
+    const errors = [];
 
-    for (const raw of importedItems) {
+    for (const [index, raw] of importedItems.entries()) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        skipped++;
+        errors.push({ index, message: '记录必须是对象' });
+        continue;
+      }
+
       const type = raw.type || 'esim';
-      if (!['esim', 'subscription', 'balance'].includes(type)) continue;
+      if (!ITEM_TYPES.includes(type)) {
+        skipped++;
+        errors.push({ index, message: '无效的类型' });
+        continue;
+      }
+
+      const err = validateItem(type, raw);
+      if (err) {
+        skipped++;
+        errors.push({ index, name: raw.name || '', message: err });
+        continue;
+      }
 
       const item = createItem(type, raw);
       existing.push(item);
@@ -270,7 +300,7 @@ async function importJSON(request, env) {
     }
 
     await saveAllItems(env.DB, existing);
-    return successResponse({ added, total: existing.length });
+    return successResponse({ added, skipped, total: existing.length, errors: errors.slice(0, 10) });
   } catch {
     return errorResponse('导入失败：JSON 解析错误', 400);
   }
@@ -301,14 +331,14 @@ async function testNotify(env, id) {
     const msg = [
       `⚠️ <b>【话费停机 · 测试通知】</b>`,
       '',
-      `📱 名称: ${item.name}`,
-      item.number ? `📞 号码: ${item.number}` : '',
+      `📱 名称: ${tg(item.name)}`,
+      item.number ? `📞 号码: ${tg(item.number)}` : '',
       `💰 余额: ${sym}${item.balance}`,
       `💸 月租: ${sym}${item.monthlyFee}/月`,
       `📅 每月${item.billingDay}日扣费`,
       `🔋 可撑 ${monthsLeft} 个月`,
       `📆 预计停机: ${suspendDate}`,
-      item.remark ? `📝 备注: ${item.remark}` : '',
+      item.remark ? `📝 备注: ${tg(item.remark)}` : '',
       '',
       '<i>这是一条测试通知，确认通知功能正常。</i>',
     ].filter(Boolean).join('\n');
@@ -325,12 +355,12 @@ async function testNotify(env, id) {
   const msg = [
     `${emoji} <b>【${typeLabel} · 测试通知】</b>`,
     '',
-    `📦 名称: ${item.name}`,
-    item.number ? `📞 号码: ${item.number}` : '',
-    item.category ? `🏷️ 分类: ${item.category}` : '',
+    `📦 名称: ${tg(item.name)}`,
+    item.number ? `📞 号码: ${tg(item.number)}` : '',
+    item.category ? `🏷️ 分类: ${tg(item.category)}` : '',
     `📅 到期: ${item.expireDate}`,
     `⏳ 状态: ${statusText}`,
-    item.remark ? `📝 备注: ${item.remark}` : '',
+    item.remark ? `📝 备注: ${tg(item.remark)}` : '',
     '',
     '<i>这是一条测试通知，确认通知功能正常。</i>',
   ].filter(Boolean).join('\n');

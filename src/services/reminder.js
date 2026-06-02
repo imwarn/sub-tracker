@@ -6,13 +6,12 @@
  */
 
 import { getAllItems, getConfig } from '../data/store.js';
-import { sendTelegram } from './telegram.js';
+import { escapeTelegramHTML, sendTelegram } from './telegram.js';
 import { todayMidnight, calcSuspendDate } from '../utils/date.js';
+import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS } from '../data/constants.js';
 
-const DEFAULT_REMIND_DAYS = [3, 1, 0]; // fallback
-
-const CURRENCY_SYMBOLS = {'CNY':'¥','USD':'$','EUR':'€','GBP':'£','JPY':'¥','HKD':'$','TWD':'$','KRW':'₩','TRY':'₺','THB':'฿','NGN':'₦','INR':'₹','PHP':'₱','MYR':'RM','SGD':'$'};
 function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '¥'; }
+function tg(s) { return escapeTelegramHTML(s); }
 
 /**
  * Run the reminder check (called by Cron trigger)
@@ -51,7 +50,7 @@ export async function checkReminders(env) {
       if (!remindDays.includes(diffDays)) continue;
 
       const monthsLeft = Math.floor(item.balance / item.monthlyFee);
-      const remarkText = item.remark ? `\n📝 备注: ${item.remark}` : '';
+      const remarkText = item.remark ? `\n📝 备注: ${tg(item.remark)}` : '';
       const currSym = CURRENCY_SYMBOLS[item.currency] || item.currency || '¥';
 
       let urgency;
@@ -68,8 +67,8 @@ export async function checkReminders(env) {
 
       messages.push(
         `${urgency} 【话费停机提醒】\n` +
-        `📱 名称: ${item.name}\n` +
-        (item.number ? `📞 号码: ${item.number}\n` : '') +
+        `📱 名称: ${tg(item.name)}\n` +
+        (item.number ? `📞 号码: ${tg(item.number)}\n` : '') +
         `💰 余额: ${currSym}${item.balance}\n` +
         `💸 月租: ${currSym}${item.monthlyFee}/月\n` +
         `📅 每月${item.billingDay}日扣费\n` +
@@ -96,7 +95,7 @@ export async function checkReminders(env) {
     if (!remindDays.includes(diffDays)) continue;
 
     const cycleText = item.cycle ? `${item.cycle}天` : '未设置';
-    const remarkText = item.remark ? `\n📝 备注: ${item.remark}` : '';
+    const remarkText = item.remark ? `\n📝 备注: ${tg(item.remark)}` : '';
     const typeLabel = item.type === 'esim' ? 'eSIM 保号' : '订阅续费';
     const typeEmoji = item.type === 'esim' ? '📱' : '📦';
     const priceText = item.price ? `\n💰 费用: ${currSym(item.currency)}${item.price}/${item.billing === 'yearly' ? '年' : item.billing === 'once' ? '次' : '月'}` : '';
@@ -115,8 +114,8 @@ export async function checkReminders(env) {
 
     messages.push(
       `${urgency} 【${typeLabel}提醒】\n` +
-      `${typeEmoji} 名称: ${item.name}\n` +
-      (item.number ? `📞 号码: ${item.number}\n` : '') +
+      `${typeEmoji} 名称: ${tg(item.name)}\n` +
+      (item.number ? `📞 号码: ${tg(item.number)}\n` : '') +
       priceText +
       `\n🔄 周期: ${cycleText}\n` +
       `📅 到期: ${item.expireDate}\n` +

@@ -79,8 +79,7 @@ export function getStatusText(days) {
  * @param {number} billingDay - day of month (1-28)
  * @returns {string} predicted suspend date "YYYY-MM-DD"
  */
-export function calcSuspendDate(balance, monthlyFee, billingDay) {
-  const now = new Date();
+export function calcSuspendDate(balance, monthlyFee, billingDay, now = new Date()) {
   const tzNow = new Date(now.getTime() + TZ_OFFSET * 3600_000);
   const y = tzNow.getUTCFullYear();
   const m = tzNow.getUTCMonth(); // 0-indexed
@@ -91,7 +90,7 @@ export function calcSuspendDate(balance, monthlyFee, billingDay) {
   const thisMonthBD = Math.min(billingDay, daysInMonth);
 
   // How many months the balance can cover
-  const N = monthlyFee > 0 ? Math.floor(balance / monthlyFee) : 0;
+  const N = monthlyFee > 0 ? Math.max(0, Math.floor(balance / monthlyFee)) : 0;
 
   // Base month for calculation
   let baseYear, baseMonth;

@@ -4,7 +4,18 @@
  * Phase 2: list/card/calendar views, stats, import/export
  */
 
+import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS } from '../data/constants.js';
+import { getCountryMap } from '../utils/country.js';
+
+function getFrontendFlagMap() {
+  return Object.fromEntries(
+    Object.entries(getCountryMap()).map(([prefix, info]) => [prefix, info.code])
+  );
+}
+
 export function getHTML() {
+  const flagMap = getFrontendFlagMap();
+
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -367,6 +378,7 @@ let currentView = 'grid';
 let calYear, calMonth;
 
 const API = '';
+const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
 
 // ==================== API ====================
 async function api(method, path, body) {
@@ -406,7 +418,10 @@ async function checkAuth() {
   return data.success;
 }
 
-function logout() {
+async function logout() {
+  if (TOKEN) {
+    try { await api('POST', '/api/auth/logout'); } catch {}
+  }
   TOKEN = ''; localStorage.removeItem('token');
   document.getElementById('dashboard-view').classList.add('hidden');
   document.getElementById('login-view').classList.remove('hidden');
@@ -803,7 +818,7 @@ function statusInfoBalance(diff) {
   return { cls:'status-active', text:diff+'天后停机' };
 }
 
-const FLAG_MAP = {'1':'US','7':'RU','20':'EG','27':'ZA','30':'GR','31':'NL','32':'BE','33':'FR','34':'ES','36':'HU','39':'IT','40':'RO','41':'CH','43':'AT','44':'GB','45':'DK','46':'SE','47':'NO','48':'PL','49':'DE','51':'PE','52':'MX','53':'CU','54':'AR','55':'BR','56':'CL','57':'CO','58':'VE','60':'MY','61':'AU','62':'ID','63':'PH','64':'NZ','65':'SG','66':'TH','81':'JP','82':'KR','84':'VN','86':'CN','90':'TR','91':'IN','92':'PK','93':'AF','94':'LK','95':'MM','98':'IR','212':'MA','213':'DZ','216':'TN','218':'LY','220':'GM','221':'SN','223':'ML','224':'GN','225':'CI','226':'BF','227':'NE','228':'TG','229':'BJ','230':'MU','231':'LR','233':'GH','234':'NG','235':'TD','237':'CM','242':'CG','243':'CD','244':'AO','249':'SD','250':'RW','251':'ET','252':'SO','253':'DJ','254':'KE','255':'TZ','256':'UG','257':'BI','258':'MZ','260':'ZM','261':'MG','263':'ZW','264':'NA','265':'MW','266':'LS','267':'BW','268':'SZ','269':'KM','297':'AW','299':'GL','350':'GI','351':'PT','352':'LU','353':'IE','354':'IS','355':'AL','356':'MT','357':'CY','358':'FI','359':'BG','370':'LT','371':'LV','372':'EE','373':'MD','374':'AM','375':'BY','376':'AD','377':'MC','380':'UA','381':'RS','382':'ME','385':'HR','386':'SI','387':'BA','389':'MK','850':'KP','852':'HK','853':'MO','855':'KH','856':'LA','880':'BD','886':'TW','960':'MV','961':'LB','962':'JO','964':'IQ','965':'KW','966':'SA','967':'YE','968':'OM','971':'AE','972':'IL','973':'BH','974':'QA','975':'BT','976':'MN','977':'NP','992':'TJ','994':'AZ','995':'GE','996':'KG','998':'UZ'};
+const FLAG_MAP = ${JSON.stringify(flagMap)};
 function getFlag(num) {
   if (!num) return '';
   let digits = num.replace(/[^0-9]/g, '');
@@ -819,7 +834,7 @@ function getFlag(num) {
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
 
-const CURRENCY_SYMBOLS = {'CNY':'¥','USD':'$','EUR':'€','GBP':'£','JPY':'¥','HKD':'$','TWD':'$','KRW':'₩','TRY':'₺','THB':'฿','NGN':'₦','INR':'₹','PHP':'₱','MYR':'RM','SGD':'$'};
+const CURRENCY_SYMBOLS = ${JSON.stringify(CURRENCY_SYMBOLS)};
 function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '¥'; }
 
 function toggleMenu(e) {
@@ -882,7 +897,7 @@ function openModal(type, item) {
     setSelectedRemindDays(item.remindDays);
   } else {
     document.getElementById('item-form').reset();
-    setSelectedRemindDays([3, 1, 0]); // defaults
+    setSelectedRemindDays(DEFAULT_REMIND_DAYS_CLIENT); // defaults
   }
   document.getElementById('modal-overlay').classList.remove('hidden');
   document.getElementById('modal-overlay').classList.add('flex');
@@ -965,7 +980,7 @@ function getSelectedRemindDays() {
 }
 
 function setSelectedRemindDays(days) {
-  if (!days || !Array.isArray(days)) days = [3, 1, 0];
+  if (!days || !Array.isArray(days)) days = DEFAULT_REMIND_DAYS_CLIENT;
   document.querySelectorAll('.remind-day').forEach(cb => {
     cb.checked = days.includes(parseInt(cb.value));
   });
@@ -1004,7 +1019,11 @@ async function importJSON(input) {
     const res = await api('POST', '/api/items/import/json', data);
     const result = await res.json();
     if (result.success) {
-      alert('导入成功！新增 ' + result.added + ' 条，共 ' + result.total + ' 条');
+      const skipped = result.skipped ? '，跳过 ' + result.skipped + ' 条' : '';
+      const details = result.errors && result.errors.length
+        ? '\\n前几条错误：\\n' + result.errors.map(e => '#' + (e.index + 1) + ' ' + (e.name || '') + ' ' + e.message).join('\\n')
+        : '';
+      alert('导入完成！新增 ' + result.added + ' 条' + skipped + '，共 ' + result.total + ' 条' + details);
       await loadItems();
     } else {
       alert(result.message || '导入失败');
@@ -1024,8 +1043,8 @@ function downloadDemo() {
     items: [
       { type: 'esim', name: '美国保号卡', number: '+12025551234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active' },
       { type: 'esim', name: '日本 IIJmio', number: '+81901234567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
-      { type: 'subscription', name: 'ChatGPT Plus', category: 'AI 工具', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: 3, url: 'https://chat.openai.com', remark: '', status: 'active' },
-      { type: 'subscription', name: 'YouTube Premium', category: '视频会员', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: 7, url: 'https://youtube.com/premium', remark: '土耳其区', status: 'active' },
+      { type: 'subscription', name: 'ChatGPT Plus', category: 'AI 工具', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
+      { type: 'subscription', name: 'YouTube Premium', category: '视频会员', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '土耳其区', status: 'active' },
     ]
   };
   const blob = new Blob([JSON.stringify(demo, null, 2)], { type: 'application/json' });

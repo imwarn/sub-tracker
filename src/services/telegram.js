@@ -2,6 +2,15 @@
  * Telegram notification service
  */
 
+export function escapeTelegramHTML(value) {
+  return value == null
+    ? ''
+    : String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+}
+
 /**
  * Send a message via Telegram Bot API
  * @param {string} token - Bot token
