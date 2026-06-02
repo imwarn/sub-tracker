@@ -8,9 +8,15 @@
     "deploy": "bash scripts/deploy.sh",
     "build": "node scripts/build.js"
   },
-  "keywords": ["esim", "subscription", "cloudflare-workers", "tracker"],
+  "keywords": [
+    "esim",
+    "subscription",
+    "cloudflare-workers",
+    "tracker"
+  ],
   "license": "MIT",
   "devDependencies": {
-    "esbuild": "^0.20.0"
+    "esbuild": "^0.20.0",
+    "wrangler": "^4.96.0"
   }
 }

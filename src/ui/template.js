@@ -103,6 +103,9 @@ export function getHTML() {
             <button onclick="openModal('subscription')" class="btn-primary px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               <i class="fa-solid fa-credit-card"></i> 订阅
             </button>
+            <button onclick="openModal('balance')" class="btn-primary px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <i class="fa-solid fa-wallet"></i> 话费
+            </button>
             <div class="relative" id="menu-trigger">
               <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -127,6 +130,9 @@ export function getHTML() {
         </button>
         <button onclick="setFilter('subscription')" data-filter="subscription" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
           <i class="fa-solid fa-credit-card mr-1"></i>订阅
+        </button>
+        <button onclick="setFilter('balance')" data-filter="balance" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-wallet mr-1"></i>话费
         </button>
       </div>
       <div class="flex gap-1 glass rounded-lg p-1 flex-shrink-0">
@@ -157,13 +163,16 @@ export function getHTML() {
     <div id="empty-state" class="hidden text-center py-16 text-slate-500">
       <i class="fa-solid fa-inbox text-5xl mb-4 opacity-30"></i>
       <p class="text-lg mb-1">暂无数据</p>
-      <p class="text-sm mb-6">添加你的第一个 eSIM 卡或订阅服务</p>
-      <div class="flex gap-3 justify-center">
+      <p class="text-sm mb-6">添加你的第一个 eSIM 卡、订阅服务或话费管理</p>
+      <div class="flex gap-3 justify-center flex-wrap">
         <button onclick="openModal('esim')" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-sim-card"></i> 添加 eSIM
         </button>
         <button onclick="openModal('subscription')" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-credit-card"></i> 添加订阅
+        </button>
+        <button onclick="openModal('balance')" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-wallet"></i> 添加话费
         </button>
       </div>
     </div>
@@ -258,6 +267,22 @@ export function getHTML() {
               <label class="flex items-center gap-1.5 text-xs cursor-pointer">
                 <input type="checkbox" value="0" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">当天</span>
               </label>
+            </div>
+          </div>
+          <div id="field-balance" class="hidden">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">当前余额 *</label>
+                <input id="form-balance" type="number" step="0.01" min="0" placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">月租 *</label>
+                <input id="form-monthly-fee" type="number" step="0.01" min="0" placeholder="18.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">扣费日 *</label>
+                <input id="form-billing-day" type="number" min="1" max="28" placeholder="5" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
             </div>
           </div>
           <div id="field-price" class="hidden">
@@ -408,10 +433,13 @@ async function loadItems() {
 function renderStats() {
   const esims = allItems.filter(i => i.type === 'esim');
   const subs = allItems.filter(i => i.type === 'subscription');
+  const balances = allItems.filter(i => i.type === 'balance');
   const today = new Date(); today.setHours(0,0,0,0);
   let urgentCount = 0;
   allItems.forEach(i => {
-    if (i.expireDate) { const exp = new Date(i.expireDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
+    if (i.type === 'balance') {
+      if (i.predictedSuspendDate) { const exp = new Date(i.predictedSuspendDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
+    } else if (i.expireDate) { const exp = new Date(i.expireDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
   });
 
   // Cost calculation
@@ -425,16 +453,26 @@ function renderStats() {
     else { monthlyCost += 0; yearlyCost += p; }
   });
 
-  // Determine display currency from first subscription with a price
-  const primaryCur = subs.find(s => s.price)?.currency || 'CNY';
+  // Balance: add monthly fees to cost
+  let balanceMonthlyFee = 0;
+  balances.forEach(b => { if (b.monthlyFee) balanceMonthlyFee += parseFloat(b.monthlyFee); });
+
+  // Total balance
+  let totalBalance = 0;
+  balances.forEach(b => { if (b.balance != null) totalBalance += b.balance; });
+
+  // Determine display currency from first subscription with a price, or balance
+  const primaryCur = subs.find(s => s.price)?.currency || balances[0]?.currency || 'CNY';
   const sym = currSym(primaryCur);
+
+  const allMonthly = monthlyCost + balanceMonthlyFee;
 
   const stats = [
     { label:'eSIM', value:esims.length, icon:'fa-sim-card', color:'text-cyan-400', bg:'bg-cyan-500/10' },
     { label:'订阅', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10' },
-    { label:'即将到期', value:urgentCount, icon:'fa-clock', color:'text-amber-400', bg:'bg-amber-500/10' },
-    { label:'月度支出', value:sym+monthlyCost.toFixed(0), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
-    { label:'年度预算', value:sym+yearlyCost.toFixed(0), icon:'fa-chart-pie', color:'text-rose-400', bg:'bg-rose-500/10' },
+    { label:'话费', value:balances.length ? sym+totalBalance.toFixed(0) : '0', icon:'fa-wallet', color:'text-amber-400', bg:'bg-amber-500/10' },
+    { label:'即将到期', value:urgentCount, icon:'fa-clock', color:'text-rose-400', bg:'bg-rose-500/10' },
+    { label:'月度支出', value:sym+allMonthly.toFixed(0), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
@@ -477,8 +515,8 @@ function getFilteredItems() {
   );
   const today = new Date(); today.setHours(0,0,0,0);
   items.sort((a,b) => {
-    const da = a.expireDate ? Math.ceil((new Date(a.expireDate+'T00:00:00')-today)/86400000) : 9999;
-    const db = b.expireDate ? Math.ceil((new Date(b.expireDate+'T00:00:00')-today)/86400000) : 9999;
+    const da = a.type === 'balance' ? (a.predictedSuspendDate ? Math.ceil((new Date(a.predictedSuspendDate+'T00:00:00')-today)/86400000) : 9999) : (a.expireDate ? Math.ceil((new Date(a.expireDate+'T00:00:00')-today)/86400000) : 9999);
+    const db = b.type === 'balance' ? (b.predictedSuspendDate ? Math.ceil((new Date(b.predictedSuspendDate+'T00:00:00')-today)/86400000) : 9999) : (b.expireDate ? Math.ceil((new Date(b.expireDate+'T00:00:00')-today)/86400000) : 9999);
     return da - db;
   });
   return items;
@@ -504,15 +542,25 @@ function renderGrid(items, area) {
 
 function cardHTML(item) {
   const diff = getDiff(item);
-  const st = statusInfo(diff);
+  const isBalance = item.type === 'balance';
+  const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
   const isEsim = item.type === 'esim';
-  const tc = isEsim ? 'text-cyan-400' : 'text-violet-400';
-  const tb = isEsim ? 'bg-cyan-500/10' : 'bg-violet-500/10';
-  const ti = isEsim ? 'fa-sim-card' : 'fa-credit-card';
-  const tl = isEsim ? 'eSIM' : (item.category||'订阅');
+  let tc, tb, ti, tl;
+  if (isBalance) { tc = 'text-amber-400'; tb = 'bg-amber-500/10'; ti = 'fa-wallet'; tl = '话费'; }
+  else if (isEsim) { tc = 'text-cyan-400'; tb = 'bg-cyan-500/10'; ti = 'fa-sim-card'; tl = 'eSIM'; }
+  else { tc = 'text-violet-400'; tb = 'bg-violet-500/10'; ti = 'fa-credit-card'; tl = (item.category||'订阅'); }
 
   let body = '';
-  if (isEsim) {
+  if (isBalance) {
+    const sym = currSym(item.currency);
+    const monthsLeft = item.monthlyFee > 0 ? Math.floor(item.balance / item.monthlyFee) : 0;
+    const suspendStr = item.predictedSuspendDate || '未计算';
+    body = (item.number ? '<div class="text-sm text-slate-300 font-mono mb-1">'+esc(item.number)+'</div>' : '') +
+      '<div class="text-lg text-emerald-400 font-bold">'+sym+item.balance+'</div>' +
+      '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-receipt mr-1"></i>月租 '+sym+item.monthlyFee+'/月 · 每月'+item.billingDay+'日扣</div>' +
+      '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-battery-half mr-1"></i>可撑 '+monthsLeft+' 个月</div>' +
+      (item.lastRecharge ? '<div class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-plus-circle mr-1"></i>上次 '+((item.lastRecharge.amount>0)?'+':'')+item.lastRecharge.amount+' ('+item.lastRecharge.date+')</div>' : '');
+  } else if (isEsim) {
     const iso = getFlag(item.number);
     body = (iso ? '<div class="text-xs font-mono text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded mb-2 inline-block">'+esc(iso)+'</div>' : '') +
       (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
@@ -528,7 +576,9 @@ function cardHTML(item) {
   }
 
   const renewBtn = isEsim && item.cycle ?
-    '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> 续期</button>' : '';
+    '<button onclick="renewItem(\''+item.id+'\')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> 续期</button>' : '';
+  const rechargeBtn = isBalance ?
+    '<button onclick="rechargeItem(\''+item.id+'\')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors"><i class="fa-solid fa-plus-circle"></i> 充值</button>' : '';
 
   return '<div class="glass-card rounded-xl p-5">' +
     '<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2">' +
@@ -537,15 +587,17 @@ function cardHTML(item) {
     '<span class="text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</span></div>' +
     '<h3 class="text-lg font-bold text-white mb-1 truncate">'+esc(item.name)+'</h3>' +
     body +
+    (isBalance && item.predictedSuspendDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>预计停机: '+item.predictedSuspendDate+'</div>' : '') +
     (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>到期: '+item.expireDate+'</div>' : '') +
     (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>周期: '+item.cycle+'天</div>' : '') +
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
+    rechargeBtn +
     renewBtn +
-    '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
-    '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
-    '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
-    '<button onclick="deleteItem(\\''+item.id+'\\')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
+    '<button onclick="toggleStatus(\''+item.id+'\')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
+    '<button onclick="testNotify(\''+item.id+'\')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
+    '<button onclick="editItem(\''+item.id+'\')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
+    '<button onclick="deleteItem(\''+item.id+'\')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
     '</div></div>';
 }
 
@@ -573,12 +625,18 @@ function renderList(items, area) {
 
 function listRowMobileHTML(item) {
   const diff = getDiff(item);
-  const st = statusInfo(diff);
+  const isBalance = item.type === 'balance';
+  const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
   const isEsim = item.type === 'esim';
-  const tc = isEsim ? 'text-cyan-400' : 'text-violet-400';
-  const ti = isEsim ? 'fa-sim-card' : 'fa-credit-card';
+  let tc, ti;
+  if (isBalance) { tc = 'text-amber-400'; ti = 'fa-wallet'; }
+  else if (isEsim) { tc = 'text-cyan-400'; ti = 'fa-sim-card'; }
+  else { tc = 'text-violet-400'; ti = 'fa-credit-card'; }
   const statusText = item.status==='paused' ? '已暂停' : (st.text || '未设置');
   const statusCls = item.status==='paused' ? 'text-slate-500' : st.cls;
+
+  const sym = currSym(item.currency);
+  const balanceInfo = isBalance ? sym+item.balance+' · 月租'+sym+item.monthlyFee : '';
 
   return '<div class="glass-card rounded-xl p-4">' +
     '<div class="flex items-center justify-between mb-2">' +
@@ -590,12 +648,14 @@ function listRowMobileHTML(item) {
     '</div>' +
     '<div class="flex items-center justify-between">' +
       '<div class="text-xs text-slate-400">' +
-        (item.expireDate ? '<i class="fa-regular fa-calendar mr-1"></i>'+item.expireDate : '') +
+        (isBalance ? '<span>'+balanceInfo+'</span>' : '') +
+        (!isBalance && item.expireDate ? '<i class="fa-regular fa-calendar mr-1"></i>'+item.expireDate : '') +
         (item.number ? '<span class="ml-2 font-mono">'+esc(item.number)+'</span>' : '') +
         (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
       '</div>' +
       '<div class="flex gap-1 flex-shrink-0">' +
-        (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+        (isBalance ? '<button onclick="rechargeItem(\''+item.id+'\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
+        (isEsim && item.cycle ? '<button onclick="renewItem(\''+item.id+'\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
         '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
         '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
         '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
@@ -607,21 +667,38 @@ function listRowMobileHTML(item) {
 
 function listRowHTML(item) {
   const diff = getDiff(item);
-  const st = statusInfo(diff);
+  const isBalance = item.type === 'balance';
+  const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
   const isEsim = item.type === 'esim';
-  const sub = isEsim ? (item.number || '-') : (item.category || '-');
   const flag = isEsim ? getFlag(item.number) : '';
-  const priceStr = !isEsim && item.price ? ' · '+currSym(item.currency)+item.price : '';
+  let sub, priceStr, iconClass;
+  if (isBalance) {
+    sub = item.number || '-';
+    const sym = currSym(item.currency);
+    priceStr = ' · '+sym+item.balance+' (月租'+sym+item.monthlyFee+')';
+    iconClass = 'fa-wallet text-amber-400';
+  } else if (isEsim) {
+    sub = item.number || '-';
+    priceStr = '';
+    iconClass = 'fa-sim-card text-cyan-400';
+  } else {
+    sub = item.category || '-';
+    priceStr = item.price ? ' · '+currSym(item.currency)+item.price : '';
+    iconClass = 'fa-credit-card text-violet-400';
+  }
+
+  const dateCol = isBalance ? (item.predictedSuspendDate || '-') : (item.expireDate || '-');
 
   return '<div class="list-row grid grid-cols-12 gap-2 px-4 py-3 items-center border-b border-white/5">' +
     '<div class="col-span-4 sm:col-span-4 flex items-center gap-2 min-w-0">' +
-      '<i class="fa-solid '+(isEsim?'fa-sim-card text-cyan-400':'fa-credit-card text-violet-400')+' text-sm flex-shrink-0"></i>' +
+      '<i class="fa-solid '+iconClass+' text-sm flex-shrink-0"></i>' +
       '<span class="truncate text-sm font-medium text-white">'+esc(item.name)+priceStr+'</span></div>' +
     '<div class="col-span-2 hidden sm:block text-xs text-slate-400 truncate">'+flag+esc(sub)+'</div>' +
-    '<div class="col-span-3 sm:col-span-2 text-xs text-slate-300">'+(item.expireDate||'-')+'</div>' +
+    '<div class="col-span-3 sm:col-span-2 text-xs text-slate-300">'+dateCol+'</div>' +
     '<div class="col-span-2 hidden sm:block text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</div>' +
     '<div class="col-span-3 sm:col-span-2 flex justify-end gap-1">' +
-      (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+      (isBalance ? '<button onclick="rechargeItem(\''+item.id+'\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
+      (isEsim && item.cycle ? '<button onclick="renewItem(\''+item.id+'\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
       '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
       '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
       '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
@@ -640,8 +717,14 @@ function renderCalendar(items, area) {
   // Build events map
   const events = {};
   items.forEach(i => {
-    if (!i.expireDate) return;
-    const d = new Date(i.expireDate+'T00:00:00');
+    let dateStr;
+    if (i.type === 'balance') {
+      dateStr = i.predictedSuspendDate;
+    } else {
+      dateStr = i.expireDate;
+    }
+    if (!dateStr) return;
+    const d = new Date(dateStr+'T00:00:00');
     const key = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
     if (!events[key]) events[key] = [];
     events[key].push(i);
@@ -675,9 +758,11 @@ function renderCalendar(items, area) {
     html += '<div class="cal-day rounded-lg p-1.5 '+(isToday ? 'bg-sky-500/20 border border-sky-500/30' : 'border border-white/5')+'">' +
       '<div class="text-xs font-semibold '+(isToday ? 'text-sky-400' : 'text-slate-400')+' mb-1">'+d+'</div>';
     dayEvents.forEach(e => {
-      const isEsim = e.type === 'esim';
-      const bg = isEsim ? 'bg-cyan-500/30 text-cyan-300' : 'bg-violet-500/30 text-violet-300';
-      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem(\\''+e.id+'\\')" title="'+esc(e.name)+'（点击编辑）">'+esc(e.name)+'</div>';
+      let bg;
+      if (e.type === 'balance') bg = 'bg-amber-500/30 text-amber-300';
+      else if (e.type === 'esim') bg = 'bg-cyan-500/30 text-cyan-300';
+      else bg = 'bg-violet-500/30 text-violet-300';
+      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem(\''+e.id+'\')" title="'+esc(e.name)+'（点击编辑）">'+esc(e.name)+'</div>';
     });
     html += '</div>';
   }
@@ -690,6 +775,12 @@ function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
 
 // ==================== HELPERS ====================
 function getDiff(item) {
+  if (item.type === 'balance') {
+    if (!item.predictedSuspendDate) return null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const exp = new Date(item.predictedSuspendDate+'T00:00:00');
+    return Math.ceil((exp - today) / 86400000);
+  }
   if (!item.expireDate) return null;
   const today = new Date(); today.setHours(0,0,0,0);
   const exp = new Date(item.expireDate+'T00:00:00');
@@ -702,6 +793,14 @@ function statusInfo(diff) {
   if (diff === 0) return { cls:'status-danger', text:'今天到期' };
   if (diff <= 15) return { cls:'status-warning', text:'剩余 '+diff+'天' };
   return { cls:'status-active', text:'剩余 '+diff+'天' };
+}
+
+function statusInfoBalance(diff) {
+  if (diff === null) return { cls:'text-slate-400', text:'未设置' };
+  if (diff < 0) return { cls:'status-expired', text:'已停机 '+Math.abs(diff)+'天' };
+  if (diff === 0) return { cls:'status-danger', text:'即将停机' };
+  if (diff <= 15) return { cls:'status-warning', text:diff+'天后停机' };
+  return { cls:'status-active', text:diff+'天后停机' };
 }
 
 const FLAG_MAP = {'1':'US','7':'RU','20':'EG','27':'ZA','30':'GR','31':'NL','32':'BE','33':'FR','34':'ES','36':'HU','39':'IT','40':'RO','41':'CH','43':'AT','44':'GB','45':'DK','46':'SE','47':'NO','48':'PL','49':'DE','51':'PE','52':'MX','53':'CU','54':'AR','55':'BR','56':'CL','57':'CO','58':'VE','60':'MY','61':'AU','62':'ID','63':'PH','64':'NZ','65':'SG','66':'TH','81':'JP','82':'KR','84':'VN','86':'CN','90':'TR','91':'IN','92':'PK','93':'AF','94':'LK','95':'MM','98':'IR','212':'MA','213':'DZ','216':'TN','218':'LY','220':'GM','221':'SN','223':'ML','224':'GN','225':'CI','226':'BF','227':'NE','228':'TG','229':'BJ','230':'MU','231':'LR','233':'GH','234':'NG','235':'TD','237':'CM','242':'CG','243':'CD','244':'AO','249':'SD','250':'RW','251':'ET','252':'SO','253':'DJ','254':'KE','255':'TZ','256':'UG','257':'BI','258':'MZ','260':'ZM','261':'MG','263':'ZW','264':'NA','265':'MW','266':'LS','267':'BW','268':'SZ','269':'KM','297':'AW','299':'GL','350':'GI','351':'PT','352':'LU','353':'IE','354':'IS','355':'AL','356':'MT','357':'CY','358':'FI','359':'BG','370':'LT','371':'LV','372':'EE','373':'MD','374':'AM','375':'BY','376':'AD','377':'MC','380':'UA','381':'RS','382':'ME','385':'HR','386':'SI','387':'BA','389':'MK','850':'KP','852':'HK','853':'MO','855':'KH','856':'LA','880':'BD','886':'TW','960':'MV','961':'LB','962':'JO','964':'IQ','965':'KW','966':'SA','967':'YE','968':'OM','971':'AE','972':'IL','973':'BH','974':'QA','975':'BT','976':'MN','977':'NP','992':'TJ','994':'AZ','995':'GE','996':'KG','998':'UZ'};
@@ -746,13 +845,20 @@ document.addEventListener('click', e => {
 function openModal(type, item) {
   document.getElementById('form-type').value = type;
   document.getElementById('form-id').value = item ? item.id : '';
-  document.getElementById('modal-title').textContent = (item ? '编辑' : '添加') + (type === 'esim' ? ' eSIM' : ' 订阅');
-  document.getElementById('field-number').classList.toggle('hidden', type !== 'esim');
+  const typeLabel = type === 'esim' ? ' eSIM' : type === 'balance' ? ' 话费' : ' 订阅';
+  document.getElementById('modal-title').textContent = (item ? '编辑' : '添加') + typeLabel;
+  document.getElementById('field-number').classList.toggle('hidden', type !== 'esim' && type !== 'balance');
   document.getElementById('field-category').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-region').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-sub-id').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-price').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
+  document.getElementById('field-balance').classList.toggle('hidden', type !== 'balance');
+  // expireDate/cycle not needed for balance type - hide their parent divs
+  const expireField = document.getElementById('form-expire').closest('.space-y-4 > div') || document.getElementById('form-expire').parentElement;
+  const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
+  if (expireField) expireField.classList.toggle('hidden', type === 'balance');
+  if (cycleField) cycleField.classList.toggle('hidden', type === 'balance');
 
   if (item) {
     document.getElementById('form-name').value = item.name || '';
@@ -767,6 +873,11 @@ function openModal(type, item) {
     document.getElementById('form-billing').value = item.billing || 'monthly';
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
+    if (type === 'balance') {
+      document.getElementById('form-balance').value = item.balance ?? '';
+      document.getElementById('form-monthly-fee').value = item.monthlyFee ?? '';
+      document.getElementById('form-billing-day').value = item.billingDay ?? '';
+    }
     setSelectedRemindDays(item.remindDays);
   } else {
     document.getElementById('item-form').reset();
@@ -796,6 +907,9 @@ async function saveItem(e) {
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
     remindDays: getSelectedRemindDays(),
+    balance: document.getElementById('form-balance').value,
+    monthlyFee: document.getElementById('form-monthly-fee').value,
+    billingDay: document.getElementById('form-billing-day').value,
   };
 
   const res = id ? await api('PUT', '/api/items/'+id, body) : await api('POST', '/api/items', body);
@@ -824,6 +938,18 @@ async function testNotify(id) {
   const data = await res.json();
   if (data.success) alert('✅ 测试通知已发送，请检查 Telegram');
   else alert('❌ ' + (data.message || '发送失败'));
+}
+
+async function rechargeItem(id) {
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  const amount = prompt('充值金额（负数为校正扣减）：\n当前余额: '+currSym(item.currency)+item.balance, '');
+  if (amount === null || amount.trim() === '') return;
+  const note = prompt('备注（可留空）：', '') || '';
+  const res = await api('POST', '/api/items/'+id+'/recharge', { amount: parseFloat(amount), note });
+  const data = await res.json();
+  if (data.success) { await loadItems(); alert('✅ 充值成功！新余额: '+currSym(item.currency)+data.newBalance+'\n预计停机: '+data.predictedSuspendDate); }
+  else alert('❌ ' + (data.message || '充值失败'));
 }
 
 function getSelectedRemindDays() {

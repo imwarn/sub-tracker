@@ -7,7 +7,7 @@
 
 import { getAllItems, getConfig } from '../data/store.js';
 import { sendTelegram } from './telegram.js';
-import { todayMidnight } from '../utils/date.js';
+import { todayMidnight, calcSuspendDate } from '../utils/date.js';
 
 const DEFAULT_REMIND_DAYS = [3, 1, 0]; // fallback
 
@@ -35,6 +35,53 @@ export async function checkReminders(env) {
 
   for (const item of items) {
     if (item.status !== 'active') continue;
+
+    // === Balance type: suspend-date based reminder ===
+    if (item.type === 'balance') {
+      if (item.monthlyFee <= 0) continue;
+      const suspendDate = calcSuspendDate(item.balance, item.monthlyFee, item.billingDay);
+      const expDate = new Date(suspendDate + 'T00:00:00Z');
+      expDate.setUTCHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((expDate - today) / 86_400_000);
+
+      const remindDays = Array.isArray(item.remindDays) && item.remindDays.length > 0
+        ? item.remindDays
+        : DEFAULT_REMIND_DAYS;
+
+      if (!remindDays.includes(diffDays)) continue;
+
+      const monthsLeft = Math.floor(item.balance / item.monthlyFee);
+      const remarkText = item.remark ? `\n📝 备注: ${item.remark}` : '';
+      const currSym = CURRENCY_SYMBOLS[item.currency] || item.currency || '¥';
+
+      let urgency;
+      if (diffDays < 0) urgency = '❌';
+      else if (diffDays === 0) urgency = '🚨';
+      else if (diffDays <= 3) urgency = '⚠️';
+      else urgency = '📢';
+
+      const statusText = diffDays < 0
+        ? `已停机 ${Math.abs(diffDays)} 天`
+        : diffDays === 0
+          ? '今天扣费！余额可能不足'
+          : `预计 ${diffDays} 天后停机`;
+
+      messages.push(
+        `${urgency} 【话费停机提醒】\n` +
+        `📱 名称: ${item.name}\n` +
+        (item.number ? `📞 号码: ${item.number}\n` : '') +
+        `💰 余额: ${currSym}${item.balance}\n` +
+        `💸 月租: ${currSym}${item.monthlyFee}/月\n` +
+        `📅 每月${item.billingDay}日扣费\n` +
+        `⏳ ${statusText}\n` +
+        `🔋 可撑 ${monthsLeft} 个月\n` +
+        `📆 预计停机: ${suspendDate}${remarkText}\n` +
+        (diffDays >= 0 ? `👉 请尽快充值！` : '')
+      );
+      continue;
+    }
+
+    // === eSIM / Subscription: expire-date based reminder ===
     if (!item.expireDate) continue;
 
     const expDate = new Date(item.expireDate + 'T00:00:00Z');

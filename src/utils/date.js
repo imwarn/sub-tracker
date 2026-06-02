@@ -65,3 +65,54 @@ export function getStatusText(days) {
   if (days === 0) return '今天到期';
   return `剩余 ${days} 天`;
 }
+
+/**
+ * Calculate predicted suspend date for balance-type items
+ *
+ * Logic: balance covers N monthly fee deductions.
+ *   N = Math.floor(balance / monthlyFee)
+ *   If N <= 0: predicted suspend = next billing day (balance insufficient)
+ *   Else: predicted suspend = next billing day + N months
+ *
+ * @param {number} balance - current balance
+ * @param {number} monthlyFee - monthly fee
+ * @param {number} billingDay - day of month (1-28)
+ * @returns {string} predicted suspend date "YYYY-MM-DD"
+ */
+export function calcSuspendDate(balance, monthlyFee, billingDay) {
+  const now = new Date();
+  const tzNow = new Date(now.getTime() + TZ_OFFSET * 3600_000);
+  const y = tzNow.getUTCFullYear();
+  const m = tzNow.getUTCMonth(); // 0-indexed
+  const d = tzNow.getUTCDate();
+
+  // Get this month's billing day (handle months with fewer days)
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const thisMonthBD = Math.min(billingDay, daysInMonth);
+
+  // How many months the balance can cover
+  const N = monthlyFee > 0 ? Math.floor(balance / monthlyFee) : 0;
+
+  // Base month for calculation
+  let baseYear, baseMonth;
+  if (d <= thisMonthBD) {
+    // Before or on billing day: next deduction is this month
+    baseYear = y;
+    baseMonth = m;
+  } else {
+    // After billing day: next deduction is next month
+    baseYear = m === 11 ? y + 1 : y;
+    baseMonth = (m + 1) % 12;
+  }
+
+  // Predicted suspend = base billing day + N months
+  let suspMonth = baseMonth + N;
+  let suspYear = baseYear + Math.floor(suspMonth / 12);
+  suspMonth = suspMonth % 12;
+  const daysInSuspMonth = new Date(suspYear, suspMonth + 1, 0).getDate();
+  const suspDay = Math.min(billingDay, daysInSuspMonth);
+
+  const mm = String(suspMonth + 1).padStart(2, '0');
+  const dd = String(suspDay).padStart(2, '0');
+  return `${suspYear}-${mm}-${dd}`;
+}

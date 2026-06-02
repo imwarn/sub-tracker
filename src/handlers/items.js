@@ -16,8 +16,10 @@ import { errorResponse, successResponse, jsonResponse, corsPreFlight } from '../
 import { requireAuth } from './auth.js';
 import { createItem, validateItem, mergeUpdate } from '../data/schema.js';
 import { getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById, getConfig } from '../data/store.js';
-import { addDays, daysUntil, getStatusText } from '../utils/date.js';
+import { addDays, daysUntil, getStatusText, calcSuspendDate } from '../utils/date.js';
 import { sendTelegram } from '../services/telegram.js';
+
+const CURRENCY_SYMBOLS = {'CNY':'¥','USD':'$','EUR':'€','GBP':'£','JPY':'¥','HKD':'$','TWD':'$','KRW':'₩','TRY':'₺','THB':'฿','NGN':'₦','INR':'₹','PHP':'₱','MYR':'RM','SGD':'$'};
 
 export async function handleItems(request, env, path) {
   if (request.method === 'OPTIONS') return corsPreFlight();
@@ -69,6 +71,10 @@ export async function handleItems(request, env, path) {
       return await renewItem(env, id);
     }
 
+    if (request.method === 'POST' && action === '/recharge') {
+      return await rechargeItem(request, env, id);
+    }
+
     if (request.method === 'POST' && action === '/test-notify') {
       return await testNotify(env, id);
     }
@@ -94,7 +100,7 @@ async function createNewItem(request, env) {
     const body = await request.json();
     const type = body.type || 'esim';
 
-    if (!['esim', 'subscription'].includes(type)) {
+    if (!['esim', 'subscription', 'balance'].includes(type)) {
       return errorResponse('无效的类型');
     }
 
@@ -142,6 +148,38 @@ async function renewItem(env, id) {
   return successResponse({ newExpireDate: result.expireDate });
 }
 
+async function rechargeItem(request, env, id) {
+  try {
+    const body = await request.json();
+    const amount = parseFloat(body.amount);
+    if (isNaN(amount) || amount === 0) {
+      return errorResponse('金额不能为空或为零');
+    }
+
+    const result = await updateItem(env.DB, id, existing => {
+      if (existing.type !== 'balance') {
+        throw new Error('仅话费类型支持充值');
+      }
+      const newBalance = Math.round((existing.balance + amount) * 100) / 100;
+      const newSuspendDate = calcSuspendDate(newBalance, existing.monthlyFee, existing.billingDay);
+      return {
+        ...existing,
+        balance: newBalance,
+        lastRecharge: { amount, date: new Date().toISOString().split('T')[0], note: body.note || '' },
+        predictedSuspendDate: newSuspendDate,
+      };
+    });
+
+    if (!result) return errorResponse('未找到记录', 404);
+    return successResponse({
+      newBalance: result.balance,
+      predictedSuspendDate: result.predictedSuspendDate,
+    });
+  } catch (e) {
+    return errorResponse(e.message || '充值失败', 400);
+  }
+}
+
 // ==================== EXPORT / IMPORT ====================
 
 async function exportJSON(env) {
@@ -163,10 +201,17 @@ async function exportJSON(env) {
 
 async function exportCSV(env) {
   const items = await getAllItems(env.DB);
-  const headers = ['类型', '名称', '号码', '分类', '到期日期', '周期(天)', '费用', '货币', '自动续费', '状态', '备注'];
+  const headers = ['类型', '名称', '号码', '分类', '到期日期', '周期(天)', '费用/余额', '货币', '自动续费/月租', '扣费日', '状态', '备注'];
 
   const rows = items.map(item => {
-    const typeLabel = item.type === 'esim' ? 'eSIM' : '订阅';
+    const typeLabel = item.type === 'esim' ? 'eSIM' : item.type === 'balance' ? '话费' : '订阅';
+    const priceOrBalance = item.type === 'balance'
+      ? (item.balance != null ? item.balance : '')
+      : (item.price || '');
+    const autoRenewOrFee = item.type === 'balance'
+      ? (item.monthlyFee || '')
+      : (item.autoRenew ? '是' : '否');
+    const billingDay = item.type === 'balance' ? (item.billingDay || '') : '';
     return [
       typeLabel,
       csvEscape(item.name),
@@ -174,9 +219,10 @@ async function exportCSV(env) {
       csvEscape(item.category || ''),
       item.expireDate || '',
       item.cycle || '',
-      item.price || '',
+      priceOrBalance,
       item.currency || 'CNY',
-      item.autoRenew ? '是' : '否',
+      autoRenewOrFee,
+      billingDay,
       item.status === 'active' ? '启用' : '停用',
       csvEscape(item.remark || ''),
     ].join(',');
@@ -216,7 +262,7 @@ async function importJSON(request, env) {
 
     for (const raw of importedItems) {
       const type = raw.type || 'esim';
-      if (!['esim', 'subscription'].includes(type)) continue;
+      if (!['esim', 'subscription', 'balance'].includes(type)) continue;
 
       const item = createItem(type, raw);
       existing.push(item);
@@ -246,6 +292,29 @@ async function testNotify(env, id) {
     if (!tgToken) missing.push('TG_BOT_TOKEN');
     if (!tgChat) missing.push('TG_CHAT_ID');
     return errorResponse(`TG 密钥未配置: 缺少 ${missing.join(', ')}。请在 Workers → Settings → Variables 中添加`);
+  }
+
+  if (item.type === 'balance') {
+    const suspendDate = item.predictedSuspendDate || '未计算';
+    const sym = CURRENCY_SYMBOLS[item.currency] || item.currency || '¥';
+    const monthsLeft = item.monthlyFee > 0 ? Math.floor(item.balance / item.monthlyFee) : 0;
+    const msg = [
+      `⚠️ <b>【话费停机 · 测试通知】</b>`,
+      '',
+      `📱 名称: ${item.name}`,
+      item.number ? `📞 号码: ${item.number}` : '',
+      `💰 余额: ${sym}${item.balance}`,
+      `💸 月租: ${sym}${item.monthlyFee}/月`,
+      `📅 每月${item.billingDay}日扣费`,
+      `🔋 可撑 ${monthsLeft} 个月`,
+      `📆 预计停机: ${suspendDate}`,
+      item.remark ? `📝 备注: ${item.remark}` : '',
+      '',
+      '<i>这是一条测试通知，确认通知功能正常。</i>',
+    ].filter(Boolean).join('\n');
+    const ok = await sendTelegram(tgToken, tgChat, msg);
+    if (ok) return successResponse();
+    return errorResponse('发送失败，请检查 TG 配置');
   }
 
   const diff = daysUntil(item.expireDate);
