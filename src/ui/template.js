@@ -854,11 +854,12 @@ function openModal(type, item) {
   document.getElementById('field-price').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-balance').classList.toggle('hidden', type !== 'balance');
-  // expireDate/cycle not needed for balance type - hide their parent divs
+  // expireDate: hidden for balance only
+  // cycle: only shown for esim
   const expireField = document.getElementById('form-expire').closest('.space-y-4 > div') || document.getElementById('form-expire').parentElement;
   const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
   if (expireField) expireField.classList.toggle('hidden', type === 'balance');
-  if (cycleField) cycleField.classList.toggle('hidden', type === 'balance');
+  if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim');
 
   if (item) {
     document.getElementById('form-name').value = item.name || '';
