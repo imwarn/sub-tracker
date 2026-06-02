@@ -179,7 +179,7 @@ export function getHTML() {
   </div>
 
   <!-- ========== MODAL ========== -->
-  <div id="modal-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)closeModal()">
+  <div id="modal-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto fade-in">
       <div class="flex justify-between items-center mb-6">
         <h3 id="modal-title" class="text-xl font-bold text-white">添加</h3>
