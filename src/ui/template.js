@@ -506,6 +506,15 @@ export function getHTML() {
 	          <button onclick="closeHistory()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
 	        </div>
 	      </div>
+	      <div id="history-filters" class="flex flex-wrap gap-2 mb-4">
+	        <button onclick="filterHistory('all')" data-hfilter="all" class="hfilter-tab tab-active px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all">全部</button>
+	        <button onclick="filterHistory('create')" data-hfilter="create" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus mr-1"></i>新增</button>
+	        <button onclick="filterHistory('update')" data-hfilter="update" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-pen mr-1"></i>更新</button>
+	        <button onclick="filterHistory('delete')" data-hfilter="delete" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-trash mr-1"></i>删除</button>
+	        <button onclick="filterHistory('renew')" data-hfilter="renew" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-rotate mr-1"></i>续期</button>
+	        <button onclick="filterHistory('recharge')" data-hfilter="recharge" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus-circle mr-1"></i>充值</button>
+	        <button onclick="filterHistory('import')" data-hfilter="import" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-upload mr-1"></i>导入</button>
+	      </div>
 	      <div id="history-content" class="space-y-2"></div>
 	    </div>
 	  </div>
@@ -694,15 +703,16 @@ function renderStats() {
   }
 
   const stats = [
-    { label:'eSIM', value:esims.length, icon:'fa-sim-card', color:'text-cyan-400', bg:'bg-cyan-500/10' },
-    { label:'订阅', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10' },
-    { label:'话费', value:balances.length ? fmtBalance() : '0', icon:'fa-wallet', color:'text-amber-400', bg:'bg-amber-500/10' },
-    { label:'即将到期', value:urgentCount, icon:'fa-clock', color:'text-rose-400', bg:'bg-rose-500/10' },
+    { label:'eSIM', value:esims.length, icon:'fa-sim-card', color:'text-cyan-400', bg:'bg-cyan-500/10', filter:'esim' },
+    { label:'订阅', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10', filter:'subscription' },
+    { label:'话费', value:balances.length ? fmtBalance() : '0', icon:'fa-wallet', color:'text-amber-400', bg:'bg-amber-500/10', filter:'balance' },
+    { label:'即将到期', value:urgentCount, icon:'fa-clock', color:'text-rose-400', bg:'bg-rose-500/10', filter:'urgent' },
     { label:'月度支出', value:fmtCost(monthlyByCur), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
-    '<div class="glass-card rounded-xl p-4"><div class="flex items-center gap-3">' +
+    '<div class="glass-card rounded-xl p-4' + (s.filter ? ' cursor-pointer' : '') + '"' +
+    (s.filter ? ' onclick="setFilter(\\''+s.filter+'\\')"' : '') + '><div class="flex items-center gap-3">' +
     '<div class="'+s.bg+' w-10 h-10 rounded-lg flex items-center justify-center"><i class="fa-solid '+s.icon+' '+s.color+'"></i></div>' +
     '<div><div class="text-xs text-slate-400">'+s.label+'</div><div class="text-xl font-bold text-white">'+s.value+'</div></div>' +
     '</div></div>'
@@ -788,6 +798,10 @@ function setFilter(f) {
     b.classList.toggle('tab-active', active);
     b.classList.toggle('text-slate-400', !active);
   });
+  // Clear tab-active from all if filter is not a standard type
+  if (!['all','esim','subscription','balance'].includes(f)) {
+    document.querySelectorAll('.filter-tab').forEach(b => { b.classList.remove('tab-active'); b.classList.add('text-slate-400'); });
+  }
   renderItems();
 }
 
@@ -805,7 +819,19 @@ function setView(v) {
 function getFilteredItems() {
   const search = (document.getElementById('search-input').value || '').toLowerCase();
   let items = allItems;
-  if (currentFilter !== 'all') items = items.filter(i => i.type === currentFilter);
+  if (currentFilter !== 'all') {
+    if (currentFilter === 'urgent') {
+      const today = new Date(); today.setHours(0,0,0,0);
+      items = items.filter(i => {
+        const dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
+        if (!dateStr) return false;
+        const diff = Math.ceil((new Date(dateStr+'T00:00:00') - today) / 86400000);
+        return diff <= 15;
+      });
+    } else {
+      items = items.filter(i => i.type === currentFilter);
+    }
+  }
   if (search) items = items.filter(i =>
     (i.name||'').toLowerCase().includes(search) || (i.number||'').toLowerCase().includes(search) ||
     (i.remark||'').toLowerCase().includes(search) || (i.category||'').toLowerCase().includes(search) ||
@@ -1350,6 +1376,9 @@ async function importJSON(input) {
   input.value = '';
 }
 
+let historyData = [];
+let historyFilter = 'all';
+
 async function openHistory() {
   hideMenu();
   const overlay = document.getElementById('history-overlay');
@@ -1357,10 +1386,31 @@ async function openHistory() {
   content.innerHTML = '<div class="text-sm text-slate-400 py-8 text-center"><i class="fa-solid fa-spinner fa-spin mr-2"></i>加载中...</div>';
   overlay.classList.remove('hidden');
   overlay.classList.add('flex');
+  historyFilter = 'all';
+  document.querySelectorAll('.hfilter-tab').forEach(b => {
+    b.classList.toggle('tab-active', b.dataset.hfilter === 'all');
+    b.classList.toggle('text-slate-400', b.dataset.hfilter !== 'all');
+  });
   const res = await api('GET', '/api/history');
-  const data = await res.json();
+  historyData = await res.json();
+  renderHistory();
+}
+
+function filterHistory(action) {
+  historyFilter = action;
+  document.querySelectorAll('.hfilter-tab').forEach(b => {
+    b.classList.toggle('tab-active', b.dataset.hfilter === action);
+    b.classList.toggle('text-slate-400', b.dataset.hfilter !== action);
+  });
+  renderHistory();
+}
+
+function renderHistory() {
+  const content = document.getElementById('history-content');
+  let data = historyData;
+  if (historyFilter !== 'all') data = data.filter(e => e.action === historyFilter);
   if (!Array.isArray(data) || !data.length) {
-    content.innerHTML = '<div class="text-sm text-slate-500 py-10 text-center">暂无操作历史</div>';
+    content.innerHTML = '<div class="text-sm text-slate-500 py-10 text-center">' + (historyFilter !== 'all' ? '该类型暂无记录' : '暂无操作历史') + '</div>';
     return;
   }
   content.innerHTML = data.map(historyHTML).join('');
