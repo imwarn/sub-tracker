@@ -14,7 +14,7 @@ const OTP_SEND_COOLDOWN_KEY = 'admin_auth_send_cooldown';
 export async function handleAuth(request, env, path) {
   // CORS preflight
   if (request.method === 'OPTIONS') {
-    return corsPreFlight();
+    return corsPreFlight(request);
   }
 
   // POST /api/auth/send - Send OTP via configured notification channel

@@ -2,11 +2,23 @@
  * HTTP Response helpers with CORS support
  */
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const CORS_METHODS = 'GET, POST, PUT, DELETE, OPTIONS';
+const CORS_REQUEST_HEADERS = 'Content-Type, Authorization';
+
+/**
+ * Build CORS headers dynamically.
+ * If ALLOWED_ORIGIN env is set, use that; otherwise mirror the request's own Origin
+ * (locks cross-origin requests to same-origin by default).
+ */
+function buildCorsHeaders(request) {
+  let origin = '';
+  try { origin = request?.headers?.get('Origin') || ''; } catch {}
+  return {
+    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Methods': CORS_METHODS,
+    'Access-Control-Allow-Headers': CORS_REQUEST_HEADERS,
+  };
+}
 
 const SECURITY_HEADERS = {
   'Cache-Control': 'no-store',
@@ -15,33 +27,33 @@ const SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 
-export function jsonResponse(data, status = 200) {
+export function jsonResponse(data, status = 200, request = null) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS, ...SECURITY_HEADERS },
+    headers: { 'Content-Type': 'application/json', ...buildCorsHeaders(request), ...SECURITY_HEADERS },
   });
 }
 
-export function htmlResponse(html) {
+export function htmlResponse(html, request = null) {
   return new Response(html, {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8', ...CORS_HEADERS, ...SECURITY_HEADERS },
+    headers: { 'Content-Type': 'text/html;charset=UTF-8', ...buildCorsHeaders(request), ...SECURITY_HEADERS },
   });
 }
 
-export function textResponse(text, contentType = 'text/plain;charset=UTF-8') {
+export function textResponse(text, contentType = 'text/plain;charset=UTF-8', request = null) {
   return new Response(text, {
-    headers: { 'Content-Type': contentType, ...CORS_HEADERS, ...SECURITY_HEADERS },
+    headers: { 'Content-Type': contentType, ...buildCorsHeaders(request), ...SECURITY_HEADERS },
   });
 }
 
-export function svgResponse(svg) {
-  return textResponse(svg, 'image/svg+xml;charset=UTF-8');
+export function svgResponse(svg, request = null) {
+  return textResponse(svg, 'image/svg+xml;charset=UTF-8', request);
 }
 
-export function binaryResponse(body, contentType, cacheControl = 'public, max-age=86400') {
+export function binaryResponse(body, contentType, cacheControl = 'public, max-age=86400', request = null) {
   return new Response(body, {
     headers: {
-      ...CORS_HEADERS,
+      ...buildCorsHeaders(request),
       ...SECURITY_HEADERS,
       'Content-Type': contentType,
       'Cache-Control': cacheControl,
@@ -49,27 +61,27 @@ export function binaryResponse(body, contentType, cacheControl = 'public, max-ag
   });
 }
 
-export function errorResponse(message, status = 400) {
-  return jsonResponse({ success: false, message }, status);
+export function errorResponse(message, status = 400, request = null) {
+  return jsonResponse({ success: false, message }, status, request);
 }
 
-export function successResponse(data = null) {
+export function successResponse(data = null, request = null) {
   const res = { success: true };
   if (data) Object.assign(res, data);
-  return jsonResponse(res);
+  return jsonResponse(res, 200, request);
 }
 
-export function downloadResponse(body, contentType, filename) {
+export function downloadResponse(body, contentType, filename, request = null) {
   return new Response(body, {
     headers: {
       'Content-Type': contentType,
       'Content-Disposition': `attachment; filename=${filename}`,
-      ...CORS_HEADERS,
+      ...buildCorsHeaders(request),
       ...SECURITY_HEADERS,
     },
   });
 }
 
-export function corsPreFlight() {
-  return new Response(null, { status: 204, headers: { ...CORS_HEADERS, ...SECURITY_HEADERS } });
+export function corsPreFlight(request = null) {
+  return new Response(null, { status: 204, headers: { ...buildCorsHeaders(request), ...SECURITY_HEADERS } });
 }

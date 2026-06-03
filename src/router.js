@@ -18,31 +18,31 @@ export async function route(request, env) {
 
   // CORS preflight for all API routes
   if (request.method === 'OPTIONS' && path.startsWith('/api/')) {
-    return corsPreFlight();
+    return corsPreFlight(request);
   }
 
   if (path === '/manifest.webmanifest') {
-    return textResponse(JSON.stringify(getManifest()), 'application/manifest+json');
+    return textResponse(JSON.stringify(getManifest()), 'application/manifest+json', request);
   }
 
   if (path === '/sw.js') {
-    return textResponse(getServiceWorker(), 'application/javascript; charset=utf-8');
+    return textResponse(getServiceWorker(), 'application/javascript; charset=utf-8', request);
   }
 
   if (path === '/icon.svg') {
-    return svgResponse(getIconSVG());
+    return svgResponse(getIconSVG(), request);
   }
 
   if (path === '/icon-192.png') {
-    return binaryResponse(getIconPNG(192), 'image/png');
+    return binaryResponse(getIconPNG(192), 'image/png', undefined, request);
   }
 
   if (path === '/icon-512.png') {
-    return binaryResponse(getIconPNG(512), 'image/png');
+    return binaryResponse(getIconPNG(512), 'image/png', undefined, request);
   }
 
   if (path === '/favicon.ico') {
-    return binaryResponse(getFaviconICO(), 'image/x-icon');
+    return binaryResponse(getFaviconICO(), 'image/x-icon', undefined, request);
   }
 
   // Auth routes
@@ -63,8 +63,8 @@ export async function route(request, env) {
 
   // Serve the frontend (all non-API routes)
   if (!path.startsWith('/api/')) {
-    return htmlResponse(getHTML());
+    return htmlResponse(getHTML(), request);
   }
 
-  return errorResponse('Not Found', 404);
+  return errorResponse('Not Found', 404, request);
 }

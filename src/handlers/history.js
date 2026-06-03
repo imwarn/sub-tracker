@@ -7,7 +7,7 @@ import { clearHistory, getHistory } from '../data/store.js';
 import { corsPreFlight, errorResponse, jsonResponse, successResponse } from '../utils/response.js';
 
 export async function handleHistory(request, env, path) {
-  if (request.method === 'OPTIONS') return corsPreFlight();
+  if (request.method === 'OPTIONS') return corsPreFlight(request);
 
   const authErr = await requireAuth(request, env);
   if (authErr) return authErr;

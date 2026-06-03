@@ -40,7 +40,7 @@ async function recordHistory(env, action, item, details = {}) {
 }
 
 export async function handleItems(request, env, path) {
-  if (request.method === 'OPTIONS') return corsPreFlight();
+  if (request.method === 'OPTIONS') return corsPreFlight(request);
 
   // Auth check for all item routes
   const authErr = await requireAuth(request, env);
@@ -225,7 +225,7 @@ async function exportJSON(env) {
     version: '1.0.0',
     exportDate: new Date().toISOString(),
     count: items.length,
-    items: items.map(({ id, createdAt, ...rest }) => rest), // strip id/createdAt for clean import
+    items: items.map(({ createdAt, ...rest }) => rest), // strip createdAt, keep id for dedup
   };
 
   return downloadResponse(
@@ -293,6 +293,7 @@ async function importJSON(request, env) {
     }
 
     const existing = await getAllItems(env.DB);
+    const existingIds = new Set(existing.map(i => i.id));
     let added = 0;
     let skipped = 0;
     const errors = [];
@@ -319,6 +320,13 @@ async function importJSON(request, env) {
       }
 
       const item = createItem(type, raw);
+
+      // Dedup: if item has an id that already exists, skip it
+      if (raw.id && existingIds.has(raw.id)) {
+        skipped++;
+        continue;
+      }
+
       existing.push(item);
       added++;
     }
