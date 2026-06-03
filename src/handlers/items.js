@@ -345,7 +345,7 @@ async function testNotify(env, id) {
     const sym = CURRENCY_SYMBOLS[item.currency] || item.currency || '¥';
     const monthsLeft = item.monthlyFee > 0 ? Math.floor(item.balance / item.monthlyFee) : 0;
     const msg = [
-      `⚠️ <b>【话费停机 · 测试通知】</b>`,
+      `⚠️ <b>【Sub-Tracker 话费停机 · 测试通知】</b>`,
       '',
       `📱 名称: ${tg(item.name)}`,
       item.number ? `📞 号码: ${tg(item.number)}` : '',
@@ -369,7 +369,7 @@ async function testNotify(env, id) {
   const typeLabel = item.type === 'esim' ? 'eSIM 保号' : '订阅续费';
 
   const msg = [
-    `${emoji} <b>【${typeLabel} · 测试通知】</b>`,
+    `${emoji} <b>【Sub-Tracker ${typeLabel} · 测试通知】</b>`,
     '',
     `📦 名称: ${tg(item.name)}`,
     item.number ? `📞 号码: ${tg(item.number)}` : '',

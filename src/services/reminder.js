@@ -58,7 +58,7 @@ export async function checkReminders(env) {
           : `预计 ${diffDays} 天后停机`;
 
       messages.push(
-        `${urgency} 【话费停机提醒】\n` +
+        `${urgency} 【Sub-Tracker 话费停机提醒】\n` +
         `📱 名称: ${tg(item.name)}\n` +
         (item.number ? `📞 号码: ${tg(item.number)}\n` : '') +
         `💰 余额: ${currSym}${item.balance}\n` +
@@ -105,7 +105,7 @@ export async function checkReminders(env) {
         : `剩余 ${diffDays} 天`;
 
     messages.push(
-      `${urgency} 【${typeLabel}提醒】\n` +
+      `${urgency} 【Sub-Tracker ${typeLabel}提醒】\n` +
       `${typeEmoji} 名称: ${tg(item.name)}\n` +
       (item.number ? `📞 号码: ${tg(item.number)}\n` : '') +
       priceText +
