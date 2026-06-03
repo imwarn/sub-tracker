@@ -103,7 +103,15 @@ npx wrangler deploy       # 部署
 
 1. iOS 安装 Bark，复制设备 Key
 2. 设置 `BARK_KEY=<你的 Key>`；如果使用自建 Bark 服务，再设置 `BARK_SERVER=https://你的服务地址`
-3. 也可以直接设置完整推送地址 `BARK_URL=https://api.day.app/<key>`，此时 `BARK_URL` 优先
+3. 也可以直接设置完整推送地址 `BARK_URL=https://api.day.app/<key>`
+
+三个变量的优先级：`BARK_URL` > `BARK_KEY` + `BARK_SERVER` > 默认服务器
+
+| 配置方式 | 变量 | 说明 |
+|---------|------|------|
+| 最简（官方服务器） | `BARK_KEY` | 自动拼接为 `https://api.day.app/<key>` |
+| 自建服务器 | `BARK_KEY` + `BARK_SERVER` | 拼接为 `<BARK_SERVER>/<key>` |
+| 完整地址 | `BARK_URL` | 直接使用，忽略 `BARK_KEY` 和 `BARK_SERVER` |
 
 **企业微信机器人** 🟡
 

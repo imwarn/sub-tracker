@@ -26,23 +26,39 @@ sub-tracker/
 │   ├── router.js             # 请求路由分发
 │   ├── handlers/
 │   │   ├── auth.js           # 认证: 多通道 OTP 登录
-│   │   └── items.js          # 业务: 统一 CRUD + 导入导出 + 充值 + 测试通知
+│   │   ├── items.js          # 业务: 统一 CRUD + 导入导出 + 充值 + 测试通知
+│   │   └── history.js        # 操作历史: 查询 & 清空
 │   ├── services/
-│   │   ├── telegram.js       # Telegram 消息发送
-│   │   ├── notify.js         # 多渠道通知发送与通道选择
+│   │   ├── telegram.js       # Telegram 消息发送 & HTML 转义
+│   │   ├── notify.js         # 多渠道通知: 通道检测 / 选择 / 发送
 │   │   └── reminder.js       # 到期/停机提醒逻辑 (支持货币显示)
 │   ├── data/
+│   │   ├── constants.js      # 共享常量: 条目类型 / 状态 / 计费周期 / 货币
 │   │   ├── schema.js         # 数据模型定义 & 校验
-│   │   └── store.js          # KV 读写操作封装
+│   │   └── store.js          # KV 读写操作封装 (items + history + config)
 │   ├── utils/
-│   │   ├── response.js       # HTTP 响应工具 (JSON/CORS)
+│   │   ├── response.js       # HTTP 响应工具 (JSON/CORS/安全头)
 │   │   ├── country.js        # 国码匹配 (E.164 完整码表)
 │   │   └── date.js           # 日期工具 (UTC+8) + 预计停机日计算
 │   └── ui/
-│       └── template.js       # 完整前端 HTML/JS 模板
+│       ├── template.js       # 完整前端 HTML/JS 模板 + PWA manifest/SW
+│       └── brand-assets.js   # SVG 图标 & favicon 二进制资源
 ├── scripts/
-│   ├── build.js              # esbuild 构建脚本
-│   └── deploy.sh             # 部署脚本 (读 .env → 设 secrets → deploy)
+│   ├── build.js              # esbuild 构建脚本 (含图标生成)
+│   ├── deploy.sh             # 部署脚本 (读 .env → 设 secrets → deploy)
+│   └── generate-icons.js     # SVG → PNG/ICO 图标生成 (sharp)
+├── assets/brand/
+│   ├── icon.svg              # 项目矢量图标
+│   ├── icon-192.png          # PWA 图标 192px
+│   ├── icon-512.png          # PWA 图标 512px
+│   └── favicon.ico           # 浏览器标签图标
+├── test/                     # 单元测试 (node:test)
+│   ├── auth.test.mjs         # OTP 认证流程
+│   ├── notify.test.mjs       # 多渠道通知发送
+│   ├── schema.test.mjs       # 数据模型校验
+│   ├── store.test.mjs        # KV 存储操作
+│   ├── template.test.mjs     # 前端模板渲染
+│   └── date.test.mjs         # 日期计算
 ├── worker/
 │   └── worker.js             # 构建产物 (用于 Dashboard 部署)
 ├── wrangler.toml             # Wrangler 配置 (无 [vars]，防覆盖)
@@ -58,11 +74,14 @@ sub-tracker/
 | Key | 类型 | 说明 |
 |-----|------|------|
 | `items` | JSON Array | 所有条目 (eSIM + 订阅 + 话费) |
-| `TG_BOT_TOKEN` | Secret | Telegram Bot Token (通过 Dashboard 或 wrangler secret 设置) |
-| `TG_CHAT_ID` | Secret | Telegram Chat ID (通过 Dashboard 或 wrangler secret 设置) |
+| `history` | JSON Array | 最近 100 条操作记录 (新增/更新/删除/续期/充值/导入) |
+| `TG_BOT_TOKEN` | Secret | Telegram Bot Token |
+| `TG_CHAT_ID` | Secret | Telegram Chat ID |
 | `DEFAULT_NOTIFY_CHANNEL` | String | 普通提醒默认通道: `all` / `telegram` / `bark` / `wecom` / `webhook` |
 | `AUTH_NOTIFY_CHANNEL` | String | 登录验证码通道: `telegram` / `bark` / `wecom` / `webhook` |
-| `BARK_KEY` / `BARK_URL` | Secret | Bark 推送配置 |
+| `BARK_KEY` | Secret | Bark 推送 Key |
+| `BARK_URL` | Secret | Bark 完整推送地址 (优先于 BARK_KEY) |
+| `BARK_SERVER` | Secret | Bark 自建服务地址 (默认 `https://api.day.app`) |
 | `WECOM_WEBHOOK_URL` | Secret | 企业微信机器人 Webhook |
 | `WEBHOOK_URL` | Secret | 通用 Webhook |
 | `admin_auth_code` | String (TTL 300s) | 当前 OTP 验证码 |
@@ -124,6 +143,7 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 |------|------|------|------|
 | POST | `/api/auth/send` | 发送 OTP 到登录验证码通道 | ✗ |
 | POST | `/api/auth/verify` | 验证 OTP，返回 token | ✗ |
+| POST | `/api/auth/logout` | 注销当前会话 | ✗ |
 | GET | `/api/auth/check` | 检查会话有效性 | ✓ |
 | GET | `/api/items` | 获取所有条目 (?type=esim\|subscription\|balance) | ✓ |
 | POST | `/api/items` | 创建新条目 | ✓ |
@@ -135,6 +155,11 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 | GET | `/api/items/export/json` | 导出 JSON | ✓ |
 | GET | `/api/items/export/csv` | 导出 CSV | ✓ |
 | POST | `/api/items/import/json` | 导入 JSON | ✓ |
+| GET | `/api/history` | 获取操作历史 (?limit=N, 最大 100) | ✓ |
+| DELETE | `/api/history` | 清空操作历史 | ✓ |
+| GET | `/manifest.webmanifest` | PWA 应用清单 | ✗ |
+| GET | `/sw.js` | Service Worker | ✗ |
+| GET | `/icon.svg` / `/icon-192.png` / `/icon-512.png` / `/favicon.ico` | 品牌图标资源 | ✗ |
 | `*` | `/*` | 返回前端 HTML | ✗ |
 
 ## 前端功能
@@ -162,10 +187,12 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 ## 安全机制
 
 1. **多通道 OTP 认证**: 不在代码中写死密码，每次登录需要通过配置的通知通道获取动态验证码
-2. **防爆破**: 连续输错 5 次自动作废验证码，带并发延迟防御
+2. **防爆破**: 连续输错 5 次自动作废验证码，60 秒发送冷却 + 并发延迟防御
 3. **会话管理**: UUID token，30天 TTL，存储在 KV 中
 4. **CORS**: 所有 API 响应带 CORS 头
-5. **Secrets 管理**: 通知密钥和 Webhook 通过 CF Secrets 管理，不进代码/部署
+5. **安全头**: `X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`、`Permissions-Policy`、`Cache-Control: no-store`
+6. **Secrets 管理**: 通知密钥和 Webhook 通过 CF Secrets 管理，不进代码/部署
+7. **输入校验**: 所有条目字段经 schema.js 校验（类型/范围/格式），URL 限制 http/https 协议
 
 ## 部署方式
 
@@ -193,6 +220,7 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 - **wrangler.toml 不声明 `[vars]`**：防止 deploy 用空值覆盖 Dashboard 设置的 Variables
 - **TG 配置建议用 Secrets** 而非 Variables（加密存储，Dashboard 不明文显示）
 - **deploy.sh 逻辑**：.env 非空才 `wrangler secret put`，不会覆盖已有值
+- **Dashboard 加变量后需重新部署**：CF Dashboard 添加/修改 Variables 后，必须触发一次 `wrangler deploy` 才能生效（不会热更新）
 
 ---
 
@@ -242,6 +270,10 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 5. **货币处理**：`src/data/constants.js` 统一维护货币符号，前端模板和通知逻辑共享同一来源
 6. **三种 item 类型独立**：esim / subscription / balance 各自有专有字段和业务逻辑，共享基础 CRUD 框架
 7. **话费停机日计算**：`calcSuspendDate()` 基于余额/月租/扣费日推算，前端实时计算 + 后端 cron 提醒双保障
+8. **多渠道通知架构**：`notify.js` 统一管理通道检测/选择/发送，支持 Telegram / Bark / 企业微信 / 通用 Webhook 四通道，`DEFAULT_NOTIFY_CHANNEL` 控制广播或单通道模式
+9. **通知品牌标识**：所有通知消息标题统一包含 `Sub-Tracker`（如 `【Sub-Tracker 到期提醒】`），确保 Webhook 平台关键词过滤可匹配
+10. **常量集中管理**：`constants.js` 统一维护条目类型、状态、计费周期、货币等枚举值，schema / template / notify 共享同一来源
+11. **品牌资源内嵌**：SVG 图标通过 `brand-assets.js` 导出为字符串，构建时由 `generate-icons.js` 生成 PNG/ICO，Worker 直接 serve 二进制资源
 
 ### 调试技巧
 
