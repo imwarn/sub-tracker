@@ -121,6 +121,14 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+
+  // Cache GET /api/items for offline support (network-first)
+  if (url.pathname === '/api/items' && !url.searchParams.has('type')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Skip other API requests
   if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
@@ -1495,6 +1503,15 @@ document.addEventListener('keydown', e => {
     closeHistory();
     const menu = document.getElementById('dropdown-menu');
     if (menu) menu.classList.add('hidden');
+    return;
+  }
+  // Skip shortcuts when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  // / = focus search
+  if (e.key === '/') {
+    e.preventDefault();
+    const search = document.getElementById('search-input');
+    if (search) search.focus();
   }
 });
 
