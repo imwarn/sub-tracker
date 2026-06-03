@@ -473,6 +473,13 @@ export function getHTML() {
             <label class="text-sm text-slate-400 mb-1 block">备注</label>
             <textarea id="form-remark" rows="2" placeholder="可选备注..." class="glass-input w-full px-4 py-3 rounded-xl text-sm resize-none"></textarea>
           </div>
+          <div>
+            <label class="text-sm text-slate-400 mb-1 block">状态</label>
+            <select id="form-status" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              <option value="active">启用</option>
+              <option value="paused">暂停</option>
+            </select>
+          </div>
         </div>
         <div class="flex gap-3 mt-6">
           <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>保存</button>
@@ -928,7 +935,7 @@ function listRowMobileHTML(item) {
       '</div>' +
       '<div class="flex gap-1 flex-shrink-0">' +
         (isBalance ? '<button onclick="rechargeItem(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
-        (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+        ((isEsim || item.type === 'subscription') && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
         '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
         '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
         '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
@@ -971,7 +978,7 @@ function listRowHTML(item) {
     '<div class="col-span-2 hidden sm:block text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</div>' +
     '<div class="col-span-3 sm:col-span-2 flex justify-end gap-1">' +
       (isBalance ? '<button onclick="rechargeItem(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
-      (isEsim && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+      ((isEsim || item.type === 'subscription') && item.cycle ? '<button onclick="renewItem(\\''+item.id+'\\')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
       '<button onclick="toggleStatus(\\''+item.id+'\\')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
       '<button onclick="testNotify(\\''+item.id+'\\')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
       '<button onclick="editItem(\\''+item.id+'\\')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
@@ -1152,6 +1159,7 @@ function openModal(type, item) {
     document.getElementById('form-billing').value = item.billing || 'monthly';
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
+    document.getElementById('form-status').value = item.status || 'active';
     if (type === 'balance') {
       document.getElementById('form-balance').value = item.balance ?? '';
       document.getElementById('form-monthly-fee').value = item.monthlyFee ?? '';
@@ -1186,6 +1194,7 @@ async function saveItem(e) {
     billing: document.getElementById('form-billing').value,
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
+    status: document.getElementById('form-status').value,
     remindDays: getSelectedRemindDays(),
     balance: document.getElementById('form-balance').value,
     monthlyFee: document.getElementById('form-monthly-fee').value,
@@ -1215,6 +1224,7 @@ async function deleteItem(id) {
 }
 
 async function renewItem(id) {
+  if (!confirm('确定续期？将自动延长到期日期。')) return;
   const res = await api('POST', '/api/items/'+id+'/renew');
   const data = await res.json();
   if (data.success) await loadItems(); else alert(data.message || '续期失败');

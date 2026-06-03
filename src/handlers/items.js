@@ -162,11 +162,11 @@ async function deleteExistingItem(env, id) {
 async function renewItem(env, id) {
   try {
     const result = await updateItem(env.DB, id, existing => {
-      if (existing.type !== 'esim') {
-        throw new Error('仅 eSIM 类型支持一键续期');
+      if (existing.type !== 'esim' && existing.type !== 'subscription') {
+        throw new Error('仅 eSIM 和订阅类型支持一键续期');
       }
       if (!existing.cycle) {
-        throw new Error('未设置保号周期，无法续期');
+        throw new Error('未设置续费周期，无法续期');
       }
       const newExpire = addDays(existing.expireDate, existing.cycle);
       return { ...existing, expireDate: newExpire, status: 'active' };
