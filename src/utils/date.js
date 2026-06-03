@@ -74,9 +74,18 @@ export function getStatusText(days) {
  *   If N <= 0: predicted suspend = next billing day (balance insufficient)
  *   Else: predicted suspend = next billing day + N months
  *
+ * Edge cases:
+ *   - balance = 0 or balance < monthlyFee → N = 0 → returns next billing day
+ *     (correct: the upcoming deduction will drain the balance)
+ *   - If today is past this month's billing day, the "next billing day" shifts
+ *     to next month. This means N=0 returns next month's billing day, which is
+ *     correct because this month's deduction already happened.
+ *   - billingDay > days-in-month → clamped to last day of that month
+ *
  * @param {number} balance - current balance
  * @param {number} monthlyFee - monthly fee
  * @param {number} billingDay - day of month (1-28)
+ * @param {Date} [now] - override current time (for testing)
  * @returns {string} predicted suspend date "YYYY-MM-DD"
  */
 export function calcSuspendDate(balance, monthlyFee, billingDay, now = new Date()) {

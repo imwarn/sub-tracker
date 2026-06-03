@@ -58,9 +58,12 @@ export function getFaviconICO() {
   return bytesFromBase64(FAVICON_ICO_BASE64);
 }
 
+// Auto-versioned SW cache: changes on each Worker deploy
+const SW_VERSION = Date.now().toString(36);
+
 export function getServiceWorker() {
   return `
-const CACHE_NAME = 'sub-tracker-v3';
+const CACHE_NAME = 'sub-tracker-${SW_VERSION}';
 const SHELL_CACHE = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/favicon.ico'];
 const CDN_HOSTS = new Set(['cdn.tailwindcss.com', 'cdnjs.cloudflare.com']);
 
