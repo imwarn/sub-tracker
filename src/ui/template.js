@@ -359,7 +359,7 @@ export function getHTML() {
           </div>
           <div id="field-number" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">号码</label>
-            <input id="form-number" type="text" placeholder="+8613800138000" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            <input id="form-number" type="text" placeholder="+861****8000" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
           </div>
           <div id="field-category" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">分类</label>
@@ -531,6 +531,30 @@ export function getHTML() {
 	      <div id="history-content" class="space-y-2"></div>
 	    </div>
 	  </div>
+	  <!-- ========== RECHARGE MODAL ========== -->
+	  <div id="recharge-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+	    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
+	      <h3 class="text-lg font-bold text-white mb-4">充值</h3>
+	      <p id="recharge-info" class="text-sm text-slate-400 mb-4"></p>
+	      <form id="recharge-form">
+	        <div class="space-y-3">
+	          <div>
+	            <label class="text-sm text-slate-400 mb-1 block">充值金额（负数为校正扣减）</label>
+	            <input id="recharge-amount" type="number" step="0.01" required placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+	          </div>
+	          <div>
+\t            <label class="text-sm text-slate-400 mb-1 block">备注（可选）</label>
+\t            <input id="recharge-note" type="text" placeholder="如：微信充值" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+\t          </div>
+\t        </div>
+\t        <div class="flex gap-3 mt-5">
+\t          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>确认充值</button>
+\t          <button type="button" onclick="document.getElementById('recharge-overlay').classList.add('hidden');document.getElementById('recharge-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
+\t        </div>
+\t      </form>
+\t    </div>
+\t  </div>
+
 
 \t  <!-- ========== TOAST ========== -->
 \t  <div id="toast-container" class="toast-container"></div>
@@ -725,7 +749,7 @@ function renderStats() {
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
     '<div class="glass-card rounded-xl p-4' + (s.filter ? ' cursor-pointer' : '') + '"' +
-    (s.filter ? ' onclick="setFilter(\\''+s.filter+'\\')"' : '') + '><div class="flex items-center gap-3">' +
+    (s.filter ? ' onclick="setFilter(\\''+s.filter+'\\')" role="button" tabindex="0" aria-label="筛选'+s.label+'"' : '') + '><div class="flex items-center gap-3">' +
     '<div class="'+s.bg+' w-10 h-10 rounded-lg flex items-center justify-center"><i class="fa-solid '+s.icon+' '+s.color+'"></i></div>' +
     '<div><div class="text-xs text-slate-400">'+s.label+'</div><div class="text-xl font-bold text-white">'+s.value+'</div></div>' +
     '</div></div>'
@@ -932,7 +956,7 @@ function cardHTML(item) {
     body = (metaLine ? '<div class="text-xs text-slate-400 mb-1">'+metaLine+'</div>' : '') +
       (ps ? '<div class="text-sm text-emerald-400 font-semibold">'+esc(ps)+'</div>' : '') +
       (item.subId ? '<div class="text-xs text-slate-500 mt-1 truncate"><i class="fa-solid fa-id-card mr-1"></i>'+esc(item.subId)+'</div>' : '');
-    if (item.url) body += '<a href="'+esc(item.url)+'" target="_blank" class="text-xs text-sky-400 hover:underline mt-1 inline-block"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>访问</a>';
+    if (item.url) body += '<a href="'+safeHref(item.url)+'" target="_blank" rel="noopener noreferrer" class="text-xs text-sky-400 hover:underline mt-1 inline-block"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>访问</a>';
   }
 
   const renewBtn = isEsim && item.cycle ?
@@ -1126,6 +1150,9 @@ function renderCalendar(items, area) {
     });
     html += '</div>';
   }
+  if (!Object.keys(events).length) {
+    html += '<div class="text-center text-slate-500 py-6 text-sm col-span-7">本月无到期事件</div>';
+  }
   html += '</div></div>';
   area.innerHTML = html;
 }
@@ -1178,6 +1205,7 @@ function getFlag(num) {
 }
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function safeHref(url) { if (!url) return ''; const u = String(url).trim().toLowerCase(); if (u.startsWith('javascript:') || u.startsWith('data:') || u.startsWith('vbscript:')) return '#'; return esc(url); }
 
 const CURRENCY_SYMBOLS = ${JSON.stringify(CURRENCY_SYMBOLS)};
 function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '¥'; }
@@ -1285,6 +1313,12 @@ async function saveItem(e) {
   if (body.type !== 'balance' && !body.expireDate) {
     showToast('到期日期不能为空', 'error'); return;
   }
+  // Client-side validation for balance type
+  if (body.type === 'balance') {
+    if (!body.balance && body.balance !== 0) { showToast('请输入当前余额', 'error'); return; }
+    if (!body.monthlyFee && body.monthlyFee !== 0) { showToast('请输入月租', 'error'); return; }
+    if (!body.billingDay) { showToast('请输入扣费日', 'error'); return; }
+  }
 
   const btn = e.target.querySelector('[type="submit"]');
   const origHTML = btn.innerHTML;
@@ -1305,6 +1339,7 @@ function editItem(id) { const item = allItems.find(i => i.id === id); if (item) 
 async function deleteItem(id) {
   if (!confirm('确定删除此记录？')) return;
   try {
+    showToast('删除中...', 'info');
     const res = await api('DELETE', '/api/items/'+id);
     const data = await res.json();
     if (data.success) { showToast('已删除', 'success'); await loadItems(); }
@@ -1314,9 +1349,12 @@ async function deleteItem(id) {
 
 async function renewItem(id) {
   if (!confirm('确定续期？将自动延长到期日期。')) return;
-  const res = await api('POST', '/api/items/'+id+'/renew');
-  const data = await res.json();
-  if (data.success) { await loadItems(); showToast('续期成功', 'success'); } else showToast(data.message || '续期失败', 'error');
+  try {
+    const res = await api('POST', '/api/items/'+id+'/renew');
+    const data = await res.json();
+    if (data.success) { await loadItems(); showToast('续期成功', 'success'); }
+    else showToast(data.message || '续期失败', 'error');
+  } catch { showToast('续期失败', 'error'); }
 }
 
 async function testNotify(id) {
@@ -1326,16 +1364,29 @@ async function testNotify(id) {
   else showToast(data.message || '发送失败', 'error');
 }
 
-async function rechargeItem(id) {
+function rechargeItem(id) {
   const item = allItems.find(i => i.id === id);
   if (!item) return;
-  const amount = prompt('充值金额（负数为校正扣减）：\\n当前余额: '+currSym(item.currency)+item.balance, '');
-  if (amount === null || amount.trim() === '') return;
-  const note = prompt('备注（可留空）：', '') || '';
-  const res = await api('POST', '/api/items/'+id+'/recharge', { amount: parseFloat(amount), note });
-  const data = await res.json();
-  if (data.success) { await loadItems(); showToast('✅ 充值成功！新余额: '+currSym(item.currency)+data.newBalance, 'success'); }
-  else showToast(data.message || '充值失败', 'error');
+  const sym = currSym(item.currency);
+  const overlay = document.getElementById('recharge-overlay');
+  document.getElementById('recharge-amount').value = '';
+  document.getElementById('recharge-note').value = '';
+  document.getElementById('recharge-info').textContent = '当前余额: ' + sym + item.balance;
+  document.getElementById('recharge-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const amount = document.getElementById('recharge-amount').value;
+    const note = document.getElementById('recharge-note').value || '';
+    if (!amount) return;
+    overlay.classList.add('hidden'); overlay.classList.remove('flex');
+    try {
+      const res = await api('POST', '/api/items/'+id+'/recharge', { amount: parseFloat(amount), note });
+      const data = await res.json();
+      if (data.success) { await loadItems(); showToast('充值成功！新余额: '+sym+data.newBalance, 'success'); }
+      else showToast(data.message || '充值失败', 'error');
+    } catch { showToast('充值失败', 'error'); }
+  };
+  overlay.classList.remove('hidden'); overlay.classList.add('flex');
+  document.getElementById('recharge-amount').focus();
 }
 
 function getSelectedRemindDays() {
@@ -1496,8 +1547,8 @@ function downloadDemo() {
     exportDate: new Date().toISOString(),
     count: 4,
     items: [
-      { type: 'esim', name: '美国保号卡', number: '+12025551234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active' },
-      { type: 'esim', name: '日本 IIJmio', number: '+81901234567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
+      { type: 'esim', name: '美国保号卡', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active' },
+      { type: 'esim', name: '日本 IIJmio', number: '+819****4567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
       { type: 'subscription', name: 'ChatGPT Plus', category: 'AI 工具', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
       { type: 'subscription', name: 'YouTube Premium', category: '视频会员', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '土耳其区', status: 'active' },
     ]
@@ -1514,6 +1565,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeModal();
     closeHistory();
+    const ro = document.getElementById('recharge-overlay');
+    if (ro) { ro.classList.add('hidden'); ro.classList.remove('flex'); }
     const menu = document.getElementById('dropdown-menu');
     if (menu) menu.classList.add('hidden');
     return;
