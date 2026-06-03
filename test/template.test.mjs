@@ -64,6 +64,12 @@ test('html registers the manifest and service worker', () => {
   assert.match(html, /navigator\.serviceWorker\.register\('\/sw\.js'\)/);
 });
 
+test('dashboard header uses the project brand icon', () => {
+  const html = getHTML();
+  assert.match(html, /<img src="\/icon\.svg" alt="" class="[^"]*w-8[^"]*"> Sub-Tracker/);
+  assert.doesNotMatch(html, /fa-chart-line[^<]*<\/i> Sub-Tracker/);
+});
+
 test('html includes analytics and history surfaces', () => {
   const html = getHTML();
   assert.match(html, /id="analytics-panel"/);

@@ -1333,7 +1333,7 @@ function getHTML() {
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
-            <i class="fa-solid fa-chart-line text-sky-400"></i> Sub-Tracker
+            <img src="/icon.svg" alt="" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg shadow-lg shadow-sky-950/30 flex-shrink-0"> Sub-Tracker
           </h1>
           <p class="text-slate-400 mt-1 text-xs sm:text-sm">eSIM \u4FDD\u53F7 & \u8BA2\u9605\u8D39\u7528\u7BA1\u7406\u770B\u677F</p>
         </div>
