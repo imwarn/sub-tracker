@@ -15,13 +15,13 @@ export async function handleHistory(request, env, path) {
   if (path === '/api/history' && request.method === 'GET') {
     const url = new URL(request.url);
     const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 100));
-    return jsonResponse(await getHistory(env.DB, limit));
+    return jsonResponse(await getHistory(env.DB, limit), 200, request, env);
   }
 
   if (path === '/api/history' && request.method === 'DELETE') {
     await clearHistory(env.DB);
-    return successResponse();
+    return successResponse(null, request, env);
   }
 
-  return errorResponse('Not Found', 404);
+  return errorResponse('Not Found', 404, request, env);
 }

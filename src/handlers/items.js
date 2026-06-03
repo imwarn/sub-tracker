@@ -110,7 +110,7 @@ async function listItems(request, env) {
     items = items.filter(i => i.type === typeFilter);
   }
 
-  return jsonResponse(items);
+  return jsonResponse(items, 200, request, env);
 }
 
 async function createNewItem(request, env) {
@@ -119,18 +119,18 @@ async function createNewItem(request, env) {
     const type = body.type || 'esim';
 
     if (!ITEM_TYPES.includes(type)) {
-      return errorResponse('无效的类型');
+      return errorResponse('无效的类型', 400, request, env);
     }
 
     const err = validateItem(type, body);
-    if (err) return errorResponse(err);
+    if (err) return errorResponse(err, 400, request, env);
 
     const item = createItem(type, body);
     await addItem(env.DB, item);
     await recordHistory(env, 'create', item);
-    return successResponse({ id: item.id });
+    return successResponse({ id: item.id }, request, env);
   } catch {
-    return errorResponse('参数错误', 400);
+    return errorResponse('参数错误', 400, request, env);
   }
 }
 
@@ -144,19 +144,19 @@ async function updateExistingItem(request, env, id) {
       return updated;
     });
 
-    if (!result) return errorResponse('未找到记录', 404);
+    if (!result) return errorResponse('未找到记录', 404, request, env);
     await recordHistory(env, 'update', result);
-    return successResponse();
+    return successResponse(null, request, env);
   } catch (e) {
-    return errorResponse(e.message || '更新失败', 400);
+    return errorResponse(e.message || '更新失败', 400, request, env);
   }
 }
 
 async function deleteExistingItem(env, id) {
   const deleted = await deleteItem(env.DB, id);
-  if (!deleted) return errorResponse('未找到记录', 404);
+  if (!deleted) return errorResponse('未找到记录', 404, null, env);
   await recordHistory(env, 'delete', deleted);
-  return successResponse();
+  return successResponse(null, null, env);
 }
 
 async function renewItem(env, id) {
@@ -172,11 +172,11 @@ async function renewItem(env, id) {
       return { ...existing, expireDate: newExpire, status: 'active' };
     });
 
-    if (!result) return errorResponse('未找到记录', 404);
+    if (!result) return errorResponse('未找到记录', 404, null, env);
     await recordHistory(env, 'renew', result, { newExpireDate: result.expireDate });
-    return successResponse({ newExpireDate: result.expireDate });
+    return successResponse({ newExpireDate: result.expireDate }, null, env);
   } catch (e) {
-    return errorResponse(e.message || '续期失败', 400);
+    return errorResponse(e.message || '续期失败', 400, null, env);
   }
 }
 
@@ -185,7 +185,7 @@ async function rechargeItem(request, env, id) {
     const body = await request.json();
     const amount = parseFloat(body.amount);
     if (isNaN(amount) || amount === 0) {
-      return errorResponse('金额不能为空或为零');
+      return errorResponse('金额不能为空或为零', 400, request, env);
     }
 
     const result = await updateItem(env.DB, id, existing => {
@@ -202,7 +202,7 @@ async function rechargeItem(request, env, id) {
       };
     });
 
-    if (!result) return errorResponse('未找到记录', 404);
+    if (!result) return errorResponse('未找到记录', 404, request, env);
     await recordHistory(env, 'recharge', result, {
       amount,
       newBalance: result.balance,
@@ -211,9 +211,9 @@ async function rechargeItem(request, env, id) {
     return successResponse({
       newBalance: result.balance,
       predictedSuspendDate: result.predictedSuspendDate,
-    });
+    }, request, env);
   } catch (e) {
-    return errorResponse(e.message || '充值失败', 400);
+    return errorResponse(e.message || '充值失败', 400, request, env);
   }
 }
 
@@ -231,7 +231,8 @@ async function exportJSON(env) {
   return downloadResponse(
     JSON.stringify(exportData, null, 2),
     'application/json',
-    `sub-tracker-${new Date().toISOString().split('T')[0]}.json`
+    `sub-tracker-${new Date().toISOString().split('T')[0]}.json`,
+    null, env
   );
 }
 
@@ -270,7 +271,8 @@ async function exportCSV(env) {
   return downloadResponse(
     csv,
     'text/csv; charset=utf-8',
-    `sub-tracker-${new Date().toISOString().split('T')[0]}.csv`
+    `sub-tracker-${new Date().toISOString().split('T')[0]}.csv`,
+    null, env
   );
 }
 
@@ -289,7 +291,7 @@ async function importJSON(request, env) {
     const importedItems = body.items || body;
 
     if (!Array.isArray(importedItems)) {
-      return errorResponse('数据格式错误：需要 items 数组');
+      return errorResponse('数据格式错误：需要 items 数组', 400, request, env);
     }
 
     const existing = await getAllItems(env.DB);
@@ -333,19 +335,19 @@ async function importJSON(request, env) {
 
     await saveAllItems(env.DB, existing);
     await recordHistory(env, 'import', null, { added, skipped, total: existing.length });
-    return successResponse({ added, skipped, total: existing.length, errors: errors.slice(0, 10) });
+    return successResponse({ added, skipped, total: existing.length, errors: errors.slice(0, 10) }, request, env);
   } catch {
-    return errorResponse('导入失败：JSON 解析错误', 400);
+    return errorResponse('导入失败：JSON 解析错误', 400, request, env);
   }
 }
 
 async function testNotify(env, id) {
   const item = await getItemById(env.DB, id);
-  if (!item) return errorResponse('未找到记录', 404);
+  if (!item) return errorResponse('未找到记录', 404, null, env);
 
   const channels = await getConfiguredNotificationChannels(env);
   if (!channels.length) {
-    return errorResponse('未配置通知渠道。请至少配置 Telegram、Bark、企业微信或 Webhook 中的一种');
+    return errorResponse('未配置通知渠道。请至少配置 Telegram、Bark、企业微信或 Webhook 中的一种', 400, null, env);
   }
 
   if (item.type === 'balance') {
@@ -367,8 +369,8 @@ async function testNotify(env, id) {
       '<i>这是一条测试通知，确认通知功能正常。</i>',
     ].filter(Boolean).join('\n');
     const results = await sendNotifications(env, msg, { title: 'Sub-Tracker 测试通知' });
-    if (results.some(r => r.ok)) return successResponse({ channels: results });
-    return errorResponse('发送失败，请检查通知配置');
+    if (results.some(r => r.ok)) return successResponse({ channels: results }, null, env);
+    return errorResponse('发送失败，请检查通知配置', 400, null, env);
   }
 
   const diff = daysUntil(item.expireDate);
@@ -390,6 +392,6 @@ async function testNotify(env, id) {
   ].filter(Boolean).join('\n');
 
   const results = await sendNotifications(env, msg, { title: 'Sub-Tracker 测试通知' });
-  if (results.some(r => r.ok)) return successResponse({ channels: results });
-  return errorResponse('发送失败，请检查通知配置');
+  if (results.some(r => r.ok)) return successResponse({ channels: results }, null, env);
+  return errorResponse('发送失败，请检查通知配置', 400, null, env);
 }

@@ -77,7 +77,7 @@ function channelRequirements(channel) {
 async function sendOTP(env) {
   const cooldown = await getConfig(env.DB, OTP_SEND_COOLDOWN_KEY);
   if (cooldown) {
-    return errorResponse('验证码发送过于频繁，请稍后再试', 429);
+    return errorResponse('验证码发送过于频繁，请稍后再试', 429, null, env);
   }
 
   const channel = await getAuthNotificationChannel(env);
@@ -86,7 +86,7 @@ async function sendOTP(env) {
       `未配置可用的登录验证码通道。请至少配置 Telegram、Bark、企业微信或 Webhook 中的一种。\n` +
       `1. Cloudflare Dashboard → Workers → Settings → Variables (推荐)\n` +
       `2. KV 数据库中手动添加对应键值对`,
-      500
+      500, null, env
     );
   }
 
@@ -113,7 +113,7 @@ async function sendOTP(env) {
 
   if (results.some(result => result.ok)) {
     await setConfig(env.DB, OTP_SEND_COOLDOWN_KEY, '1', { expirationTtl: 60 });
-    return successResponse({ channel });
+    return successResponse({ channel }, null, env);
   }
 
   await env.DB.delete('admin_auth_code');
@@ -123,7 +123,7 @@ async function sendOTP(env) {
   const detail = failure?.message ? `（${failure.message}）` : '';
   return errorResponse(
     `${channelLabel(channel)} 验证码发送失败${detail}，请检查 ${channelRequirements(channel)} 配置`,
-    500
+    500, null, env
   );
 }
 
@@ -139,11 +139,11 @@ async function verifyOTP(request, env) {
     if (attempts >= 5) {
       await env.DB.delete('admin_auth_code');
       await env.DB.delete('admin_auth_attempts');
-      return errorResponse('错误次数过多，验证码已作废。请重新获取！', 403);
+      return errorResponse('错误次数过多，验证码已作废。请重新获取！', 403, request, env);
     }
 
     if (!storedCode) {
-      return errorResponse('请先获取验证码或验证码已过期', 400);
+      return errorResponse('请先获取验证码或验证码已过期', 400, request, env);
     }
 
     if (code && storedCode === code.toString()) {
@@ -151,16 +151,16 @@ async function verifyOTP(request, env) {
       await setConfig(env.DB, `session_token_${token}`, 'valid', { expirationTtl: 2592000 });
       await env.DB.delete('admin_auth_code');
       await env.DB.delete('admin_auth_attempts');
-      return successResponse({ token });
+      return successResponse({ token }, request, env);
     }
 
     // Wrong code
     attempts++;
     await setConfig(env.DB, 'admin_auth_attempts', attempts.toString(), { expirationTtl: 300 });
     await new Promise(r => setTimeout(r, 1000)); // Rate limit
-    return errorResponse(`验证码错误！剩余尝试次数: ${5 - attempts} 次`, 401);
+    return errorResponse(`验证码错误！剩余尝试次数: ${5 - attempts} 次`, 401, request, env);
   } catch {
-    return errorResponse('校验失败', 500);
+    return errorResponse('校验失败', 500, request, env);
   }
 }
 
@@ -169,7 +169,7 @@ async function logoutSession(request, env) {
   if (token) {
     await env.DB.delete(`session_token_${token}`);
   }
-  return successResponse();
+  return successResponse(null, request, env);
 }
 
 /**
@@ -177,12 +177,12 @@ async function logoutSession(request, env) {
  */
 async function checkSession(request, env) {
   const token = request.headers.get('Authorization');
-  if (!token) return errorResponse('未登录', 401);
+  if (!token) return errorResponse('未登录', 401, request, env);
 
   const valid = await getConfig(env.DB, `session_token_${token}`);
-  if (!valid) return errorResponse('会话已过期', 401);
+  if (!valid) return errorResponse('会话已过期', 401, request, env);
 
-  return successResponse();
+  return successResponse(null, request, env);
 }
 
 /**
@@ -191,10 +191,10 @@ async function checkSession(request, env) {
  */
 export async function requireAuth(request, env) {
   const token = request.headers.get('Authorization');
-  if (!token) return errorResponse('Unauthorized: Missing Token', 401);
+  if (!token) return errorResponse('Unauthorized: Missing Token', 401, request, env);
 
   const valid = await getConfig(env.DB, `session_token_${token}`);
-  if (!valid) return errorResponse('Unauthorized: Invalid or Expired Token', 401);
+  if (!valid) return errorResponse('Unauthorized: Invalid or Expired Token', 401, request, env);
 
   return null; // Valid
 }

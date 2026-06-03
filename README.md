@@ -85,9 +85,33 @@ npx wrangler deploy       # 部署
 | `BARK_KEY` / `BARK_URL` | Bark 推送 Key 或完整推送 URL | 可选 |
 | `BARK_SERVER` | Bark 自建服务地址，默认 `https://api.day.app` | 可选 |
 | `WECOM_WEBHOOK_URL` | 企业微信机器人 Webhook，兼容 `WECHAT_WORK_WEBHOOK_URL` | 可选 |
-| `WEBHOOK_URL` | 通用 Webhook URL | 可选 |
+|| `WEBHOOK_URL` | 通用 Webhook URL | 可选 |
+|| `ALLOWED_ORIGIN` | CORS 允许的跨域来源（逗号分隔多域名），不填则仅允许同源请求 | 可选 |
 
 代码优先读取 Worker 环境变量，其次读 KV 数据库。通知渠道至少配置一种即可。
+
+### CORS 跨域配置（ALLOWED_ORIGIN）
+
+默认情况下，Sub-Tracker 仅允许**同源请求**（即前端和 API 在同一域名下），无需额外配置。
+
+如果你的 Worker 绑定了**自定义域名**，或需要从**其他域名**访问 API，需设置 `ALLOWED_ORIGIN`：
+
+| 场景 | ALLOWED_ORIGIN 值 | 说明 |
+|------|-------------------|------|
+| 单域名 | `https://sub.example.com` | 只允许该域名跨域访问 |
+| 多域名（逗号分隔） | `https://sub.example.com, https://sub2.example.com` | 绑定了多个自定义域名 |
+| 多域名（空格分隔） | `https://sub.example.com https://sub2.example.com` | 同上，两种写法均可 |
+| 不设置 | 留空 | 默认行为：仅允许同源请求（推荐） |
+
+> **Cloudflare Workers 绑定多域名：**
+>
+> 在 CF Dashboard → Workers → Settings → Domains & Routes 中，一个 Worker 可以绑定多个自定义域名和路由。
+> 例如同时绑定了 `sub.example.com` 和 `tracker.mysite.com`，则设置：
+> ```
+> ALLOWED_ORIGIN = https://sub.example.com, https://tracker.mysite.com
+> ```
+>
+> **注意：** 没有配置 ALLOWED_ORIGIN 时，CORS 策略默认为同源限制。如果从 `a.com` 的页面请求 `b.com` 的 Worker API，会被浏览器拦截。绝大多数场景不需要设置此项（前端和 API 同域部署）。
 
 ### 推送配置指南
 
