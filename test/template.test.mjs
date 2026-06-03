@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { CURRENCY_SYMBOLS } from '../src/data/constants.js';
-import { getHTML, getIconSVG, getManifest, getServiceWorker } from '../src/ui/template.js';
+import { getFaviconICO, getHTML, getIconPNG, getIconSVG, getManifest, getServiceWorker } from '../src/ui/template.js';
 import { getCountryMap } from '../src/utils/country.js';
 
 function getInlineScript(html) {
@@ -41,18 +41,26 @@ test('manifest and service worker assets are generated', () => {
   const manifest = getManifest();
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.start_url, '/');
-  assert.equal(manifest.icons[0].src, '/icon.svg');
+  assert.ok(manifest.icons.some((icon) => icon.src === '/icon-192.png'));
+  assert.ok(manifest.icons.some((icon) => icon.src === '/icon-512.png'));
+  assert.ok(manifest.icons.some((icon) => icon.src === '/icon.svg'));
 
   const sw = getServiceWorker();
   assert.match(sw, /CACHE_NAME/);
   assert.match(sw, /url\.pathname\.startsWith\('\/api\/'\)/);
+  assert.match(sw, /\/favicon\.ico/);
 
   assert.match(getIconSVG(), /^<svg /);
+  assert.ok(getIconPNG(192).byteLength > 1000);
+  assert.ok(getIconPNG(512).byteLength > getIconPNG(192).byteLength);
+  assert.equal(getFaviconICO()[0], 0);
 });
 
 test('html registers the manifest and service worker', () => {
   const html = getHTML();
   assert.match(html, /<link rel="manifest" href="\/manifest\.webmanifest">/);
+  assert.match(html, /<link rel="icon" href="\/favicon\.ico" sizes="any">/);
+  assert.match(html, /<link rel="apple-touch-icon" href="\/icon-192\.png">/);
   assert.match(html, /navigator\.serviceWorker\.register\('\/sw\.js'\)/);
 });
 

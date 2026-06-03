@@ -6,6 +6,12 @@
 
 import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS } from '../data/constants.js';
 import { getCountryMap } from '../utils/country.js';
+import {
+  FAVICON_ICO_BASE64,
+  ICON_192_PNG_BASE64,
+  ICON_512_PNG_BASE64,
+  ICON_SVG,
+} from './brand-assets.js';
 
 function getFrontendFlagMap() {
   return Object.fromEntries(
@@ -24,24 +30,38 @@ export function getManifest() {
     background_color: '#0f172a',
     theme_color: '#0ea5e9',
     icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
       { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
     ],
   };
 }
 
 export function getIconSVG() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#0f172a"/>
-  <path d="M128 136c0-26.5 21.5-48 48-48h160c26.5 0 48 21.5 48 48v240c0 26.5-21.5 48-48 48H176c-26.5 0-48-21.5-48-48V136Z" fill="#0ea5e9"/>
-  <path d="M184 152c0-8.8 7.2-16 16-16h112c8.8 0 16 7.2 16 16v208c0 8.8-7.2 16-16 16H200c-8.8 0-16-7.2-16-16V152Z" fill="#e0f2fe"/>
-  <path d="M216 192h80M216 240h80M216 288h48" stroke="#0369a1" stroke-width="24" stroke-linecap="round"/>
-</svg>`;
+  return ICON_SVG;
+}
+
+function bytesFromBase64(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+export function getIconPNG(size) {
+  if (size === 192) return bytesFromBase64(ICON_192_PNG_BASE64);
+  if (size === 512) return bytesFromBase64(ICON_512_PNG_BASE64);
+  return null;
+}
+
+export function getFaviconICO() {
+  return bytesFromBase64(FAVICON_ICO_BASE64);
 }
 
 export function getServiceWorker() {
   return `
-const CACHE_NAME = 'sub-tracker-v2';
-const SHELL_CACHE = ['/', '/manifest.webmanifest', '/icon.svg'];
+const CACHE_NAME = 'sub-tracker-v3';
+const SHELL_CACHE = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/favicon.ico'];
 const CDN_HOSTS = new Set(['cdn.tailwindcss.com', 'cdnjs.cloudflare.com']);
 
 self.addEventListener('install', event => {
@@ -126,10 +146,12 @@ export function getHTML() {
 	  <meta charset="UTF-8">
 	    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 	    <meta name="apple-mobile-web-app-capable" content="yes">
-	    <meta name="theme-color" content="#0ea5e9">
+	  <meta name="theme-color" content="#0ea5e9">
 	    <title>Sub-Tracker | eSIM 保号 & 订阅管理</title>
 	  <link rel="manifest" href="/manifest.webmanifest">
+	  <link rel="icon" href="/favicon.ico" sizes="any">
 	  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+	  <link rel="apple-touch-icon" href="/icon-192.png">
 	  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>

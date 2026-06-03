@@ -10,10 +10,13 @@ import esbuild from 'esbuild';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { generateIcons } from './generate-icons.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function build() {
   try {
+    await generateIcons();
     await esbuild.build({
       entryPoints: [path.join(__dirname, '..', 'src', 'index.js')],
       bundle: true,

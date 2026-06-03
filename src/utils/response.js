@@ -38,6 +38,17 @@ export function svgResponse(svg) {
   return textResponse(svg, 'image/svg+xml;charset=UTF-8');
 }
 
+export function binaryResponse(body, contentType, cacheControl = 'public, max-age=86400') {
+  return new Response(body, {
+    headers: {
+      ...CORS_HEADERS,
+      ...SECURITY_HEADERS,
+      'Content-Type': contentType,
+      'Cache-Control': cacheControl,
+    },
+  });
+}
+
 export function errorResponse(message, status = 400) {
   return jsonResponse({ success: false, message }, status);
 }

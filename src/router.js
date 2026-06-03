@@ -3,11 +3,11 @@
  * Matches URL paths to handler functions
  */
 
-import { corsPreFlight, errorResponse, htmlResponse, svgResponse, textResponse } from './utils/response.js';
+import { binaryResponse, corsPreFlight, errorResponse, htmlResponse, svgResponse, textResponse } from './utils/response.js';
 import { handleAuth } from './handlers/auth.js';
 import { handleHistory } from './handlers/history.js';
 import { handleItems } from './handlers/items.js';
-import { getHTML, getIconSVG, getManifest, getServiceWorker } from './ui/template.js';
+import { getFaviconICO, getHTML, getIconPNG, getIconSVG, getManifest, getServiceWorker } from './ui/template.js';
 
 /**
  * Route a request to the appropriate handler
@@ -31,6 +31,18 @@ export async function route(request, env) {
 
   if (path === '/icon.svg') {
     return svgResponse(getIconSVG());
+  }
+
+  if (path === '/icon-192.png') {
+    return binaryResponse(getIconPNG(192), 'image/png');
+  }
+
+  if (path === '/icon-512.png') {
+    return binaryResponse(getIconPNG(512), 'image/png');
+  }
+
+  if (path === '/favicon.ico') {
+    return binaryResponse(getFaviconICO(), 'image/x-icon');
   }
 
   // Auth routes

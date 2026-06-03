@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/icon.svg" width="112" height="112" alt="Sub-Tracker icon">
+</p>
+
 # 📱 Sub-Tracker
 
 > **eSIM 保号 & 订阅费用管理看板**
