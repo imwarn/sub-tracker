@@ -294,7 +294,7 @@ export function getHTML() {
       <div class="relative">
         <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
         <input id="search-input" type="text" placeholder="搜索名称、号码、备注..."
-          oninput="renderItems()"
+          oninput="debouncedRender()"
           class="glass-input w-full pl-11 pr-4 py-3 rounded-xl text-sm">
       </div>
     </div>
@@ -523,6 +523,8 @@ let allItems = [];
 let currentFilter = 'all';
 let currentView = 'grid';
 let calYear, calMonth;
+let _renderTimer = null;
+function debouncedRender() { clearTimeout(_renderTimer); _renderTimer = setTimeout(renderItems, 300); }
 
 const API = '';
 const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
@@ -604,37 +606,58 @@ function renderStats() {
     } else if (i.expireDate) { const exp = new Date(i.expireDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
   });
 
-  // Cost calculation
-  let monthlyCost = 0, yearlyCost = 0;
+  // Cost calculation — group by currency to avoid mixing
+  const monthlyByCur = {};
+  const yearlyByCur = {};
   subs.forEach(s => {
     if (!s.price) return;
     const p = parseFloat(s.price);
+    const cur = s.currency || 'CNY';
     const billing = s.billing || 'monthly';
-    if (billing === 'monthly') { monthlyCost += p; yearlyCost += p * 12; }
-    else if (billing === 'yearly') { monthlyCost += p / 12; yearlyCost += p; }
-    else { monthlyCost += 0; yearlyCost += p; }
+    if (billing === 'monthly') { monthlyByCur[cur] = (monthlyByCur[cur]||0) + p; yearlyByCur[cur] = (yearlyByCur[cur]||0) + p * 12; }
+    else if (billing === 'yearly') { monthlyByCur[cur] = (monthlyByCur[cur]||0) + p / 12; yearlyByCur[cur] = (yearlyByCur[cur]||0) + p; }
+    else { yearlyByCur[cur] = (yearlyByCur[cur]||0) + p; }
   });
 
   // Balance: add monthly fees to cost
-  let balanceMonthlyFee = 0;
-  balances.forEach(b => { if (b.monthlyFee) balanceMonthlyFee += parseFloat(b.monthlyFee); });
+  balances.forEach(b => {
+    if (!b.monthlyFee) return;
+    const cur = b.currency || 'CNY';
+    monthlyByCur[cur] = (monthlyByCur[cur]||0) + parseFloat(b.monthlyFee);
+    yearlyByCur[cur] = (yearlyByCur[cur]||0) + parseFloat(b.monthlyFee) * 12;
+  });
 
-  // Total balance
-  let totalBalance = 0;
-  balances.forEach(b => { if (b.balance != null) totalBalance += b.balance; });
+  // Total balance (grouped)
+  const balanceByCur = {};
+  balances.forEach(b => {
+    if (b.balance == null) return;
+    const cur = b.currency || 'CNY';
+    balanceByCur[cur] = (balanceByCur[cur]||0) + b.balance;
+  });
 
-  // Determine display currency from first subscription with a price, or balance
-  const primaryCur = subs.find(s => s.price)?.currency || balances[0]?.currency || 'CNY';
+  // Format: show primary currency, append others if mixed
+  const allCurs = [...new Set([...Object.keys(monthlyByCur), ...Object.keys(balanceByCur)])].sort();
+  const primaryCur = allCurs[0] || 'CNY';
   const sym = currSym(primaryCur);
 
-  const allMonthly = monthlyCost + balanceMonthlyFee;
+  function fmtCost(bucket) {
+    if (!allCurs.length) return sym + '0';
+    const parts = allCurs.filter(c => bucket[c] > 0).map(c => currSym(c) + Math.round(bucket[c]));
+    return parts.length ? parts[0] + (parts.length > 1 ? ' +' : '') : sym + '0';
+  }
+
+  function fmtBalance() {
+    if (!allCurs.length) return '0';
+    const parts = allCurs.filter(c => balanceByCur[c] > 0).map(c => currSym(c) + Math.round(balanceByCur[c]));
+    return parts.length ? parts[0] + (parts.length > 1 ? ' +' : '') : '0';
+  }
 
   const stats = [
     { label:'eSIM', value:esims.length, icon:'fa-sim-card', color:'text-cyan-400', bg:'bg-cyan-500/10' },
     { label:'订阅', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10' },
-    { label:'话费', value:balances.length ? sym+totalBalance.toFixed(0) : '0', icon:'fa-wallet', color:'text-amber-400', bg:'bg-amber-500/10' },
+    { label:'话费', value:balances.length ? fmtBalance() : '0', icon:'fa-wallet', color:'text-amber-400', bg:'bg-amber-500/10' },
     { label:'即将到期', value:urgentCount, icon:'fa-clock', color:'text-rose-400', bg:'bg-rose-500/10' },
-    { label:'月度支出', value:sym+allMonthly.toFixed(0), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
+    { label:'月度支出', value:fmtCost(monthlyByCur), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
