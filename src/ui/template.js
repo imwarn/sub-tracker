@@ -305,6 +305,11 @@ export function getHTML() {
           <i class="fa-solid fa-calendar"></i>
         </button>
       </div>
+      <select id="sort-select" onchange="renderItems()" class="glass-input px-3 py-1.5 rounded-lg text-xs flex-shrink-0">
+        <option value="expire">按到期日</option>
+        <option value="name">按名称</option>
+        <option value="price">按费用</option>
+      </select>
     </div>
 
     <!-- Search -->
@@ -847,7 +852,15 @@ function getFilteredItems() {
     (i.url||'').toLowerCase().includes(search)
   );
   const today = new Date(); today.setHours(0,0,0,0);
+  const sortBy = document.getElementById('sort-select')?.value || 'expire';
   items.sort((a,b) => {
+    if (sortBy === 'name') return (a.name||'').localeCompare(b.name||'', 'zh');
+    if (sortBy === 'price') {
+      const pa = a.type === 'balance' ? (a.monthlyFee||0) : parseFloat(a.price)||0;
+      const pb = b.type === 'balance' ? (b.monthlyFee||0) : parseFloat(b.price)||0;
+      return pb - pa; // high to low
+    }
+    // Default: sort by expiry date (nearest first)
     const da = a.type === 'balance' ? (a.predictedSuspendDate ? Math.ceil((new Date(a.predictedSuspendDate+'T00:00:00')-today)/86400000) : 9999) : (a.expireDate ? Math.ceil((new Date(a.expireDate+'T00:00:00')-today)/86400000) : 9999);
     const db = b.type === 'balance' ? (b.predictedSuspendDate ? Math.ceil((new Date(b.predictedSuspendDate+'T00:00:00')-today)/86400000) : 9999) : (b.expireDate ? Math.ceil((new Date(b.expireDate+'T00:00:00')-today)/86400000) : 9999);
     return da - db;
