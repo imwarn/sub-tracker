@@ -28,6 +28,16 @@ export function htmlResponse(html) {
   });
 }
 
+export function textResponse(text, contentType = 'text/plain;charset=UTF-8') {
+  return new Response(text, {
+    headers: { 'Content-Type': contentType, ...CORS_HEADERS, ...SECURITY_HEADERS },
+  });
+}
+
+export function svgResponse(svg) {
+  return textResponse(svg, 'image/svg+xml;charset=UTF-8');
+}
+
 export function errorResponse(message, status = 400) {
   return jsonResponse({ success: false, message }, status);
 }

@@ -13,17 +13,124 @@ function getFrontendFlagMap() {
   );
 }
 
+export function getManifest() {
+  return {
+    name: 'Sub-Tracker',
+    short_name: 'SubTracker',
+    description: 'eSIM 保号、订阅费用和话费余额管理看板',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    background_color: '#0f172a',
+    theme_color: '#0ea5e9',
+    icons: [
+      { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+    ],
+  };
+}
+
+export function getIconSVG() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <path d="M128 136c0-26.5 21.5-48 48-48h160c26.5 0 48 21.5 48 48v240c0 26.5-21.5 48-48 48H176c-26.5 0-48-21.5-48-48V136Z" fill="#0ea5e9"/>
+  <path d="M184 152c0-8.8 7.2-16 16-16h112c8.8 0 16 7.2 16 16v208c0 8.8-7.2 16-16 16H200c-8.8 0-16-7.2-16-16V152Z" fill="#e0f2fe"/>
+  <path d="M216 192h80M216 240h80M216 288h48" stroke="#0369a1" stroke-width="24" stroke-linecap="round"/>
+</svg>`;
+}
+
+export function getServiceWorker() {
+  return `
+const CACHE_NAME = 'sub-tracker-v2';
+const SHELL_CACHE = ['/', '/manifest.webmanifest', '/icon.svg'];
+const CDN_HOSTS = new Set(['cdn.tailwindcss.com', 'cdnjs.cloudflare.com']);
+
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL_CACHE)).catch(() => {}));
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
+function offlineFallback() {
+  return new Response('<!doctype html><meta charset="utf-8"><title>Sub-Tracker</title><body style="margin:0;background:#0f172a;color:#e2e8f0;font-family:system-ui;display:grid;place-items:center;min-height:100vh"><main style="max-width:28rem;padding:2rem;text-align:center"><h1>Sub-Tracker</h1><p>当前离线，已缓存的应用壳不可用。请恢复网络后刷新。</p></main></body>', {
+    headers: { 'Content-Type': 'text/html;charset=UTF-8' },
+  });
+}
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put('/', response.clone()).catch(() => {});
+    return response;
+  } catch {
+    return await cache.match('/') || offlineFallback();
+  }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok || response.type === 'opaque') cache.put(request, response.clone()).catch(() => {});
+  return response;
+}
+
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  const refresh = fetch(request).then(response => {
+    if (response.ok || response.type === 'opaque') cache.put(request, response.clone()).catch(() => {});
+    return response;
+  });
+  return cached || refresh;
+}
+
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.pathname.startsWith('/api/')) return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (url.origin === location.origin && SHELL_CACHE.includes(url.pathname)) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  if (CDN_HOSTS.has(url.hostname)) {
+    event.respondWith(staleWhileRevalidate(request));
+  }
+});
+`.trim();
+}
+
 export function getHTML() {
   const flagMap = getFrontendFlagMap();
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Sub-Tracker | eSIM 保号 & 订阅管理</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+	<head>
+	  <meta charset="UTF-8">
+	    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+	    <meta name="apple-mobile-web-app-capable" content="yes">
+	    <meta name="theme-color" content="#0ea5e9">
+	    <title>Sub-Tracker | eSIM 保号 & 订阅管理</title>
+	  <link rel="manifest" href="/manifest.webmanifest">
+	  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+	  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
@@ -127,8 +234,9 @@ export function getHTML() {
       </div>
     </div>
 
-    <!-- Stats -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6" id="stats-bar"></div>
+	    <!-- Stats -->
+	    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6" id="stats-bar"></div>
+	    <div id="analytics-panel" class="mb-6"></div>
 
     <!-- View toggle + Filter -->
     <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -347,10 +455,24 @@ export function getHTML() {
         </div>
       </form>
     </div>
-  </div>
+	  </div>
 
-  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
-  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
+	  <!-- ========== HISTORY MODAL ========== -->
+	  <div id="history-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+	    <div class="glass rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[86vh] overflow-y-auto fade-in">
+	      <div class="flex justify-between items-center mb-6 gap-3">
+	        <h3 class="text-xl font-bold text-white">操作历史</h3>
+	        <div class="flex items-center gap-2">
+	          <button onclick="clearHistory()" class="text-xs text-red-300 hover:text-red-200 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/10 transition-colors">清空</button>
+	          <button onclick="closeHistory()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+	        </div>
+	      </div>
+	      <div id="history-content" class="space-y-2"></div>
+	    </div>
+	  </div>
+
+	  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
+	  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
     <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-download mr-2 text-emerald-400"></i>导出 JSON
     </button>
@@ -360,10 +482,13 @@ export function getHTML() {
     <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-upload mr-2 text-amber-400"></i>导入 JSON
     </button>
-    <button onclick="downloadDemo()" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/10 transition-colors">
-      <i class="fa-solid fa-download mr-2 text-slate-500"></i>下载导入示例
-    </button>
-    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
+	    <button onclick="downloadDemo()" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/10 transition-colors">
+	      <i class="fa-solid fa-download mr-2 text-slate-500"></i>下载导入示例
+	    </button>
+	    <button onclick="openHistory()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+	      <i class="fa-solid fa-clock-rotate-left mr-2 text-cyan-400"></i>操作历史
+	    </button>
+	    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
     <hr class="border-white/10 my-1">
     <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-right-from-bracket mr-2"></i>退出登录
@@ -441,7 +566,7 @@ async function enterDashboard() {
 async function loadItems() {
   const res = await api('GET', '/api/items');
   if (res.ok) { const data = await res.json(); if (Array.isArray(data)) allItems = data; }
-  renderStats(); renderItems();
+  renderStats(); renderAnalytics(); renderItems();
 }
 
 // ==================== STATS ====================
@@ -496,6 +621,77 @@ function renderStats() {
     '<div><div class="text-xs text-slate-400">'+s.label+'</div><div class="text-xl font-bold text-white">'+s.value+'</div></div>' +
     '</div></div>'
   ).join('');
+}
+
+function addMoney(bucket, currency, amount) {
+  const cur = currency || 'CNY';
+  bucket[cur] = (bucket[cur] || 0) + (Number(amount) || 0);
+}
+
+function fmtMoney(currency, amount) {
+  const value = Math.abs(amount) >= 100 ? amount.toFixed(0) : amount.toFixed(2);
+  return currSym(currency) + value + ' ' + currency;
+}
+
+function renderAnalytics() {
+  const panel = document.getElementById('analytics-panel');
+  const monthly = {};
+  const yearly = {};
+  const categories = {};
+
+  allItems.filter(i => i.status !== 'paused').forEach(item => {
+    if (item.type === 'subscription' && item.price) {
+      const p = parseFloat(item.price);
+      if (!Number.isFinite(p)) return;
+      const cur = item.currency || 'CNY';
+      const cat = item.category || '未分类';
+      let m = 0, y = 0;
+      if (item.billing === 'yearly') { m = p / 12; y = p; }
+      else if (item.billing === 'once') { y = p; }
+      else { m = p; y = p * 12; }
+      addMoney(monthly, cur, m);
+      addMoney(yearly, cur, y);
+      const key = cat + '|' + cur;
+      categories[key] = { category: cat, currency: cur, monthly: (categories[key]?.monthly || 0) + m, yearly: (categories[key]?.yearly || 0) + y };
+    }
+
+    if (item.type === 'balance' && item.monthlyFee) {
+      const cur = item.currency || 'CNY';
+      const fee = parseFloat(item.monthlyFee);
+      if (!Number.isFinite(fee)) return;
+      addMoney(monthly, cur, fee);
+      addMoney(yearly, cur, fee * 12);
+      const key = '话费|' + cur;
+      categories[key] = { category: '话费', currency: cur, monthly: (categories[key]?.monthly || 0) + fee, yearly: (categories[key]?.yearly || 0) + fee * 12 };
+    }
+  });
+
+  const currencies = Object.keys(monthly).sort();
+  if (!currencies.length) { panel.innerHTML = ''; return; }
+
+  const currencyHTML = currencies.map(cur =>
+    '<div class="glass-card rounded-xl p-4">' +
+      '<div class="text-xs text-slate-400 mb-1">'+cur+'</div>' +
+      '<div class="text-lg font-bold text-white">'+fmtMoney(cur, monthly[cur])+'<span class="text-xs text-slate-500 font-normal"> / 月</span></div>' +
+      '<div class="text-xs text-slate-400 mt-1">'+fmtMoney(cur, yearly[cur] || 0)+' / 年</div>' +
+    '</div>'
+  ).join('');
+
+  const categoryRows = Object.values(categories)
+    .sort((a,b) => b.yearly - a.yearly)
+    .slice(0, 6)
+    .map(c =>
+      '<div class="flex items-center justify-between gap-3 py-2 border-b border-white/5 last:border-0">' +
+        '<div class="min-w-0"><div class="text-sm text-white truncate">'+esc(c.category)+'</div><div class="text-xs text-slate-500">'+c.currency+'</div></div>' +
+        '<div class="text-right flex-shrink-0"><div class="text-sm text-slate-200">'+fmtMoney(c.currency, c.monthly)+'/月</div><div class="text-xs text-slate-500">'+fmtMoney(c.currency, c.yearly)+'/年</div></div>' +
+      '</div>'
+    ).join('');
+
+  panel.innerHTML =
+    '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
+      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-chart-simple text-emerald-400 mr-2"></i>按货币统计</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'+currencyHTML+'</div></div>' +
+      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-layer-group text-violet-400 mr-2"></i>按分类统计</div>'+categoryRows+'</div>' +
+    '</div>';
 }
 
 // ==================== FILTER / VIEW ====================
@@ -837,6 +1033,11 @@ function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 const CURRENCY_SYMBOLS = ${JSON.stringify(CURRENCY_SYMBOLS)};
 function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '¥'; }
 
+function hideMenu() {
+  const menu = document.getElementById('dropdown-menu');
+  if (menu) menu.classList.add('hidden');
+}
+
 function toggleMenu(e) {
   if (e) e.stopPropagation();
   const menu = document.getElementById('dropdown-menu');
@@ -853,7 +1054,7 @@ function toggleMenu(e) {
 document.addEventListener('click', e => {
   const menu = document.getElementById('dropdown-menu');
   const trigger = document.getElementById('menu-trigger');
-  if (menu && !menu.contains(e.target) && !trigger.contains(e.target)) menu.classList.add('hidden');
+  if (menu && !menu.contains(e.target) && !trigger.contains(e.target)) hideMenu();
 });
 
 // ==================== MODAL ====================
@@ -904,6 +1105,7 @@ function openModal(type, item) {
 }
 
 function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('flex'); }
+function closeHistory() { document.getElementById('history-overlay').classList.add('hidden'); document.getElementById('history-overlay').classList.remove('flex'); }
 
 async function saveItem(e) {
   e.preventDefault();
@@ -1034,6 +1236,74 @@ async function importJSON(input) {
   input.value = '';
 }
 
+async function openHistory() {
+  hideMenu();
+  const overlay = document.getElementById('history-overlay');
+  const content = document.getElementById('history-content');
+  content.innerHTML = '<div class="text-sm text-slate-400 py-8 text-center"><i class="fa-solid fa-spinner fa-spin mr-2"></i>加载中...</div>';
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+  const res = await api('GET', '/api/history');
+  const data = await res.json();
+  if (!Array.isArray(data) || !data.length) {
+    content.innerHTML = '<div class="text-sm text-slate-500 py-10 text-center">暂无操作历史</div>';
+    return;
+  }
+  content.innerHTML = data.map(historyHTML).join('');
+}
+
+function historyHTML(entry) {
+  const actionMap = {
+    create: ['新增', 'fa-plus', 'text-emerald-400'],
+    update: ['更新', 'fa-pen', 'text-sky-400'],
+    delete: ['删除', 'fa-trash', 'text-red-400'],
+    renew: ['续期', 'fa-rotate', 'text-cyan-400'],
+    recharge: ['充值', 'fa-plus-circle', 'text-amber-400'],
+    import: ['导入', 'fa-upload', 'text-violet-400'],
+  };
+  const cfg = actionMap[entry.action] || [entry.action || '操作', 'fa-circle-info', 'text-slate-400'];
+  const time = entry.timestamp ? new Date(entry.timestamp).toLocaleString('zh-CN', { hour12:false }) : '';
+  const itemName = entry.itemName ? esc(entry.itemName) : '批量操作';
+  const typeLabel = entry.itemType === 'esim' ? 'eSIM' : entry.itemType === 'balance' ? '话费' : entry.itemType === 'subscription' ? '订阅' : '';
+  const detail = historyDetail(entry);
+  return '<div class="glass-card rounded-xl p-4">' +
+    '<div class="flex items-start gap-3">' +
+      '<div class="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0"><i class="fa-solid '+cfg[1]+' '+cfg[2]+'"></i></div>' +
+      '<div class="min-w-0 flex-1">' +
+        '<div class="flex flex-wrap items-center gap-2">' +
+          '<span class="text-sm font-semibold text-white">'+cfg[0]+'</span>' +
+          (typeLabel ? '<span class="text-[11px] text-slate-400 border border-white/10 rounded px-1.5 py-0.5">'+typeLabel+'</span>' : '') +
+          '<span class="text-sm text-slate-300 truncate">'+itemName+'</span>' +
+        '</div>' +
+        (detail ? '<div class="text-xs text-slate-400 mt-1">'+detail+'</div>' : '') +
+        '<div class="text-[11px] text-slate-500 mt-2">'+time+'</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function historyDetail(entry) {
+  const d = entry.details || {};
+  if (entry.action === 'renew' && d.newExpireDate) return '新到期日：' + esc(d.newExpireDate);
+  if (entry.action === 'recharge') {
+    const parts = [];
+    if (d.amount != null) parts.push('金额：' + esc(d.amount));
+    if (d.newBalance != null) parts.push('新余额：' + esc(d.newBalance));
+    if (d.predictedSuspendDate) parts.push('预计停机：' + esc(d.predictedSuspendDate));
+    return parts.join(' · ');
+  }
+  if (entry.action === 'import') return '新增 ' + (d.added || 0) + ' 条，跳过 ' + (d.skipped || 0) + ' 条，总计 ' + (d.total || 0) + ' 条';
+  return '';
+}
+
+async function clearHistory() {
+  if (!confirm('确定清空操作历史？')) return;
+  const res = await api('DELETE', '/api/history');
+  const data = await res.json();
+  if (data.success) openHistory();
+  else alert(data.message || '清空失败');
+}
+
 function downloadDemo() {
   toggleMenu();
   const demo = {
@@ -1058,6 +1328,7 @@ function downloadDemo() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeModal();
+    closeHistory();
     const menu = document.getElementById('dropdown-menu');
     if (menu) menu.classList.add('hidden');
   }
@@ -1075,6 +1346,9 @@ async function toggleStatus(id) {
 
 // ==================== INIT ====================
 (async function init() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
   const ok = await checkAuth();
   if (ok) enterDashboard();
   else { TOKEN = ''; localStorage.removeItem('token'); }

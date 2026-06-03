@@ -5,8 +5,9 @@
  * 0 = today, 1 = 1 day before, etc.
  */
 
-import { getAllItems, getConfig } from '../data/store.js';
-import { escapeTelegramHTML, sendTelegram } from './telegram.js';
+import { getAllItems } from '../data/store.js';
+import { escapeTelegramHTML } from './telegram.js';
+import { sendNotifications } from './notify.js';
 import { todayMidnight, calcSuspendDate } from '../utils/date.js';
 import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS } from '../data/constants.js';
 
@@ -17,15 +18,6 @@ function tg(s) { return escapeTelegramHTML(s); }
  * Run the reminder check (called by Cron trigger)
  */
 export async function checkReminders(env) {
-  let tgToken = env.TG_BOT_TOKEN;
-  let tgChat = env.TG_CHAT_ID;
-  try {
-    if (!tgToken) tgToken = await getConfig(env.DB, 'TG_BOT_TOKEN');
-    if (!tgChat) tgChat = await getConfig(env.DB, 'TG_CHAT_ID');
-  } catch {}
-
-  if (!tgToken || !tgChat) return;
-
   const items = await getAllItems(env.DB);
   if (!items.length) return;
 
@@ -126,6 +118,6 @@ export async function checkReminders(env) {
 
   if (messages.length > 0) {
     const text = messages.join('\n\n---\n\n');
-    await sendTelegram(tgToken, tgChat, text);
+    await sendNotifications(env, text, { title: 'Sub-Tracker 到期提醒' });
   }
 }

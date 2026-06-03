@@ -13,7 +13,11 @@
 - 💳 **订阅费用管理**：分类管理各类订阅服务，费用统计
 - 💰 **话费余额管理**：余额追踪、月租/扣费日管理、预计停机日计算、充值/校正
 - ⏰ **智能 Telegram 提醒**：支持自定义提前提醒天数（30/15/7/3/1/当天），话费停机提醒
+- 📣 **多渠道推送**：Telegram、Bark、企业微信机器人、通用 Webhook
 - 🔄 **一键续期**：发完保号短信后，自动顺延到期日
+- 🧾 **操作历史**：记录最近 100 条新增、更新、删除、续期、充值和导入操作
+- 📊 **增强统计**：按货币、分类统计月度/年度支出
+- 📦 **PWA 支持**：Manifest + Service Worker，可添加到主屏幕并缓存应用壳
 - 🌍 **智能区域识别**：输入带区号的号码，自动匹配 ISO 国家/地区代码
 - 🎨 **毛玻璃 UI**：深色渐变背景 + Glassmorphism 设计，手机/PC 自适应
 
@@ -71,8 +75,12 @@ npx wrangler deploy       # 部署
 |---|---|---|
 | `TG_BOT_TOKEN` | Telegram Bot Token | Deploy 时填写 / CF Dashboard / KV |
 | `TG_CHAT_ID` | Telegram Chat ID | 同上 |
+| `BARK_KEY` / `BARK_URL` | Bark 推送 Key 或完整推送 URL | 可选 |
+| `BARK_SERVER` | Bark 自建服务地址，默认 `https://api.day.app` | 可选 |
+| `WECOM_WEBHOOK_URL` | 企业微信机器人 Webhook | 可选 |
+| `WEBHOOK_URL` | 通用 Webhook URL | 可选 |
 
-代码优先读取 Worker 环境变量，其次读 KV 数据库。
+代码优先读取 Worker 环境变量，其次读 KV 数据库。通知渠道至少配置一种即可。
 
 ---
 

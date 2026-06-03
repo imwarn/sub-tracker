@@ -8,7 +8,7 @@ Sub-Tracker already has a clear product shape: a single Cloudflare Worker that m
 
 ## P0 - Release And Open-Source Hygiene
 
-These items should stay complete before each public release.
+Status: complete. These items should stay complete before each public release.
 
 - Keep `src/` and `worker/worker.js` synchronized by running `npm run build`.
 - Use Node.js 22 or newer everywhere, including local development and GitHub Actions.
@@ -26,7 +26,7 @@ Acceptance:
 
 ## P1 - Security And Data Correctness
 
-These items protect user secrets and stored data.
+Status: complete. These items protect user secrets and stored data.
 
 - Use cryptographically secure random numbers for OTP generation.
 - Add a cooldown to OTP sending to reduce Telegram spam and brute-force pressure.
@@ -48,7 +48,7 @@ Acceptance:
 
 ## P2 - Maintainability
 
-These items reduce future drift as the feature set grows.
+Status: complete for the current codebase. These items reduce future drift as the feature set grows.
 
 - Move shared constants such as currencies and reminder defaults into one module.
 - Generate frontend country/currency maps from backend sources.
@@ -65,8 +65,10 @@ Acceptance:
 
 These items can be implemented after the quality baseline is stable.
 
-- Add multi-channel notifications: Bark, WeCom, and generic Webhook.
-- Add richer cost analytics by category, year, and currency.
-- Add PWA manifest and offline caching.
-- Add activity history for renewals, balance corrections, and imports.
-- Consider Durable Objects or per-item KV keys if concurrent writes become a real use case.
+- [x] Add multi-channel notifications: Bark, WeCom, and generic Webhook.
+- [x] Add richer cost analytics by category, year, and currency.
+- [x] Add PWA manifest and offline caching.
+- [x] Add activity history for renewals, balance corrections, and imports.
+- [ ] Consider Durable Objects or per-item KV keys if concurrent writes become a real use case.
+
+The remaining Durable Objects/per-item KV item is intentionally conditional. The current single-key KV model is still appropriate for a personal dashboard; revisit it only if concurrent writes become a real usage pattern.

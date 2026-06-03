@@ -9,9 +9,12 @@
  *   admin_auth_code     → Current OTP code (TTL 300s)
  *   admin_auth_attempts → Failed attempt counter (TTL 300s)
  *   session_token_<uuid> → Active session (TTL 2592000s = 30d)
+ *   history             → JSON array of recent activity entries
  */
 
 const ITEMS_KEY = 'items';
+const HISTORY_KEY = 'history';
+const HISTORY_LIMIT = 100;
 
 /**
  * Get all items from KV
@@ -71,10 +74,11 @@ export async function updateItem(db, id, updater) {
  */
 export async function deleteItem(db, id) {
   const items = await getAllItems(db);
+  const deleted = items.find(item => item.id === id);
   const filtered = items.filter(item => item.id !== id);
   if (filtered.length === items.length) return false;
   await saveAllItems(db, filtered);
-  return true;
+  return deleted;
 }
 
 /**
@@ -97,4 +101,31 @@ export async function getConfig(db, key) {
  */
 export async function setConfig(db, key, value, options) {
   await db.put(key, value, options);
+}
+
+export async function getHistory(db, limit = HISTORY_LIMIT) {
+  try {
+    const history = await db.get(HISTORY_KEY, { type: 'json' });
+    return (history || []).slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
+export async function addHistory(db, entry) {
+  const history = await getHistory(db, HISTORY_LIMIT);
+  const next = [
+    {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      ...entry,
+    },
+    ...history,
+  ].slice(0, HISTORY_LIMIT);
+  await db.put(HISTORY_KEY, JSON.stringify(next));
+  return next[0];
+}
+
+export async function clearHistory(db) {
+  await db.put(HISTORY_KEY, JSON.stringify([]));
 }

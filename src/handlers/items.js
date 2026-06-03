@@ -15,13 +15,28 @@
 import { downloadResponse, errorResponse, successResponse, jsonResponse, corsPreFlight } from '../utils/response.js';
 import { requireAuth } from './auth.js';
 import { createItem, validateItem, mergeUpdate } from '../data/schema.js';
-import { getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById, getConfig } from '../data/store.js';
+import { addHistory, getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById } from '../data/store.js';
 import { addDays, daysUntil, getStatusText, calcSuspendDate } from '../utils/date.js';
-import { escapeTelegramHTML, sendTelegram } from '../services/telegram.js';
+import { escapeTelegramHTML } from '../services/telegram.js';
+import { getConfiguredNotificationChannels, sendNotifications } from '../services/notify.js';
 import { CURRENCY_SYMBOLS, ITEM_TYPES } from '../data/constants.js';
 
 function tg(s) {
   return escapeTelegramHTML(s);
+}
+
+async function recordHistory(env, action, item, details = {}) {
+  try {
+    await addHistory(env.DB, {
+      action,
+      itemId: item?.id || '',
+      itemName: item?.name || '',
+      itemType: item?.type || '',
+      details,
+    });
+  } catch (err) {
+    console.error('History write failed:', err);
+  }
 }
 
 export async function handleItems(request, env, path) {
@@ -112,6 +127,7 @@ async function createNewItem(request, env) {
 
     const item = createItem(type, body);
     await addItem(env.DB, item);
+    await recordHistory(env, 'create', item);
     return successResponse({ id: item.id });
   } catch {
     return errorResponse('参数错误', 400);
@@ -129,6 +145,7 @@ async function updateExistingItem(request, env, id) {
     });
 
     if (!result) return errorResponse('未找到记录', 404);
+    await recordHistory(env, 'update', result);
     return successResponse();
   } catch (e) {
     return errorResponse(e.message || '更新失败', 400);
@@ -136,8 +153,9 @@ async function updateExistingItem(request, env, id) {
 }
 
 async function deleteExistingItem(env, id) {
-  const ok = await deleteItem(env.DB, id);
-  if (!ok) return errorResponse('未找到记录', 404);
+  const deleted = await deleteItem(env.DB, id);
+  if (!deleted) return errorResponse('未找到记录', 404);
+  await recordHistory(env, 'delete', deleted);
   return successResponse();
 }
 
@@ -155,6 +173,7 @@ async function renewItem(env, id) {
     });
 
     if (!result) return errorResponse('未找到记录', 404);
+    await recordHistory(env, 'renew', result, { newExpireDate: result.expireDate });
     return successResponse({ newExpireDate: result.expireDate });
   } catch (e) {
     return errorResponse(e.message || '续期失败', 400);
@@ -184,6 +203,11 @@ async function rechargeItem(request, env, id) {
     });
 
     if (!result) return errorResponse('未找到记录', 404);
+    await recordHistory(env, 'recharge', result, {
+      amount,
+      newBalance: result.balance,
+      predictedSuspendDate: result.predictedSuspendDate,
+    });
     return successResponse({
       newBalance: result.balance,
       predictedSuspendDate: result.predictedSuspendDate,
@@ -300,6 +324,7 @@ async function importJSON(request, env) {
     }
 
     await saveAllItems(env.DB, existing);
+    await recordHistory(env, 'import', null, { added, skipped, total: existing.length });
     return successResponse({ added, skipped, total: existing.length, errors: errors.slice(0, 10) });
   } catch {
     return errorResponse('导入失败：JSON 解析错误', 400);
@@ -310,18 +335,9 @@ async function testNotify(env, id) {
   const item = await getItemById(env.DB, id);
   if (!item) return errorResponse('未找到记录', 404);
 
-  let tgToken = env.TG_BOT_TOKEN;
-  let tgChat = env.TG_CHAT_ID;
-  try {
-    if (!tgToken) tgToken = await getConfig(env.DB, 'TG_BOT_TOKEN');
-    if (!tgChat) tgChat = await getConfig(env.DB, 'TG_CHAT_ID');
-  } catch {}
-
-  if (!tgToken || !tgChat) {
-    const missing = [];
-    if (!tgToken) missing.push('TG_BOT_TOKEN');
-    if (!tgChat) missing.push('TG_CHAT_ID');
-    return errorResponse(`TG 密钥未配置: 缺少 ${missing.join(', ')}。请在 Workers → Settings → Variables 中添加`);
+  const channels = await getConfiguredNotificationChannels(env);
+  if (!channels.length) {
+    return errorResponse('未配置通知渠道。请至少配置 Telegram、Bark、企业微信或 Webhook 中的一种');
   }
 
   if (item.type === 'balance') {
@@ -342,9 +358,9 @@ async function testNotify(env, id) {
       '',
       '<i>这是一条测试通知，确认通知功能正常。</i>',
     ].filter(Boolean).join('\n');
-    const ok = await sendTelegram(tgToken, tgChat, msg);
-    if (ok) return successResponse();
-    return errorResponse('发送失败，请检查 TG 配置');
+    const results = await sendNotifications(env, msg, { title: 'Sub-Tracker 测试通知' });
+    if (results.some(r => r.ok)) return successResponse({ channels: results });
+    return errorResponse('发送失败，请检查通知配置');
   }
 
   const diff = daysUntil(item.expireDate);
@@ -365,7 +381,7 @@ async function testNotify(env, id) {
     '<i>这是一条测试通知，确认通知功能正常。</i>',
   ].filter(Boolean).join('\n');
 
-  const ok = await sendTelegram(tgToken, tgChat, msg);
-  if (ok) return successResponse();
-  return errorResponse('发送失败，请检查 TG 配置');
+  const results = await sendNotifications(env, msg, { title: 'Sub-Tracker 测试通知' });
+  if (results.some(r => r.ok)) return successResponse({ channels: results });
+  return errorResponse('发送失败，请检查通知配置');
 }

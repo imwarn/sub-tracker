@@ -146,7 +146,11 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 | 搜索/筛选 | ✅ | 按类型筛选（eSIM/订阅/话费/全部）+ 关键词搜索 |
 | 到期/停机提醒 | ✅ | Cron 每日检查，TG 推送，支持自定义提前提醒天数 |
 | 测试通知 | ✅ | 单条记录发送测试 TG 通知 |
+| 多渠道推送 | ✅ | Telegram / Bark / 企业微信 / 通用 Webhook，未配置渠道自动跳过 |
 | 数据导入导出 | ✅ | JSON/CSV 导出，JSON 导入 |
+| 操作历史 | ✅ | 最近 100 条新增/更新/删除/续期/充值/导入记录 |
+| PWA | ✅ | Manifest + Service Worker 应用壳离线缓存 |
+| 增强统计 | ✅ | 按货币与分类展示月度/年度支出 |
 | 毛玻璃 UI | ✅ | 深色渐变 + glass morphism |
 
 ## 安全机制
@@ -198,19 +202,12 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 - [x] **Phase 3**: 数据导入导出 — JSON/CSV
 - [x] **Phase 3.1**: 测试通知 — 单条记录发送测试 TG 消息
 - [x] **Phase 4**: 话费余额管理 — 余额/月租/扣费日/预计停机日/充值校正/停机提醒
+- [x] **Phase 5**: 多渠道推送 — Telegram / Bark / 企业微信 / 通用 Webhook
+- [x] **Phase 6**: 数据统计增强 — 按货币与分类统计月度/年度支出
+- [x] **Phase 7.1**: 操作历史 — 最近 100 条关键操作记录
+- [x] **Phase 8.1**: PWA 基础支持 — manifest + service worker + SVG 图标
 
 ### 🔲 待开发
-
-- [ ] **Phase 5: 多渠道推送**
-  - [ ] Bark 推送 (iOS)
-  - [ ] 企业微信推送
-  - [ ] Webhook 通用推送
-  - [ ] 推送渠道设置页面
-
-- [ ] **Phase 6: 数据统计增强**
-  - [ ] 按分类统计订阅支出饼图
-  - [ ] 月度/年度支出趋势折线图
-  - [ ] 多货币汇率换算（或分货币统计）
 
 - [ ] **Phase 7: 高级功能**
   - [ ] 订阅自动续费提醒（结合 autoRenew 字段）
@@ -219,9 +216,8 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
   - [ ] 暗色/亮色主题切换
 
 - [ ] **Phase 8: 移动端优化**
-  - [ ] PWA 支持 (manifest + service worker)
-  - [ ] 离线缓存
   - [ ] iOS/Android 添加到主屏幕
+  - [ ] 离线数据只读模式
 
 ### 🐛 已知问题
 
