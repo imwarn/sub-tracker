@@ -806,7 +806,21 @@ function renderItems() {
   const items = getFilteredItems();
   const area = document.getElementById('content-area');
   const empty = document.getElementById('empty-state');
-  if (!items.length) { area.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  if (!items.length) {
+    area.innerHTML = '';
+    const search = (document.getElementById('search-input').value || '').trim();
+    if (search || currentFilter !== 'all') {
+      empty.querySelector('p.text-lg').textContent = '没有匹配的记录';
+      empty.querySelector('p.text-sm').textContent = '尝试调整搜索关键词或筛选条件';
+      empty.querySelector('.flex.gap-3')?.classList.add('hidden');
+    } else {
+      empty.querySelector('p.text-lg').textContent = '暂无数据';
+      empty.querySelector('p.text-sm').textContent = '添加你的第一个 eSIM 卡、订阅服务或话费管理';
+      empty.querySelector('.flex.gap-3')?.classList.remove('hidden');
+    }
+    empty.classList.remove('hidden');
+    return;
+  }
   empty.classList.add('hidden');
 
   if (currentView === 'grid') renderGrid(items, area);
