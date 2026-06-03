@@ -1,9 +1,10 @@
 /**
- * Authentication handlers - Telegram OTP login
+ * Authentication handlers - OTP login
  */
 
 import { errorResponse, successResponse, corsPreFlight } from '../utils/response.js';
 import { getConfig, setConfig } from '../data/store.js';
+import { getAuthNotificationChannel, sendNotifications } from '../services/notify.js';
 
 const OTP_SEND_COOLDOWN_KEY = 'admin_auth_send_cooldown';
 
@@ -16,7 +17,7 @@ export async function handleAuth(request, env, path) {
     return corsPreFlight();
   }
 
-  // POST /api/auth/send - Send OTP via Telegram
+  // POST /api/auth/send - Send OTP via configured notification channel
   if (path === '/api/auth/send' && request.method === 'POST') {
     return await sendOTP(env);
   }
@@ -39,19 +40,6 @@ export async function handleAuth(request, env, path) {
   return null; // Not handled
 }
 
-/**
- * Get TG config from env vars or KV
- */
-async function getTGConfig(env) {
-  let token = env.TG_BOT_TOKEN;
-  let chatId = env.TG_CHAT_ID;
-  try {
-    if (!token) token = await getConfig(env.DB, 'TG_BOT_TOKEN');
-    if (!chatId) chatId = await getConfig(env.DB, 'TG_CHAT_ID');
-  } catch {}
-  return { token, chatId };
-}
-
 function generateOTP() {
   const range = 900000;
   const max = 0xFFFFFFFF;
@@ -65,8 +53,26 @@ function generateOTP() {
   return String(100000 + (values[0] % range));
 }
 
+function channelLabel(channel) {
+  return {
+    telegram: 'Telegram',
+    bark: 'Bark',
+    wecom: '企业微信',
+    webhook: 'Webhook',
+  }[channel] || '通知';
+}
+
+function channelRequirements(channel) {
+  return {
+    telegram: 'TG_BOT_TOKEN 和 TG_CHAT_ID',
+    bark: 'BARK_KEY 或 BARK_URL',
+    wecom: 'WECOM_WEBHOOK_URL',
+    webhook: 'WEBHOOK_URL',
+  }[channel] || 'Telegram、Bark、企业微信或 Webhook 中的一种';
+}
+
 /**
- * Send 6-digit OTP to user's Telegram
+ * Send 6-digit OTP to configured notification channel.
  */
 async function sendOTP(env) {
   const cooldown = await getConfig(env.DB, OTP_SEND_COOLDOWN_KEY);
@@ -74,16 +80,12 @@ async function sendOTP(env) {
     return errorResponse('验证码发送过于频繁，请稍后再试', 429);
   }
 
-  const { token, chatId } = await getTGConfig(env);
-
-  if (!token || !chatId) {
-    const missing = [];
-    if (!token) missing.push('TG_BOT_TOKEN');
-    if (!chatId) missing.push('TG_CHAT_ID');
+  const channel = await getAuthNotificationChannel(env);
+  if (!channel) {
     return errorResponse(
-      `环境缺失：缺少 ${missing.join(' 和 ')}。可通过以下方式配置：\n` +
+      `未配置可用的登录验证码通道。请至少配置 Telegram、Bark、企业微信或 Webhook 中的一种。\n` +
       `1. Cloudflare Dashboard → Workers → Settings → Variables (推荐)\n` +
-      `2. KV 数据库中手动添加这两个键值对`,
+      `2. KV 数据库中手动添加对应键值对`,
       500
     );
   }
@@ -104,18 +106,25 @@ async function sendOTP(env) {
     '<i>(验证码 5 分钟内有效，连续输错 5 次将自动作废)</i>',
   ].join('\n');
 
-  const tgUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-  const res = await fetch(tgUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+  const results = await sendNotifications(env, text, {
+    title: 'Sub-Tracker 安全验证',
+    channel,
   });
 
-  if (res.ok) {
+  if (results.some(result => result.ok)) {
     await setConfig(env.DB, OTP_SEND_COOLDOWN_KEY, '1', { expirationTtl: 60 });
-    return successResponse();
+    return successResponse({ channel });
   }
-  return errorResponse('TG 消息发送失败，请检查 Bot Token 是否有效、是否已激活', 500);
+
+  await env.DB.delete('admin_auth_code');
+  await env.DB.delete('admin_auth_attempts');
+
+  const failure = results.find(result => result.channel === channel);
+  const detail = failure?.message ? `（${failure.message}）` : '';
+  return errorResponse(
+    `${channelLabel(channel)} 验证码发送失败${detail}，请检查 ${channelRequirements(channel)} 配置`,
+    500
+  );
 }
 
 /**

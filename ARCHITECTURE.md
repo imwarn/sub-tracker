@@ -15,7 +15,7 @@ GitHub: https://github.com/imwarn/sub-tracker
 | 定时 | CF Cron Triggers | 每日自动检查到期/停机提醒 |
 | 前端 | 原生 HTML + TailwindCSS CDN | 内嵌 Worker，无需额外托管 |
 | 构建 | Node.js 22 + esbuild | `src/` → `worker/worker.js` 单文件打包 |
-| 认证 | Telegram OTP | 6位动态码，防爆破机制 |
+| 认证 | 多通道 OTP | 6位动态码，默认 Telegram，可切换 Bark / 企业微信 / Webhook |
 
 ## 目录结构
 
@@ -25,10 +25,11 @@ sub-tracker/
 │   ├── index.js              # Worker 入口 (fetch + scheduled)
 │   ├── router.js             # 请求路由分发
 │   ├── handlers/
-│   │   ├── auth.js           # 认证: TG OTP 登录
+│   │   ├── auth.js           # 认证: 多通道 OTP 登录
 │   │   └── items.js          # 业务: 统一 CRUD + 导入导出 + 充值 + 测试通知
 │   ├── services/
 │   │   ├── telegram.js       # Telegram 消息发送
+│   │   ├── notify.js         # 多渠道通知发送与通道选择
 │   │   └── reminder.js       # 到期/停机提醒逻辑 (支持货币显示)
 │   ├── data/
 │   │   ├── schema.js         # 数据模型定义 & 校验
@@ -59,6 +60,11 @@ sub-tracker/
 | `items` | JSON Array | 所有条目 (eSIM + 订阅 + 话费) |
 | `TG_BOT_TOKEN` | Secret | Telegram Bot Token (通过 Dashboard 或 wrangler secret 设置) |
 | `TG_CHAT_ID` | Secret | Telegram Chat ID (通过 Dashboard 或 wrangler secret 设置) |
+| `DEFAULT_NOTIFY_CHANNEL` | String | 普通提醒默认通道: `all` / `telegram` / `bark` / `wecom` / `webhook` |
+| `AUTH_NOTIFY_CHANNEL` | String | 登录验证码通道: `telegram` / `bark` / `wecom` / `webhook` |
+| `BARK_KEY` / `BARK_URL` | Secret | Bark 推送配置 |
+| `WECOM_WEBHOOK_URL` | Secret | 企业微信机器人 Webhook |
+| `WEBHOOK_URL` | Secret | 通用 Webhook |
 | `admin_auth_code` | String (TTL 300s) | 当前 OTP 验证码 |
 | `admin_auth_attempts` | String (TTL 300s) | 失败尝试计数 |
 | `session_token_<uuid>` | String (TTL 30d) | 有效会话令牌 |
@@ -116,7 +122,7 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
-| POST | `/api/auth/send` | 发送 OTP 到 TG | ✗ |
+| POST | `/api/auth/send` | 发送 OTP 到登录验证码通道 | ✗ |
 | POST | `/api/auth/verify` | 验证 OTP，返回 token | ✗ |
 | GET | `/api/auth/check` | 检查会话有效性 | ✓ |
 | GET | `/api/items` | 获取所有条目 (?type=esim\|subscription\|balance) | ✓ |
@@ -125,7 +131,7 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 | DELETE | `/api/items/:id` | 删除条目 | ✓ |
 | POST | `/api/items/:id/renew` | 一键续期 (eSIM) | ✓ |
 | POST | `/api/items/:id/recharge` | 充值/校正余额 (话费) | ✓ |
-| POST | `/api/items/:id/test-notify` | 测试 TG 通知 | ✓ |
+| POST | `/api/items/:id/test-notify` | 测试通知通道 | ✓ |
 | GET | `/api/items/export/json` | 导出 JSON | ✓ |
 | GET | `/api/items/export/csv` | 导出 CSV | ✓ |
 | POST | `/api/items/import/json` | 导入 JSON | ✓ |
@@ -135,7 +141,7 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| TG OTP 登录 | ✅ | 无密码，TG 验证码登录 |
+| 多通道 OTP 登录 | ✅ | 无密码，默认 Telegram，可切换 Bark / 企业微信 / Webhook |
 | 三种视图 | ✅ | 卡片/列表/日历，切换自如 |
 | eSIM 保号管理 | ✅ | 添加/编辑/删除/一键续期 |
 | 订阅费用管理 | ✅ | 分类/区域/费用/计费周期 |
@@ -144,8 +150,8 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 | 货币单位 | ✅ | 15 种常用货币 (CNY/USD/EUR/GBP/JPY...) |
 | 费用统计 | ✅ | 月度支出（含话费月租）统计栏 |
 | 搜索/筛选 | ✅ | 按类型筛选（eSIM/订阅/话费/全部）+ 关键词搜索 |
-| 到期/停机提醒 | ✅ | Cron 每日检查，TG 推送，支持自定义提前提醒天数 |
-| 测试通知 | ✅ | 单条记录发送测试 TG 通知 |
+| 到期/停机提醒 | ✅ | Cron 每日检查，多渠道推送，支持自定义提前提醒天数 |
+| 测试通知 | ✅ | 单条记录发送测试通知 |
 | 多渠道推送 | ✅ | Telegram / Bark / 企业微信 / 通用 Webhook，未配置渠道自动跳过 |
 | 数据导入导出 | ✅ | JSON/CSV 导出，JSON 导入 |
 | 操作历史 | ✅ | 最近 100 条新增/更新/删除/续期/充值/导入记录 |
@@ -155,11 +161,11 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 
 ## 安全机制
 
-1. **TG OTP 认证**: 不在代码中写死密码，每次登录需要 TG 机器人动态验证码
+1. **多通道 OTP 认证**: 不在代码中写死密码，每次登录需要通过配置的通知通道获取动态验证码
 2. **防爆破**: 连续输错 5 次自动作废验证码，带并发延迟防御
 3. **会话管理**: UUID token，30天 TTL，存储在 KV 中
 4. **CORS**: 所有 API 响应带 CORS 头
-5. **Secrets 管理**: TG 敏感配置通过 CF Secrets 管理，不进代码/部署
+5. **Secrets 管理**: 通知密钥和 Webhook 通过 CF Secrets 管理，不进代码/部署
 
 ## 部署方式
 
@@ -200,7 +206,7 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 - [x] **Phase 2.2**: 货币单位 — 15 种常用货币，卡片/列表/统计/通知全链路
 - [x] **Phase 2.3**: TG 配置防覆盖 — 移除 [vars]，deploy.sh 管理 secrets
 - [x] **Phase 3**: 数据导入导出 — JSON/CSV
-- [x] **Phase 3.1**: 测试通知 — 单条记录发送测试 TG 消息
+- [x] **Phase 3.1**: 测试通知 — 单条记录发送测试通知
 - [x] **Phase 4**: 话费余额管理 — 余额/月租/扣费日/预计停机日/充值校正/停机提醒
 - [x] **Phase 5**: 多渠道推送 — Telegram / Bark / 企业微信 / 通用 Webhook
 - [x] **Phase 6**: 数据统计增强 — 按货币与分类统计月度/年度支出

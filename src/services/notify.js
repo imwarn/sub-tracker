@@ -5,6 +5,8 @@
 import { getConfig } from '../data/store.js';
 import { sendTelegram } from './telegram.js';
 
+const CHANNELS = ['telegram', 'bark', 'wecom', 'webhook'];
+
 async function config(env, key) {
   if (env[key]) return env[key];
   try {
@@ -90,6 +92,54 @@ async function sendTelegramIfConfigured(env, text) {
   };
 }
 
+function normalizeChannel(value, { allowAll = false } = {}) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (allowAll && raw === 'all') return 'all';
+
+  const aliases = {
+    tg: 'telegram',
+    telegram: 'telegram',
+    bark: 'bark',
+    wecom: 'wecom',
+    wechat: 'wecom',
+    wechat_work: 'wecom',
+    wechatwork: 'wecom',
+    qywx: 'wecom',
+    webhook: 'webhook',
+  };
+
+  const channel = aliases[raw] || '';
+  return CHANNELS.includes(channel) ? channel : '';
+}
+
+async function getDefaultNotificationMode(env) {
+  return normalizeChannel(await config(env, 'DEFAULT_NOTIFY_CHANNEL'), { allowAll: true }) || 'all';
+}
+
+async function getTargetChannels(env, requestedChannel) {
+  const requested = normalizeChannel(requestedChannel, { allowAll: true });
+  const mode = requested || await getDefaultNotificationMode(env);
+
+  if (mode === 'all') {
+    return {
+      channels: await getConfiguredNotificationChannels(env),
+      explicit: false,
+    };
+  }
+
+  return {
+    channels: [mode],
+    explicit: true,
+  };
+}
+
+const SENDERS = {
+  telegram: (env, title, text) => sendTelegramIfConfigured(env, text),
+  bark: (env, title, text) => sendBark(env, title, text),
+  wecom: (env, title, text) => sendWeCom(env, title, text),
+  webhook: (env, title, text) => sendGenericWebhook(env, title, text),
+};
+
 export async function getConfiguredNotificationChannels(env) {
   const channels = [];
   if (await config(env, 'TG_BOT_TOKEN') && await config(env, 'TG_CHAT_ID')) channels.push('telegram');
@@ -99,22 +149,29 @@ export async function getConfiguredNotificationChannels(env) {
   return channels;
 }
 
+export async function getAuthNotificationChannel(env) {
+  const authChannel = normalizeChannel(await config(env, 'AUTH_NOTIFY_CHANNEL'));
+  if (authChannel) return authChannel;
+
+  const defaultMode = await getDefaultNotificationMode(env);
+  if (defaultMode !== 'all') return defaultMode;
+
+  const configured = await getConfiguredNotificationChannels(env);
+  return configured.includes('telegram') ? 'telegram' : (configured[0] || '');
+}
+
 export async function sendNotifications(env, text, options = {}) {
   const title = options.title || 'Sub-Tracker';
-  const senders = [
-    () => sendTelegramIfConfigured(env, text),
-    () => sendBark(env, title, text),
-    () => sendWeCom(env, title, text),
-    () => sendGenericWebhook(env, title, text),
-  ];
+  const { channels, explicit } = await getTargetChannels(env, options.channel);
 
   const results = [];
-  for (const sender of senders) {
+  for (const channel of channels) {
     try {
-      const result = await sender();
+      const result = await SENDERS[channel](env, title, text);
       if (result) results.push(result);
+      else if (explicit) results.push({ channel, ok: false, message: '通知渠道未配置' });
     } catch (err) {
-      results.push({ channel: 'unknown', ok: false, message: err.message });
+      results.push({ channel, ok: false, message: err.message });
     }
   }
   return results;

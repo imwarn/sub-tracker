@@ -6,6 +6,8 @@
  *   items               → JSON array of all items
  *   TG_BOT_TOKEN        → Telegram bot token
  *   TG_CHAT_ID          → Telegram chat ID
+ *   DEFAULT_NOTIFY_CHANNEL → Default notification channel
+ *   AUTH_NOTIFY_CHANNEL → OTP notification channel
  *   admin_auth_code     → Current OTP code (TTL 300s)
  *   admin_auth_attempts → Failed attempt counter (TTL 300s)
  *   session_token_<uuid> → Active session (TTL 2592000s = 30d)

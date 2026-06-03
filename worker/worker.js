@@ -133,6 +133,164 @@ async function clearHistory(db) {
   await db.put(HISTORY_KEY, JSON.stringify([]));
 }
 
+// src/services/telegram.js
+function escapeTelegramHTML(value) {
+  return value == null ? "" : String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+async function sendTelegram(token, chatId, text) {
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" })
+  });
+  return res.ok;
+}
+
+// src/services/notify.js
+var CHANNELS = ["telegram", "bark", "wecom", "webhook"];
+async function config(env, key) {
+  if (env[key]) return env[key];
+  try {
+    return await getConfig(env.DB, key);
+  } catch {
+    return "";
+  }
+}
+function stripHTML(value) {
+  return String(value == null ? "" : value).replace(/<[^>]*>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+async function postJSON(url, payload) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return res.ok;
+}
+async function sendBark(env, title, text) {
+  const barkUrl = await config(env, "BARK_URL");
+  const barkKey = await config(env, "BARK_KEY");
+  const barkServer = await config(env, "BARK_SERVER") || "https://api.day.app";
+  const endpoint = barkUrl || (barkKey ? `${barkServer.replace(/\/$/, "")}/${encodeURIComponent(barkKey)}` : "");
+  if (!endpoint) return null;
+  return {
+    channel: "bark",
+    ok: await postJSON(endpoint, {
+      title,
+      body: stripHTML(text),
+      group: "Sub-Tracker"
+    })
+  };
+}
+async function sendWeCom(env, title, text) {
+  const webhook = await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL");
+  if (!webhook) return null;
+  return {
+    channel: "wecom",
+    ok: await postJSON(webhook, {
+      msgtype: "text",
+      text: { content: `${title}
+
+${stripHTML(text)}` }
+    })
+  };
+}
+async function sendGenericWebhook(env, title, text) {
+  const webhook = await config(env, "WEBHOOK_URL");
+  if (!webhook) return null;
+  return {
+    channel: "webhook",
+    ok: await postJSON(webhook, {
+      source: "sub-tracker",
+      title,
+      text: stripHTML(text),
+      html: text,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    })
+  };
+}
+async function sendTelegramIfConfigured(env, text) {
+  const token = await config(env, "TG_BOT_TOKEN");
+  const chatId = await config(env, "TG_CHAT_ID");
+  if (!token || !chatId) return null;
+  return {
+    channel: "telegram",
+    ok: await sendTelegram(token, chatId, text)
+  };
+}
+function normalizeChannel(value, { allowAll = false } = {}) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (allowAll && raw === "all") return "all";
+  const aliases = {
+    tg: "telegram",
+    telegram: "telegram",
+    bark: "bark",
+    wecom: "wecom",
+    wechat: "wecom",
+    wechat_work: "wecom",
+    wechatwork: "wecom",
+    qywx: "wecom",
+    webhook: "webhook"
+  };
+  const channel = aliases[raw] || "";
+  return CHANNELS.includes(channel) ? channel : "";
+}
+async function getDefaultNotificationMode(env) {
+  return normalizeChannel(await config(env, "DEFAULT_NOTIFY_CHANNEL"), { allowAll: true }) || "all";
+}
+async function getTargetChannels(env, requestedChannel) {
+  const requested = normalizeChannel(requestedChannel, { allowAll: true });
+  const mode = requested || await getDefaultNotificationMode(env);
+  if (mode === "all") {
+    return {
+      channels: await getConfiguredNotificationChannels(env),
+      explicit: false
+    };
+  }
+  return {
+    channels: [mode],
+    explicit: true
+  };
+}
+var SENDERS = {
+  telegram: (env, title, text) => sendTelegramIfConfigured(env, text),
+  bark: (env, title, text) => sendBark(env, title, text),
+  wecom: (env, title, text) => sendWeCom(env, title, text),
+  webhook: (env, title, text) => sendGenericWebhook(env, title, text)
+};
+async function getConfiguredNotificationChannels(env) {
+  const channels = [];
+  if (await config(env, "TG_BOT_TOKEN") && await config(env, "TG_CHAT_ID")) channels.push("telegram");
+  if (await config(env, "BARK_URL") || await config(env, "BARK_KEY")) channels.push("bark");
+  if (await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL")) channels.push("wecom");
+  if (await config(env, "WEBHOOK_URL")) channels.push("webhook");
+  return channels;
+}
+async function getAuthNotificationChannel(env) {
+  const authChannel = normalizeChannel(await config(env, "AUTH_NOTIFY_CHANNEL"));
+  if (authChannel) return authChannel;
+  const defaultMode = await getDefaultNotificationMode(env);
+  if (defaultMode !== "all") return defaultMode;
+  const configured = await getConfiguredNotificationChannels(env);
+  return configured.includes("telegram") ? "telegram" : configured[0] || "";
+}
+async function sendNotifications(env, text, options = {}) {
+  const title = options.title || "Sub-Tracker";
+  const { channels, explicit } = await getTargetChannels(env, options.channel);
+  const results = [];
+  for (const channel of channels) {
+    try {
+      const result = await SENDERS[channel](env, title, text);
+      if (result) results.push(result);
+      else if (explicit) results.push({ channel, ok: false, message: "\u901A\u77E5\u6E20\u9053\u672A\u914D\u7F6E" });
+    } catch (err) {
+      results.push({ channel, ok: false, message: err.message });
+    }
+  }
+  return results;
+}
+
 // src/handlers/auth.js
 var OTP_SEND_COOLDOWN_KEY = "admin_auth_send_cooldown";
 async function handleAuth(request, env, path) {
@@ -153,16 +311,6 @@ async function handleAuth(request, env, path) {
   }
   return null;
 }
-async function getTGConfig(env) {
-  let token = env.TG_BOT_TOKEN;
-  let chatId = env.TG_CHAT_ID;
-  try {
-    if (!token) token = await getConfig(env.DB, "TG_BOT_TOKEN");
-    if (!chatId) chatId = await getConfig(env.DB, "TG_CHAT_ID");
-  } catch {
-  }
-  return { token, chatId };
-}
 function generateOTP() {
   const range = 9e5;
   const max = 4294967295;
@@ -173,20 +321,33 @@ function generateOTP() {
   } while (values[0] >= limit);
   return String(1e5 + values[0] % range);
 }
+function channelLabel(channel) {
+  return {
+    telegram: "Telegram",
+    bark: "Bark",
+    wecom: "\u4F01\u4E1A\u5FAE\u4FE1",
+    webhook: "Webhook"
+  }[channel] || "\u901A\u77E5";
+}
+function channelRequirements(channel) {
+  return {
+    telegram: "TG_BOT_TOKEN \u548C TG_CHAT_ID",
+    bark: "BARK_KEY \u6216 BARK_URL",
+    wecom: "WECOM_WEBHOOK_URL",
+    webhook: "WEBHOOK_URL"
+  }[channel] || "Telegram\u3001Bark\u3001\u4F01\u4E1A\u5FAE\u4FE1\u6216 Webhook \u4E2D\u7684\u4E00\u79CD";
+}
 async function sendOTP(env) {
   const cooldown = await getConfig(env.DB, OTP_SEND_COOLDOWN_KEY);
   if (cooldown) {
     return errorResponse("\u9A8C\u8BC1\u7801\u53D1\u9001\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5", 429);
   }
-  const { token, chatId } = await getTGConfig(env);
-  if (!token || !chatId) {
-    const missing = [];
-    if (!token) missing.push("TG_BOT_TOKEN");
-    if (!chatId) missing.push("TG_CHAT_ID");
+  const channel = await getAuthNotificationChannel(env);
+  if (!channel) {
     return errorResponse(
-      `\u73AF\u5883\u7F3A\u5931\uFF1A\u7F3A\u5C11 ${missing.join(" \u548C ")}\u3002\u53EF\u901A\u8FC7\u4EE5\u4E0B\u65B9\u5F0F\u914D\u7F6E\uFF1A
+      `\u672A\u914D\u7F6E\u53EF\u7528\u7684\u767B\u5F55\u9A8C\u8BC1\u7801\u901A\u9053\u3002\u8BF7\u81F3\u5C11\u914D\u7F6E Telegram\u3001Bark\u3001\u4F01\u4E1A\u5FAE\u4FE1\u6216 Webhook \u4E2D\u7684\u4E00\u79CD\u3002
 1. Cloudflare Dashboard \u2192 Workers \u2192 Settings \u2192 Variables (\u63A8\u8350)
-2. KV \u6570\u636E\u5E93\u4E2D\u624B\u52A8\u6DFB\u52A0\u8FD9\u4E24\u4E2A\u952E\u503C\u5BF9`,
+2. KV \u6570\u636E\u5E93\u4E2D\u624B\u52A8\u6DFB\u52A0\u5BF9\u5E94\u952E\u503C\u5BF9`,
       500
     );
   }
@@ -202,17 +363,22 @@ async function sendOTP(env) {
     "",
     "<i>(\u9A8C\u8BC1\u7801 5 \u5206\u949F\u5185\u6709\u6548\uFF0C\u8FDE\u7EED\u8F93\u9519 5 \u6B21\u5C06\u81EA\u52A8\u4F5C\u5E9F)</i>"
   ].join("\n");
-  const tgUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-  const res = await fetch(tgUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" })
+  const results = await sendNotifications(env, text, {
+    title: "Sub-Tracker \u5B89\u5168\u9A8C\u8BC1",
+    channel
   });
-  if (res.ok) {
+  if (results.some((result) => result.ok)) {
     await setConfig(env.DB, OTP_SEND_COOLDOWN_KEY, "1", { expirationTtl: 60 });
-    return successResponse();
+    return successResponse({ channel });
   }
-  return errorResponse("TG \u6D88\u606F\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5 Bot Token \u662F\u5426\u6709\u6548\u3001\u662F\u5426\u5DF2\u6FC0\u6D3B", 500);
+  await env.DB.delete("admin_auth_code");
+  await env.DB.delete("admin_auth_attempts");
+  const failure = results.find((result) => result.channel === channel);
+  const detail = failure?.message ? `\uFF08${failure.message}\uFF09` : "";
+  return errorResponse(
+    `${channelLabel(channel)} \u9A8C\u8BC1\u7801\u53D1\u9001\u5931\u8D25${detail}\uFF0C\u8BF7\u68C0\u67E5 ${channelRequirements(channel)} \u914D\u7F6E`,
+    500
+  );
 }
 async function verifyOTP(request, env) {
   try {
@@ -511,119 +677,6 @@ function mergeUpdate(existing, data) {
     updated.predictedSuspendDate = calcSuspendDate(updated.balance, updated.monthlyFee, updated.billingDay);
   }
   return updated;
-}
-
-// src/services/telegram.js
-function escapeTelegramHTML(value) {
-  return value == null ? "" : String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-async function sendTelegram(token, chatId, text) {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" })
-  });
-  return res.ok;
-}
-
-// src/services/notify.js
-async function config(env, key) {
-  if (env[key]) return env[key];
-  try {
-    return await getConfig(env.DB, key);
-  } catch {
-    return "";
-  }
-}
-function stripHTML(value) {
-  return String(value == null ? "" : value).replace(/<[^>]*>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-}
-async function postJSON(url, payload) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  return res.ok;
-}
-async function sendBark(env, title, text) {
-  const barkUrl = await config(env, "BARK_URL");
-  const barkKey = await config(env, "BARK_KEY");
-  const barkServer = await config(env, "BARK_SERVER") || "https://api.day.app";
-  const endpoint = barkUrl || (barkKey ? `${barkServer.replace(/\/$/, "")}/${encodeURIComponent(barkKey)}` : "");
-  if (!endpoint) return null;
-  return {
-    channel: "bark",
-    ok: await postJSON(endpoint, {
-      title,
-      body: stripHTML(text),
-      group: "Sub-Tracker"
-    })
-  };
-}
-async function sendWeCom(env, title, text) {
-  const webhook = await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL");
-  if (!webhook) return null;
-  return {
-    channel: "wecom",
-    ok: await postJSON(webhook, {
-      msgtype: "text",
-      text: { content: `${title}
-
-${stripHTML(text)}` }
-    })
-  };
-}
-async function sendGenericWebhook(env, title, text) {
-  const webhook = await config(env, "WEBHOOK_URL");
-  if (!webhook) return null;
-  return {
-    channel: "webhook",
-    ok: await postJSON(webhook, {
-      source: "sub-tracker",
-      title,
-      text: stripHTML(text),
-      html: text,
-      timestamp: (/* @__PURE__ */ new Date()).toISOString()
-    })
-  };
-}
-async function sendTelegramIfConfigured(env, text) {
-  const token = await config(env, "TG_BOT_TOKEN");
-  const chatId = await config(env, "TG_CHAT_ID");
-  if (!token || !chatId) return null;
-  return {
-    channel: "telegram",
-    ok: await sendTelegram(token, chatId, text)
-  };
-}
-async function getConfiguredNotificationChannels(env) {
-  const channels = [];
-  if (await config(env, "TG_BOT_TOKEN") && await config(env, "TG_CHAT_ID")) channels.push("telegram");
-  if (await config(env, "BARK_URL") || await config(env, "BARK_KEY")) channels.push("bark");
-  if (await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL")) channels.push("wecom");
-  if (await config(env, "WEBHOOK_URL")) channels.push("webhook");
-  return channels;
-}
-async function sendNotifications(env, text, options = {}) {
-  const title = options.title || "Sub-Tracker";
-  const senders = [
-    () => sendTelegramIfConfigured(env, text),
-    () => sendBark(env, title, text),
-    () => sendWeCom(env, title, text),
-    () => sendGenericWebhook(env, title, text)
-  ];
-  const results = [];
-  for (const sender of senders) {
-    try {
-      const result = await sender();
-      if (result) results.push(result);
-    } catch (err) {
-      results.push({ channel: "unknown", ok: false, message: err.message });
-    }
-  }
-  return results;
 }
 
 // src/handlers/items.js
@@ -1309,7 +1362,7 @@ function getHTML() {
         <i class="fa-solid fa-shield-halved text-4xl text-sky-400"></i>
       </div>
       <h2 class="text-2xl font-bold text-white mb-2">\u5B89\u5168\u9A8C\u8BC1</h2>
-      <p class="text-slate-400 text-sm mb-8">\u5411\u4F60\u7684 Telegram \u673A\u5668\u4EBA\u83B7\u53D6\u9A8C\u8BC1\u7801\u767B\u5F55</p>
+      <p class="text-slate-400 text-sm mb-8">\u5411\u5DF2\u914D\u7F6E\u7684\u767B\u5F55\u901A\u9053\u83B7\u53D6\u9A8C\u8BC1\u7801</p>
       <div class="mb-6">
         <input id="otp-input" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="\u8F93\u5165 6 \u4F4D\u9A8C\u8BC1\u7801"
           class="glass-input w-full px-4 py-4 rounded-xl text-center text-xl sm:text-2xl tracking-[0.3em] sm:tracking-[0.5em] font-mono">
@@ -1319,7 +1372,7 @@ function getHTML() {
           <i class="fa-solid fa-arrow-right-to-bracket"></i> \u767B\u5F55
         </button>
         <button onclick="sendOTP()" id="send-btn" class="w-full py-3.5 rounded-xl font-bold text-sky-300 border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 transition-colors flex items-center justify-center gap-2">
-          <i class="fa-brands fa-telegram"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801
+          <i class="fa-solid fa-key"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801
         </button>
       </div>
       <p id="login-msg" class="mt-4 text-sm text-red-400 hidden"></p>
@@ -1646,8 +1699,8 @@ async function sendOTP() {
   const res = await api('POST', '/api/auth/send');
   const data = await res.json();
   if (data.success) { btn.innerHTML = '<i class="fa-solid fa-check"></i> \u5DF2\u53D1\u9001'; btn.classList.add('text-green-400'); showLoginMsg(''); }
-  else { showLoginMsg(data.message || '\u53D1\u9001\u5931\u8D25'); btn.innerHTML = '<i class="fa-brands fa-telegram"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801'; }
-  setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="fa-brands fa-telegram"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801'; btn.classList.remove('text-green-400'); }, 5000);
+  else { showLoginMsg(data.message || '\u53D1\u9001\u5931\u8D25'); btn.innerHTML = '<i class="fa-solid fa-key"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801'; }
+  setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-key"></i> \u83B7\u53D6\u9A8C\u8BC1\u7801'; btn.classList.remove('text-green-400'); }, 5000);
 }
 
 async function verifyOTP() {
@@ -2286,7 +2339,7 @@ async function renewItem(id) {
 async function testNotify(id) {
   const res = await api('POST', '/api/items/'+id+'/test-notify');
   const data = await res.json();
-  if (data.success) alert('\u2705 \u6D4B\u8BD5\u901A\u77E5\u5DF2\u53D1\u9001\uFF0C\u8BF7\u68C0\u67E5 Telegram');
+  if (data.success) alert('\u2705 \u6D4B\u8BD5\u901A\u77E5\u5DF2\u53D1\u9001\uFF0C\u8BF7\u68C0\u67E5\u5DF2\u914D\u7F6E\u7684\u901A\u77E5\u901A\u9053');
   else alert('\u274C ' + (data.message || '\u53D1\u9001\u5931\u8D25'));
 }
 

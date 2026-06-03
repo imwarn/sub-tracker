@@ -206,7 +206,7 @@ export function getHTML() {
         <i class="fa-solid fa-shield-halved text-4xl text-sky-400"></i>
       </div>
       <h2 class="text-2xl font-bold text-white mb-2">安全验证</h2>
-      <p class="text-slate-400 text-sm mb-8">向你的 Telegram 机器人获取验证码登录</p>
+      <p class="text-slate-400 text-sm mb-8">向已配置的登录通道获取验证码</p>
       <div class="mb-6">
         <input id="otp-input" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="输入 6 位验证码"
           class="glass-input w-full px-4 py-4 rounded-xl text-center text-xl sm:text-2xl tracking-[0.3em] sm:tracking-[0.5em] font-mono">
@@ -216,7 +216,7 @@ export function getHTML() {
           <i class="fa-solid fa-arrow-right-to-bracket"></i> 登录
         </button>
         <button onclick="sendOTP()" id="send-btn" class="w-full py-3.5 rounded-xl font-bold text-sky-300 border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 transition-colors flex items-center justify-center gap-2">
-          <i class="fa-brands fa-telegram"></i> 获取验证码
+          <i class="fa-solid fa-key"></i> 获取验证码
         </button>
       </div>
       <p id="login-msg" class="mt-4 text-sm text-red-400 hidden"></p>
@@ -543,8 +543,8 @@ async function sendOTP() {
   const res = await api('POST', '/api/auth/send');
   const data = await res.json();
   if (data.success) { btn.innerHTML = '<i class="fa-solid fa-check"></i> 已发送'; btn.classList.add('text-green-400'); showLoginMsg(''); }
-  else { showLoginMsg(data.message || '发送失败'); btn.innerHTML = '<i class="fa-brands fa-telegram"></i> 获取验证码'; }
-  setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="fa-brands fa-telegram"></i> 获取验证码'; btn.classList.remove('text-green-400'); }, 5000);
+  else { showLoginMsg(data.message || '发送失败'); btn.innerHTML = '<i class="fa-solid fa-key"></i> 获取验证码'; }
+  setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-key"></i> 获取验证码'; btn.classList.remove('text-green-400'); }, 5000);
 }
 
 async function verifyOTP() {
@@ -1183,7 +1183,7 @@ async function renewItem(id) {
 async function testNotify(id) {
   const res = await api('POST', '/api/items/'+id+'/test-notify');
   const data = await res.json();
-  if (data.success) alert('✅ 测试通知已发送，请检查 Telegram');
+  if (data.success) alert('✅ 测试通知已发送，请检查已配置的通知通道');
   else alert('❌ ' + (data.message || '发送失败'));
 }
 
