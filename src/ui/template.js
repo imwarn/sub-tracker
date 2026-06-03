@@ -178,6 +178,13 @@ export function getHTML() {
     .status-active { color:#4ade80; } .status-warning { color:#fbbf24; }
     .status-danger { color:#f87171; } .status-expired { color:#ef4444; }
     .modal-overlay { background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); }
+    .toast-container { position:fixed; top:1rem; left:50%; transform:translateX(-50%); z-index:99999; display:flex; flex-direction:column; gap:0.5rem; pointer-events:none; }
+    .toast { pointer-events:auto; padding:0.75rem 1.25rem; border-radius:0.75rem; font-size:0.875rem; font-weight:500; color:#fff; backdrop-filter:blur(12px); animation:toastIn 0.3s ease; max-width:24rem; text-align:center; }
+    .toast-success { background:rgba(16,185,129,0.9); }
+    .toast-error { background:rgba(239,68,68,0.9); }
+    .toast-info { background:rgba(56,189,248,0.9); }
+    @keyframes toastIn { from{opacity:0;transform:translateY(-1rem)} to{opacity:1;transform:translateY(0)} }
+    @keyframes toastOut { from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-1rem)} }
     .fade-in { animation:fadeIn 0.3s ease; }
     @keyframes fadeIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
     .tab-active { background:rgba(56,189,248,0.2); color:#38bdf8; border-color:#38bdf8; }
@@ -503,8 +510,11 @@ export function getHTML() {
 	    </div>
 	  </div>
 
-	  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
-	  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
+\t  <!-- ========== TOAST ========== -->
+\t  <div id="toast-container" class="toast-container"></div>
+
+\t  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
+\t  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
     <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-download mr-2 text-emerald-400"></i>导出 JSON
     </button>
@@ -535,6 +545,15 @@ let currentView = 'grid';
 let calYear, calMonth;
 let _renderTimer = null;
 function debouncedRender() { clearTimeout(_renderTimer); _renderTimer = setTimeout(renderItems, 300); }
+
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.animation = 'toastOut 0.3s ease forwards'; setTimeout(() => t.remove(), 300); }, 3500);
+}
 
 const API = '';
 const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
@@ -1217,14 +1236,14 @@ async function saveItem(e) {
 
   // Client-side validation for non-balance types
   if (body.type !== 'balance' && !body.expireDate) {
-    alert('到期日期不能为空'); return;
+    showToast('到期日期不能为空', 'error'); return;
   }
 
   const res = id ? await api('PUT', '/api/items/'+id, body) : await api('POST', '/api/items', body);
   const data = await res.json();
   if (data.success) { closeModal(); await loadItems(); }
-  else if (data.message) alert(data.message);
-  else alert('保存失败');
+  else if (data.message) showToast(data.message, 'error');
+  else showToast('保存失败', 'error');
 }
 
 // ==================== ACTIONS ====================
@@ -1241,14 +1260,14 @@ async function renewItem(id) {
   if (!confirm('确定续期？将自动延长到期日期。')) return;
   const res = await api('POST', '/api/items/'+id+'/renew');
   const data = await res.json();
-  if (data.success) await loadItems(); else alert(data.message || '续期失败');
+  if (data.success) { await loadItems(); showToast('续期成功', 'success'); } else showToast(data.message || '续期失败', 'error');
 }
 
 async function testNotify(id) {
   const res = await api('POST', '/api/items/'+id+'/test-notify');
   const data = await res.json();
-  if (data.success) alert('✅ 测试通知已发送，请检查已配置的通知通道');
-  else alert('❌ ' + (data.message || '发送失败'));
+  if (data.success) showToast('✅ 测试通知已发送', 'success');
+  else showToast(data.message || '发送失败', 'error');
 }
 
 async function rechargeItem(id) {
@@ -1259,8 +1278,8 @@ async function rechargeItem(id) {
   const note = prompt('备注（可留空）：', '') || '';
   const res = await api('POST', '/api/items/'+id+'/recharge', { amount: parseFloat(amount), note });
   const data = await res.json();
-  if (data.success) { await loadItems(); alert('✅ 充值成功！新余额: '+currSym(item.currency)+data.newBalance+'\\n预计停机: '+data.predictedSuspendDate); }
-  else alert('❌ ' + (data.message || '充值失败'));
+  if (data.success) { await loadItems(); showToast('✅ 充值成功！新余额: '+currSym(item.currency)+data.newBalance, 'success'); }
+  else showToast(data.message || '充值失败', 'error');
 }
 
 function getSelectedRemindDays() {
@@ -1311,13 +1330,13 @@ async function importJSON(input) {
       const details = result.errors && result.errors.length
         ? '\\n前几条错误：\\n' + result.errors.map(e => '#' + (e.index + 1) + ' ' + (e.name || '') + ' ' + e.message).join('\\n')
         : '';
-      alert('导入完成！新增 ' + result.added + ' 条' + skipped + '，共 ' + result.total + ' 条' + details);
+      showToast('导入完成！新增 ' + result.added + ' 条' + skipped, 'success');
       await loadItems();
     } else {
-      alert(result.message || '导入失败');
+      showToast(result.message || '导入失败', 'error');
     }
   } catch (e) {
-    alert('JSON 解析失败: ' + e.message);
+    showToast('JSON 解析失败: ' + e.message, 'error');
   }
   input.value = '';
 }
@@ -1387,7 +1406,7 @@ async function clearHistory() {
   const res = await api('DELETE', '/api/history');
   const data = await res.json();
   if (data.success) openHistory();
-  else alert(data.message || '清空失败');
+  else showToast(data.message || '清空失败', 'error');
 }
 
 function downloadDemo() {
