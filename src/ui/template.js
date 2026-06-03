@@ -1239,11 +1239,17 @@ async function saveItem(e) {
     showToast('到期日期不能为空', 'error'); return;
   }
 
-  const res = id ? await api('PUT', '/api/items/'+id, body) : await api('POST', '/api/items', body);
-  const data = await res.json();
-  if (data.success) { closeModal(); await loadItems(); }
-  else if (data.message) showToast(data.message, 'error');
-  else showToast('保存失败', 'error');
+  const btn = e.target.querySelector('[type="submit"]');
+  const origHTML = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>保存中...';
+  try {
+    const res = id ? await api('PUT', '/api/items/'+id, body) : await api('POST', '/api/items', body);
+    const data = await res.json();
+    if (data.success) { closeModal(); await loadItems(); }
+    else if (data.message) showToast(data.message, 'error');
+    else showToast('保存失败', 'error');
+  } catch { showToast('保存失败', 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = origHTML; }
 }
 
 // ==================== ACTIONS ====================
@@ -1251,9 +1257,12 @@ function editItem(id) { const item = allItems.find(i => i.id === id); if (item) 
 
 async function deleteItem(id) {
   if (!confirm('确定删除此记录？')) return;
-  const res = await api('DELETE', '/api/items/'+id);
-  const data = await res.json();
-  if (data.success) await loadItems();
+  try {
+    const res = await api('DELETE', '/api/items/'+id);
+    const data = await res.json();
+    if (data.success) { showToast('已删除', 'success'); await loadItems(); }
+    else showToast(data.message || '删除失败', 'error');
+  } catch { showToast('删除失败', 'error'); }
 }
 
 async function renewItem(id) {
@@ -1444,9 +1453,12 @@ async function toggleStatus(id) {
   const item = allItems.find(i => i.id === id);
   if (!item) return;
   const newStatus = item.status === 'active' ? 'paused' : 'active';
-  const res = await api('PUT', '/api/items/' + id, { status: newStatus });
-  const data = await res.json();
-  if (data.success) await loadItems();
+  try {
+    const res = await api('PUT', '/api/items/' + id, { status: newStatus });
+    const data = await res.json();
+    if (data.success) { showToast(newStatus === 'paused' ? '已暂停' : '已启用', 'success'); await loadItems(); }
+    else showToast(data.message || '操作失败', 'error');
+  } catch { showToast('操作失败', 'error'); }
 }
 
 // ==================== INIT ====================

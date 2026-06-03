@@ -238,7 +238,7 @@ async function exportJSON(env) {
 
 async function exportCSV(env) {
   const items = await getAllItems(env.DB);
-  const headers = ['类型', '名称', '号码', '分类', '到期日期', '周期(天)', '费用/余额', '货币', '自动续费/月租', '扣费日', '状态', '备注'];
+  const headers = ['ID', '类型', '名称', '号码', '分类', '到期日期', '周期(天)', '费用/余额', '货币', '自动续费/月租', '扣费日', '状态', '备注'];
 
   const rows = items.map(item => {
     const typeLabel = item.type === 'esim' ? 'eSIM' : item.type === 'balance' ? '话费' : '订阅';
@@ -250,6 +250,7 @@ async function exportCSV(env) {
       : (item.autoRenew ? '是' : '否');
     const billingDay = item.type === 'balance' ? (item.billingDay || '') : '';
     return [
+      item.id || '',
       typeLabel,
       csvEscape(item.name),
       csvEscape(item.number || ''),
