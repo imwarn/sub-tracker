@@ -162,12 +162,13 @@ export async function getAuthNotificationChannel(env) {
 
 export async function sendNotifications(env, text, options = {}) {
   const title = options.title || 'Sub-Tracker';
+  const brandedText = `[Sub-Tracker]\n${text}`;
   const { channels, explicit } = await getTargetChannels(env, options.channel);
 
   const results = [];
   for (const channel of channels) {
     try {
-      const result = await SENDERS[channel](env, title, text);
+      const result = await SENDERS[channel](env, title, brandedText);
       if (result) results.push(result);
       else if (explicit) results.push({ channel, ok: false, message: '通知渠道未配置' });
     } catch (err) {

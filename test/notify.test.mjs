@@ -47,8 +47,8 @@ test('sendNotifications posts to all configured channels', async () => {
 
     assert.deepEqual(results.map(r => r.channel), ['telegram', 'bark', 'wecom', 'webhook']);
     assert.equal(fetchMock.calls.length, 4);
-    assert.equal(fetchMock.calls[1].payload.body, '到期提醒\n号码 & 订阅');
-    assert.equal(fetchMock.calls[2].payload.text.content, '测试标题\n\n到期提醒\n号码 & 订阅');
+    assert.equal(fetchMock.calls[1].payload.body, '[Sub-Tracker]\n到期提醒\n号码 & 订阅');
+    assert.equal(fetchMock.calls[2].payload.text.content, '测试标题\n\n[Sub-Tracker]\n到期提醒\n号码 & 订阅');
     assert.equal(fetchMock.calls[3].payload.title, '测试标题');
   } finally {
     fetchMock.restore();
