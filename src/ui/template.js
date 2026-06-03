@@ -296,7 +296,7 @@ export function getHTML() {
     <div class="mb-6">
       <div class="relative">
         <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-        <input id="search-input" type="text" placeholder="搜索名称、号码、备注..."
+        <input id="search-input" type="text" placeholder="搜索名称、号码、分类、区域、备注..."
           oninput="debouncedRender()"
           class="glass-input w-full pl-11 pr-4 py-3 rounded-xl text-sm">
       </div>
@@ -538,6 +538,13 @@ async function api(method, path, body) {
   if (TOKEN) opts.headers['Authorization'] = TOKEN;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
+  // Auto-logout on session expiry
+  if (res.status === 401 && TOKEN) {
+    TOKEN = ''; localStorage.removeItem('token');
+    document.getElementById('dashboard-view').classList.add('hidden');
+    document.getElementById('login-view').classList.remove('hidden');
+    showLoginMsg('会话已过期，请重新登录');
+  }
   return res;
 }
 
@@ -591,8 +598,13 @@ async function enterDashboard() {
 }
 
 async function loadItems() {
-  const res = await api('GET', '/api/items');
-  if (res.ok) { const data = await res.json(); if (Array.isArray(data)) allItems = data; }
+  try {
+    const res = await api('GET', '/api/items');
+    if (res.ok) { const data = await res.json(); if (Array.isArray(data)) allItems = data; }
+    else { console.error('loadItems failed:', res.status); }
+  } catch (e) {
+    console.error('loadItems error:', e);
+  }
   renderStats(); renderAnalytics(); renderItems();
 }
 
@@ -770,7 +782,9 @@ function getFilteredItems() {
   if (currentFilter !== 'all') items = items.filter(i => i.type === currentFilter);
   if (search) items = items.filter(i =>
     (i.name||'').toLowerCase().includes(search) || (i.number||'').toLowerCase().includes(search) ||
-    (i.remark||'').toLowerCase().includes(search) || (i.category||'').toLowerCase().includes(search)
+    (i.remark||'').toLowerCase().includes(search) || (i.category||'').toLowerCase().includes(search) ||
+    (i.region||'').toLowerCase().includes(search) || (i.subId||'').toLowerCase().includes(search) ||
+    (i.url||'').toLowerCase().includes(search)
   );
   const today = new Date(); today.setHours(0,0,0,0);
   items.sort((a,b) => {
