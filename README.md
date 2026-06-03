@@ -91,25 +91,29 @@ npx wrangler deploy       # 部署
 
 ### 推送配置指南
 
-**Telegram**
+> 🟢 已验证　🟡 未验证
+
+**Telegram** 🟢
 
 1. 找 `@BotFather` 创建 Bot，得到 `TG_BOT_TOKEN`
 2. 给 Bot 发一条消息，再通过 `@userinfobot` 或 Bot API 获取 `TG_CHAT_ID`
 3. 未指定单一默认通道时，登录验证码会优先走 Telegram
 
-**Bark**
+**Bark** 🟢
 
 1. iOS 安装 Bark，复制设备 Key
 2. 设置 `BARK_KEY=<你的 Key>`；如果使用自建 Bark 服务，再设置 `BARK_SERVER=https://你的服务地址`
 3. 也可以直接设置完整推送地址 `BARK_URL=https://api.day.app/<key>`，此时 `BARK_URL` 优先
 
-**企业微信机器人**
+**企业微信机器人** 🟡
 
 1. 在企业微信群中添加「群机器人」
 2. 复制 Webhook 地址到 `WECOM_WEBHOOK_URL`
 3. 如果群里不只你一个人，不建议用它接收登录验证码
 
-**通用 Webhook**
+> 暂无企业微信环境，未实际验证。欢迎反馈测试结果。
+
+**通用 Webhook** 🟢
 
 设置 `WEBHOOK_URL` 后，系统会向该地址 POST JSON：
 
@@ -122,6 +126,12 @@ npx wrangler deploy       # 部署
   "timestamp": "2026-06-03T00:00:00.000Z"
 }
 ```
+
+已验证平台：**飞书（Lark）自定义机器人 Webhook**。
+
+> ⚠️ 部分 Webhook 平台支持关键词过滤（如飞书、企业微信），会根据消息内容决定是否放行。配置时请确保添加白名单关键词，例如 `Sub-Tracker`，以保证推送通知能正常接收。
+
+> ℹ️ 目前仅测试了部分通道组合，未覆盖所有排列。如遇到问题欢迎反馈。
 
 ### 默认通道与登录验证码
 
