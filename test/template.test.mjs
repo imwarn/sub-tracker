@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { CURRENCY_SYMBOLS } from '../src/data/constants.js';
-import { getFaviconICO, getHTML, getIconPNG, getIconSVG, getManifest, getServiceWorker } from '../src/ui/template.js';
+import { getFaviconICO, getIconPNG, getIconSVG, getManifest, getServiceWorker } from '../src/ui/pwa.js';
+import { getHTML } from '../src/ui/template.js';
 import { getCountryMap } from '../src/utils/country.js';
 
 function getInlineScript(html) {
@@ -47,6 +48,11 @@ test('manifest and service worker assets are generated', () => {
 
   const sw = getServiceWorker();
   assert.match(sw, /CACHE_NAME/);
+  assert.match(sw, /function networkFirstPage\(request\)/);
+  assert.match(sw, /function networkFirstApi\(request\)/);
+  assert.match(sw, /event\.respondWith\(networkFirstApi\(request\)\)/);
+  assert.match(sw, /cache\.put\(request, response\.clone\(\)\)/);
+  assert.match(sw, /cache\.match\(request\)/);
   assert.match(sw, /url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(sw, /\/favicon\.ico/);
 

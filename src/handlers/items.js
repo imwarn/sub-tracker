@@ -21,8 +21,14 @@ import { escapeTelegramHTML } from '../services/telegram.js';
 import { getConfiguredNotificationChannels, sendNotifications } from '../services/notify.js';
 import { CURRENCY_SYMBOLS, ITEM_TYPES } from '../data/constants.js';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function tg(s) {
   return escapeTelegramHTML(s);
+}
+
+function validImportId(id) {
+  return typeof id === 'string' && UUID_RE.test(id.trim()) ? id.trim() : '';
 }
 
 async function recordHistory(env, action, item, details = {}) {
@@ -326,17 +332,21 @@ async function importJSON(request, env) {
         continue;
       }
 
-      // Dedup: if item has an id that already exists, skip it
-      if (raw.id && existingIds.has(raw.id)) {
+      const importId = validImportId(raw.id);
+
+      // Dedup: if a valid imported id already exists or appeared earlier in this batch, skip it
+      if (importId && existingIds.has(importId)) {
         skipped++;
+        errors.push({ index, name: raw.name || '', message: 'ID 已存在，已跳过' });
         continue;
       }
 
       const item = createItem(type, raw);
       // Preserve original id from imported data (createItem generates a new UUID)
-      if (raw.id) item.id = raw.id;
+      if (importId) item.id = importId;
 
       existing.push(item);
+      existingIds.add(item.id);
       added++;
     }
 

@@ -7,7 +7,8 @@ import { binaryResponse, corsPreFlight, errorResponse, htmlResponse, svgResponse
 import { handleAuth } from './handlers/auth.js';
 import { handleHistory } from './handlers/history.js';
 import { handleItems } from './handlers/items.js';
-import { getFaviconICO, getHTML, getIconPNG, getIconSVG, getManifest, getServiceWorker } from './ui/template.js';
+import { getHTML } from './ui/template.js';
+import { getFaviconICO, getIconPNG, getIconSVG, getManifest, getServiceWorker } from './ui/pwa.js';
 
 /**
  * Route a request to the appropriate handler
