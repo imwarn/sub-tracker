@@ -60,6 +60,10 @@ export function svgResponse(svg, request = null, env = null) {
   return textResponse(svg, 'image/svg+xml;charset=UTF-8', request, env);
 }
 
+/**
+ * Binary response for static assets (icons, favicon).
+ * Note: cacheControl overrides SECURITY_HEADERS' 'no-store' — intended for immutable assets.
+ */
 export function binaryResponse(body, contentType, cacheControl = 'public, max-age=86400', request = null, env = null) {
   return new Response(body, {
     headers: {

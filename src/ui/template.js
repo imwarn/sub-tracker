@@ -937,7 +937,7 @@ function cardHTML(item) {
   let body = '';
   if (isBalance) {
     const sym = currSym(item.currency);
-    const monthsLeft = item.monthlyFee > 0 ? Math.floor(item.balance / item.monthlyFee) : 0;
+    const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
     const suspendStr = item.predictedSuspendDate || '未计算';
     body = (item.number ? '<div class="text-sm text-slate-300 font-mono mb-1">'+esc(item.number)+'</div>' : '') +
       '<div class="text-lg text-emerald-400 font-bold">'+sym+esc(item.balance)+'</div>' +

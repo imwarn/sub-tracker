@@ -280,7 +280,7 @@ async function exportCSV(env) {
 function csvEscape(s) {
   if (!s) return '';
   s = String(s);
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
@@ -360,7 +360,7 @@ async function testNotify(env, id) {
   if (item.type === 'balance') {
     const suspendDate = item.predictedSuspendDate || '未计算';
     const sym = CURRENCY_SYMBOLS[item.currency] || item.currency || '¥';
-    const monthsLeft = item.monthlyFee > 0 ? Math.floor(item.balance / item.monthlyFee) : 0;
+    const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
     const msg = [
       `⚠️ <b>【Sub-Tracker 话费停机 · 测试通知】</b>`,
       '',

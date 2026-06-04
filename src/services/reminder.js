@@ -41,7 +41,7 @@ export async function checkReminders(env) {
 
       if (!remindDays.includes(diffDays)) continue;
 
-      const monthsLeft = Math.floor(item.balance / item.monthlyFee);
+      const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
       const remarkText = item.remark ? `\n📝 备注: ${tg(item.remark)}` : '';
       const currSym = CURRENCY_SYMBOLS[item.currency] || item.currency || '¥';
 
