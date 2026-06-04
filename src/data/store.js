@@ -2,6 +2,12 @@
  * KV data store operations
  * All items (eSIM + subscriptions) are stored in a single KV key as a JSON array.
  *
+ * ⚠️ CONCURRENCY NOTE: All CRUD operations are read-modify-write without locking.
+ * Concurrent requests (e.g. two devices editing simultaneously) can cause lost writes
+ * where the later save overwrites earlier changes. This is acceptable for personal use
+ * (<100 items, single user) but should be considered if multi-user access is added.
+ * For concurrent-safe storage, migrate to Cloudflare D1 with transactions.
+ *
  * KV Key Layout:
  *   items               → JSON array of all items
  *   TG_BOT_TOKEN        → Telegram bot token

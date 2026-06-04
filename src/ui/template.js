@@ -163,8 +163,8 @@ export function getHTML() {
 	  <link rel="icon" href="/favicon.ico" sizes="any">
 	  <link rel="icon" href="/icon.svg" type="image/svg+xml">
 	  <link rel="apple-touch-icon" href="/icon-192.png">
-	  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+\t  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
   <style>
     * { box-sizing: border-box; }
     body {
@@ -940,10 +940,10 @@ function cardHTML(item) {
     const monthsLeft = item.monthlyFee > 0 ? Math.floor(item.balance / item.monthlyFee) : 0;
     const suspendStr = item.predictedSuspendDate || '未计算';
     body = (item.number ? '<div class="text-sm text-slate-300 font-mono mb-1">'+esc(item.number)+'</div>' : '') +
-      '<div class="text-lg text-emerald-400 font-bold">'+sym+item.balance+'</div>' +
-      '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-receipt mr-1"></i>月租 '+sym+item.monthlyFee+'/月 · 每月'+item.billingDay+'日扣</div>' +
+      '<div class="text-lg text-emerald-400 font-bold">'+sym+esc(item.balance)+'</div>' +
+      '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-receipt mr-1"></i>月租 '+sym+esc(item.monthlyFee)+'/月 · 每月'+esc(item.billingDay)+'日扣</div>' +
       '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-battery-half mr-1"></i>可撑 '+monthsLeft+' 个月</div>' +
-      (item.lastRecharge ? '<div class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-plus-circle mr-1"></i>上次 '+((item.lastRecharge.amount>0)?'+':'')+item.lastRecharge.amount+' ('+item.lastRecharge.date+')</div>' : '');
+      (item.lastRecharge ? '<div class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-plus-circle mr-1"></i>上次 '+((item.lastRecharge.amount>0)?'+':'')+esc(item.lastRecharge.amount)+' ('+esc(item.lastRecharge.date)+')</div>' : '');
   } else if (isEsim) {
     const iso = getFlag(item.number);
     body = (iso ? '<div class="text-xs font-mono text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded mb-2 inline-block">'+esc(iso)+'</div>' : '') +
@@ -971,9 +971,9 @@ function cardHTML(item) {
     '<span class="text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</span></div>' +
     '<h3 class="text-lg font-bold text-white mb-1 truncate">'+esc(item.name)+'</h3>' +
     body +
-    (isBalance && item.predictedSuspendDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>预计停机: '+item.predictedSuspendDate+'</div>' : '') +
-    (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>到期: '+item.expireDate+'</div>' : '') +
-    (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>周期: '+item.cycle+'天</div>' : '') +
+    (isBalance && item.predictedSuspendDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>预计停机: '+esc(item.predictedSuspendDate)+'</div>' : '') +
+    (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>到期: '+esc(item.expireDate)+'</div>' : '') +
+    (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>周期: '+esc(item.cycle)+'天</div>' : '') +
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
     rechargeBtn +
@@ -1020,7 +1020,7 @@ function listRowMobileHTML(item) {
   const statusCls = item.status==='paused' ? 'text-slate-500' : st.cls;
 
   const sym = currSym(item.currency);
-  const balanceInfo = isBalance ? sym+item.balance+' · 月租'+sym+item.monthlyFee : '';
+  const balanceInfo = isBalance ? sym+esc(item.balance)+' · 月租'+sym+esc(item.monthlyFee) : '';
 
   return '<div class="glass-card rounded-xl p-4">' +
     '<div class="flex items-center justify-between mb-2">' +
@@ -1033,7 +1033,7 @@ function listRowMobileHTML(item) {
     '<div class="flex items-center justify-between">' +
       '<div class="text-xs text-slate-400">' +
         (isBalance ? '<span>'+balanceInfo+'</span>' : '') +
-        (!isBalance && item.expireDate ? '<i class="fa-regular fa-calendar mr-1"></i>'+item.expireDate : '') +
+        (!isBalance && item.expireDate ? '<i class="fa-regular fa-calendar mr-1"></i>'+esc(item.expireDate) : '') +
         (item.number ? '<span class="ml-2 font-mono">'+esc(item.number)+'</span>' : '') +
         (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
       '</div>' +
@@ -1059,7 +1059,7 @@ function listRowHTML(item) {
   if (isBalance) {
     sub = item.number || '-';
     const sym = currSym(item.currency);
-    priceStr = ' · '+sym+item.balance+' (月租'+sym+item.monthlyFee+')';
+    priceStr = ' · '+sym+esc(item.balance)+' (月租'+sym+esc(item.monthlyFee)+')';
     iconClass = 'fa-wallet text-amber-400';
   } else if (isEsim) {
     sub = item.number || '-';
@@ -1067,11 +1067,11 @@ function listRowHTML(item) {
     iconClass = 'fa-sim-card text-cyan-400';
   } else {
     sub = item.category || '-';
-    priceStr = item.price ? ' · '+currSym(item.currency)+item.price : '';
+    priceStr = item.price ? ' · '+currSym(item.currency)+esc(item.price) : '';
     iconClass = 'fa-credit-card text-violet-400';
   }
 
-  const dateCol = isBalance ? (item.predictedSuspendDate || '-') : (item.expireDate || '-');
+  const dateCol = isBalance ? esc(item.predictedSuspendDate || '-') : esc(item.expireDate || '-');
 
   return '<div class="list-row grid grid-cols-12 gap-2 px-4 py-3 items-center border-b border-white/5">' +
     '<div class="col-span-4 sm:col-span-4 flex items-center gap-2 min-w-0">' +

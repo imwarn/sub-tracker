@@ -295,6 +295,10 @@ async function importJSON(request, env) {
       return errorResponse('数据格式错误：需要 items 数组', 400, request, env);
     }
 
+    if (importedItems.length > 500) {
+      return errorResponse('单次导入不能超过 500 条记录', 400, request, env);
+    }
+
     const existing = await getAllItems(env.DB);
     const existingIds = new Set(existing.map(i => i.id));
     let added = 0;
@@ -322,13 +326,15 @@ async function importJSON(request, env) {
         continue;
       }
 
-      const item = createItem(type, raw);
-
       // Dedup: if item has an id that already exists, skip it
       if (raw.id && existingIds.has(raw.id)) {
         skipped++;
         continue;
       }
+
+      const item = createItem(type, raw);
+      // Preserve original id from imported data (createItem generates a new UUID)
+      if (raw.id) item.id = raw.id;
 
       existing.push(item);
       added++;
