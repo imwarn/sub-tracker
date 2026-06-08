@@ -517,6 +517,11 @@ var CURRENCY_CODES = Object.keys(CURRENCY_SYMBOLS);
 
 // src/utils/date.js
 var TZ_OFFSET = 8;
+function todayString() {
+  const now = /* @__PURE__ */ new Date();
+  const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
+  return local.toISOString().split("T")[0];
+}
 function todayMidnight() {
   const now = /* @__PURE__ */ new Date();
   const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
@@ -2219,6 +2224,7 @@ function historyHTML(entry) {
     delete: ['\u5220\u9664', 'fa-trash', 'text-red-400'],
     renew: ['\u7EED\u671F', 'fa-rotate', 'text-cyan-400'],
     recharge: ['\u5145\u503C', 'fa-plus-circle', 'text-amber-400'],
+    deduct: ['\u6263\u8D39', 'fa-minus-circle', 'text-orange-400'],
     import: ['\u5BFC\u5165', 'fa-upload', 'text-violet-400'],
   };
   const cfg = actionMap[entry.action] || [entry.action || '\u64CD\u4F5C', 'fa-circle-info', 'text-slate-400'];
@@ -2253,6 +2259,12 @@ function historyDetail(entry) {
     return parts.join(' \xB7 ');
   }
   if (entry.action === 'import') return '\u65B0\u589E ' + (d.added || 0) + ' \u6761\uFF0C\u8DF3\u8FC7 ' + (d.skipped || 0) + ' \u6761\uFF0C\u603B\u8BA1 ' + (d.total || 0) + ' \u6761';
+  if (entry.action === 'deduct') {
+    const parts = [];
+    if (d.fee != null) parts.push('\u6708\u79DF\uFF1A' + esc(d.fee));
+    if (d.oldBalance != null && d.newBalance != null) parts.push('\u4F59\u989D\uFF1A' + esc(d.oldBalance) + ' \u2192 ' + esc(d.newBalance));
+    return parts.join(' \xB7 ');
+  }
   return '';
 }
 
@@ -2713,6 +2725,7 @@ ${getStyles()}
 	        <button onclick="filterHistory('delete')" data-hfilter="delete" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-trash mr-1"></i>\u5220\u9664</button>
 	        <button onclick="filterHistory('renew')" data-hfilter="renew" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-rotate mr-1"></i>\u7EED\u671F</button>
 	        <button onclick="filterHistory('recharge')" data-hfilter="recharge" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus-circle mr-1"></i>\u5145\u503C</button>
+	        <button onclick="filterHistory('deduct')" data-hfilter="deduct" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-minus-circle mr-1"></i>\u6263\u8D39</button>
 	        <button onclick="filterHistory('import')" data-hfilter="import" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-upload mr-1"></i>\u5BFC\u5165</button>
 	      </div>
 	      <div id="history-content" class="space-y-2"></div>
@@ -2996,7 +3009,7 @@ async function checkReminders(env) {
       const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
       const remarkText2 = item.remark ? `
 \u{1F4DD} \u5907\u6CE8: ${tg2(item.remark)}` : "";
-      const currSym2 = CURRENCY_SYMBOLS[item.currency] || item.currency || "\xA5";
+      const currSym3 = CURRENCY_SYMBOLS[item.currency] || item.currency || "\xA5";
       let urgency2;
       if (diffDays2 < 0)
         urgency2 = "\u274C";
@@ -3011,8 +3024,8 @@ async function checkReminders(env) {
         `${urgency2} \u3010Sub-Tracker \u8BDD\u8D39\u505C\u673A\u63D0\u9192\u3011
 \u{1F4F1} \u540D\u79F0: ${tg2(item.name)}
 ` + (item.number ? `\u{1F4DE} \u53F7\u7801: ${tg2(item.number)}
-` : "") + `\u{1F4B0} \u4F59\u989D: ${currSym2}${item.balance}
-\u{1F4B8} \u6708\u79DF: ${currSym2}${item.monthlyFee}/\u6708
+` : "") + `\u{1F4B0} \u4F59\u989D: ${currSym3}${item.balance}
+\u{1F4B8} \u6708\u79DF: ${currSym3}${item.monthlyFee}/\u6708
 \u{1F4C5} \u6BCF\u6708${item.billingDay}\u65E5\u6263\u8D39
 \u23F3 ${statusText2}
 \u{1F50B} \u53EF\u6491 ${monthsLeft} \u4E2A\u6708
@@ -3063,6 +3076,77 @@ ${typeEmoji} \u540D\u79F0: ${tg2(item.name)}
   }
 }
 
+// src/services/auto-deduct.js
+function tg3(s) {
+  return escapeTelegramHTML(s);
+}
+function currSym2(code) {
+  return CURRENCY_SYMBOLS[code] || code || "\xA5";
+}
+async function autoDeduct(env) {
+  const items = await getAllItems(env.DB);
+  if (!items.length)
+    return;
+  const today = todayString();
+  const todayDay = parseInt(today.split("-")[2], 10);
+  for (const item of items) {
+    if (item.type !== "balance")
+      continue;
+    if (item.status !== "active")
+      continue;
+    if (!item.monthlyFee || item.monthlyFee <= 0)
+      continue;
+    if (!item.billingDay)
+      continue;
+    if (todayDay !== item.billingDay)
+      continue;
+    if (item.lastDeductDate === today)
+      continue;
+    const fee = item.monthlyFee;
+    const oldBalance = item.balance;
+    const newBalance = Math.round((oldBalance - fee) * 100) / 100;
+    if (newBalance < 0) {
+      const sym = currSym2(item.currency);
+      const msg = [
+        `\u{1F6A8} <b>\u3010Sub-Tracker \u4F59\u989D\u4E0D\u8DB3\u3011</b>`,
+        "",
+        `\u{1F4F1} \u540D\u79F0: ${tg3(item.name)}`,
+        item.number ? `\u{1F4DE} \u53F7\u7801: ${tg3(item.number)}` : "",
+        `\u{1F4B0} \u6263\u8D39\u524D\u4F59\u989D: ${sym}${oldBalance}`,
+        `\u{1F4B8} \u672C\u6708\u6708\u79DF: ${sym}${fee}`,
+        `\u26A0\uFE0F \u6263\u8D39\u540E\u4F59\u989D: ${sym}${newBalance}`,
+        `\u{1F4C5} \u6BCF\u6708${item.billingDay}\u65E5\u6263\u8D39`,
+        item.remark ? `\u{1F4DD} \u5907\u6CE8: ${tg3(item.remark)}` : "",
+        "",
+        "\u8BF7\u5C3D\u5FEB\u5145\u503C\uFF0C\u907F\u514D\u505C\u673A\uFF01"
+      ].filter(Boolean).join("\n");
+      await sendNotifications(env, msg);
+    }
+    const newSuspendDate = calcSuspendDate(newBalance, fee, item.billingDay);
+    const updated = await updateItem(env.DB, item.id, (existing) => ({
+      ...existing,
+      balance: newBalance,
+      predictedSuspendDate: newSuspendDate,
+      lastDeductDate: today
+    }));
+    if (updated) {
+      await addHistory(env.DB, {
+        action: "deduct",
+        itemId: item.id,
+        itemName: item.name,
+        details: {
+          fee,
+          oldBalance,
+          newBalance,
+          billingDay: item.billingDay
+        }
+      }).catch(() => {
+      });
+      console.log(`Auto-deducted ${fee} from "${item.name}" (${oldBalance} \u2192 ${newBalance})`);
+    }
+  }
+}
+
 // src/index.js
 var src_default = {
   async fetch(request, env, ctx) {
@@ -3078,6 +3162,7 @@ var src_default = {
   },
   async scheduled(event, env, ctx) {
     try {
+      await autoDeduct(env);
       await checkReminders(env);
     } catch (err) {
       console.error("Cron error:", err);

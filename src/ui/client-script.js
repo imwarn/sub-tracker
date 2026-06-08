@@ -928,6 +928,7 @@ function historyHTML(entry) {
     delete: ['删除', 'fa-trash', 'text-red-400'],
     renew: ['续期', 'fa-rotate', 'text-cyan-400'],
     recharge: ['充值', 'fa-plus-circle', 'text-amber-400'],
+    deduct: ['扣费', 'fa-minus-circle', 'text-orange-400'],
     import: ['导入', 'fa-upload', 'text-violet-400'],
   };
   const cfg = actionMap[entry.action] || [entry.action || '操作', 'fa-circle-info', 'text-slate-400'];
@@ -962,6 +963,12 @@ function historyDetail(entry) {
     return parts.join(' · ');
   }
   if (entry.action === 'import') return '新增 ' + (d.added || 0) + ' 条，跳过 ' + (d.skipped || 0) + ' 条，总计 ' + (d.total || 0) + ' 条';
+  if (entry.action === 'deduct') {
+    const parts = [];
+    if (d.fee != null) parts.push('月租：' + esc(d.fee));
+    if (d.oldBalance != null && d.newBalance != null) parts.push('余额：' + esc(d.oldBalance) + ' → ' + esc(d.newBalance));
+    return parts.join(' · ');
+  }
   return '';
 }
 
