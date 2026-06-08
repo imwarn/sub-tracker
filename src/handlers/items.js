@@ -171,10 +171,17 @@ async function renewItem(env, id) {
       if (existing.type !== 'esim' && existing.type !== 'subscription') {
         throw new Error('仅 eSIM 和订阅类型支持一键续期');
       }
-      if (!existing.cycle) {
+      // eSIM uses cycle (days), subscription uses billing (monthly/yearly)
+      let days = existing.cycle;
+      if (existing.type === 'subscription' && !days) {
+        if (existing.billing === 'yearly') days = 365;
+        else if (existing.billing === 'monthly') days = 30;
+        else throw new Error('一次性订阅无需续期');
+      }
+      if (!days) {
         throw new Error('未设置续费周期，无法续期');
       }
-      const newExpire = addDays(existing.expireDate, existing.cycle);
+      const newExpire = addDays(existing.expireDate, days);
       return { ...existing, expireDate: newExpire, status: 'active' };
     });
 
