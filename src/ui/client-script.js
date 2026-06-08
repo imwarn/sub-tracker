@@ -389,7 +389,7 @@ function cardHTML(item) {
   }
 
   const idArg = jsArg(item.id);
-  const renewBtn = isEsim && item.cycle ?
+  const renewBtn = (isEsim || item.type === 'subscription') && item.cycle ?
     '<button onclick="renewItem('+idArg+')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> 续期</button>' : '';
   const rechargeBtn = isBalance ?
     '<button onclick="rechargeItem('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors"><i class="fa-solid fa-plus-circle"></i> 充值</button>' : '';
@@ -685,7 +685,7 @@ function openModal(type, item) {
   const expireField = document.getElementById('form-expire').closest('.space-y-4 > div') || document.getElementById('form-expire').parentElement;
   const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
   if (expireField) expireField.classList.toggle('hidden', type === 'balance');
-  if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim');
+  if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim' && type !== 'subscription');
 
   if (item) {
     document.getElementById('form-name').value = item.name || '';

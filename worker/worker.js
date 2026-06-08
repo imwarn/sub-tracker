@@ -60,7 +60,8 @@ function errorResponse(message, status = 400, request = null, env = null) {
 }
 function successResponse(data = null, request = null, env = null) {
   const res = { success: true };
-  if (data) Object.assign(res, data);
+  if (data)
+    Object.assign(res, data);
   return jsonResponse(res, 200, request, env);
 }
 function downloadResponse(body, contentType, filename, request = null, env = null) {
@@ -105,7 +106,8 @@ async function addItem(db, item) {
 async function updateItem(db, id, updater) {
   const items = await getAllItems(db);
   const idx = items.findIndex((item) => item.id === id);
-  if (idx === -1) return null;
+  if (idx === -1)
+    return null;
   items[idx] = updater(items[idx]);
   await saveAllItems(db, items);
   return items[idx];
@@ -114,7 +116,8 @@ async function deleteItem(db, id) {
   const items = await getAllItems(db);
   const deleted = items.find((item) => item.id === id);
   const filtered = items.filter((item) => item.id !== id);
-  if (filtered.length === items.length) return false;
+  if (filtered.length === items.length)
+    return false;
   await saveAllItems(db, filtered);
   return deleted;
 }
@@ -166,7 +169,8 @@ async function sendTelegram(token, chatId, text) {
 // src/services/notify.js
 var CHANNELS = ["telegram", "bark", "wecom", "webhook"];
 async function config(env, key) {
-  if (env[key]) return env[key];
+  if (env[key])
+    return env[key];
   try {
     return await getConfig(env.DB, key);
   } catch {
@@ -189,7 +193,8 @@ async function sendBark(env, title, text) {
   const barkKey = await config(env, "BARK_KEY");
   const barkServer = await config(env, "BARK_SERVER") || "https://api.day.app";
   const endpoint = barkUrl || (barkKey ? `${barkServer.replace(/\/$/, "")}/${encodeURIComponent(barkKey)}` : "");
-  if (!endpoint) return null;
+  if (!endpoint)
+    return null;
   return {
     channel: "bark",
     ok: await postJSON(endpoint, {
@@ -201,7 +206,8 @@ async function sendBark(env, title, text) {
 }
 async function sendWeCom(env, title, text) {
   const webhook = await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL");
-  if (!webhook) return null;
+  if (!webhook)
+    return null;
   return {
     channel: "wecom",
     ok: await postJSON(webhook, {
@@ -214,7 +220,8 @@ ${stripHTML(text)}` }
 }
 async function sendGenericWebhook(env, title, text) {
   const webhook = await config(env, "WEBHOOK_URL");
-  if (!webhook) return null;
+  if (!webhook)
+    return null;
   return {
     channel: "webhook",
     ok: await postJSON(webhook, {
@@ -229,7 +236,8 @@ async function sendGenericWebhook(env, title, text) {
 async function sendTelegramIfConfigured(env, text) {
   const token = await config(env, "TG_BOT_TOKEN");
   const chatId = await config(env, "TG_CHAT_ID");
-  if (!token || !chatId) return null;
+  if (!token || !chatId)
+    return null;
   return {
     channel: "telegram",
     ok: await sendTelegram(token, chatId, text)
@@ -237,7 +245,8 @@ async function sendTelegramIfConfigured(env, text) {
 }
 function normalizeChannel(value, { allowAll = false } = {}) {
   const raw = String(value || "").trim().toLowerCase();
-  if (allowAll && raw === "all") return "all";
+  if (allowAll && raw === "all")
+    return "all";
   const aliases = {
     tg: "telegram",
     telegram: "telegram",
@@ -277,17 +286,23 @@ var SENDERS = {
 };
 async function getConfiguredNotificationChannels(env) {
   const channels = [];
-  if (await config(env, "TG_BOT_TOKEN") && await config(env, "TG_CHAT_ID")) channels.push("telegram");
-  if (await config(env, "BARK_URL") || await config(env, "BARK_KEY")) channels.push("bark");
-  if (await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL")) channels.push("wecom");
-  if (await config(env, "WEBHOOK_URL")) channels.push("webhook");
+  if (await config(env, "TG_BOT_TOKEN") && await config(env, "TG_CHAT_ID"))
+    channels.push("telegram");
+  if (await config(env, "BARK_URL") || await config(env, "BARK_KEY"))
+    channels.push("bark");
+  if (await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL"))
+    channels.push("wecom");
+  if (await config(env, "WEBHOOK_URL"))
+    channels.push("webhook");
   return channels;
 }
 async function getAuthNotificationChannel(env) {
   const authChannel = normalizeChannel(await config(env, "AUTH_NOTIFY_CHANNEL"));
-  if (authChannel) return authChannel;
+  if (authChannel)
+    return authChannel;
   const defaultMode = await getDefaultNotificationMode(env);
-  if (defaultMode !== "all") return defaultMode;
+  if (defaultMode !== "all")
+    return defaultMode;
   const configured = await getConfiguredNotificationChannels(env);
   return configured.includes("telegram") ? "telegram" : configured[0] || "";
 }
@@ -298,8 +313,10 @@ async function sendNotifications(env, text, options = {}) {
   for (const channel of channels) {
     try {
       const result = await SENDERS[channel](env, title, text);
-      if (result) results.push(result);
-      else if (explicit) results.push({ channel, ok: false, message: "\u901A\u77E5\u6E20\u9053\u672A\u914D\u7F6E" });
+      if (result)
+        results.push(result);
+      else if (explicit)
+        results.push({ channel, ok: false, message: "\u901A\u77E5\u6E20\u9053\u672A\u914D\u7F6E" });
     } catch (err) {
       results.push({ channel, ok: false, message: err.message });
     }
@@ -437,24 +454,30 @@ async function logoutSession(request, env) {
 }
 async function checkSession(request, env) {
   const token = request.headers.get("Authorization");
-  if (!token) return errorResponse("\u672A\u767B\u5F55", 401, request, env);
+  if (!token)
+    return errorResponse("\u672A\u767B\u5F55", 401, request, env);
   const valid = await getConfig(env.DB, `session_token_${token}`);
-  if (!valid) return errorResponse("\u4F1A\u8BDD\u5DF2\u8FC7\u671F", 401, request, env);
+  if (!valid)
+    return errorResponse("\u4F1A\u8BDD\u5DF2\u8FC7\u671F", 401, request, env);
   return successResponse(null, request, env);
 }
 async function requireAuth(request, env) {
   const token = request.headers.get("Authorization");
-  if (!token) return errorResponse("Unauthorized: Missing Token", 401, request, env);
+  if (!token)
+    return errorResponse("Unauthorized: Missing Token", 401, request, env);
   const valid = await getConfig(env.DB, `session_token_${token}`);
-  if (!valid) return errorResponse("Unauthorized: Invalid or Expired Token", 401, request, env);
+  if (!valid)
+    return errorResponse("Unauthorized: Invalid or Expired Token", 401, request, env);
   return null;
 }
 
 // src/handlers/history.js
 async function handleHistory(request, env, path) {
-  if (request.method === "OPTIONS") return corsPreFlight(request);
+  if (request.method === "OPTIONS")
+    return corsPreFlight(request);
   const authErr = await requireAuth(request, env);
-  if (authErr) return authErr;
+  if (authErr)
+    return authErr;
   if (path === "/api/history" && request.method === "GET") {
     const url = new URL(request.url);
     const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 100));
@@ -511,8 +534,10 @@ function addDays(dateStr, days) {
   return d.toISOString().split("T")[0];
 }
 function getStatusText(days) {
-  if (days < 0) return `\u5DF2\u8FC7\u671F ${Math.abs(days)} \u5929`;
-  if (days === 0) return "\u4ECA\u5929\u5230\u671F";
+  if (days < 0)
+    return `\u5DF2\u8FC7\u671F ${Math.abs(days)} \u5929`;
+  if (days === 0)
+    return "\u4ECA\u5929\u5230\u671F";
   return `\u5269\u4F59 ${days} \u5929`;
 }
 function calcSuspendDate(balance, monthlyFee, billingDay, now = /* @__PURE__ */ new Date()) {
@@ -547,12 +572,14 @@ function asString(value, fallback = "") {
   return value == null ? fallback : String(value).trim();
 }
 function asNumber(value, fallback = null) {
-  if (value == null || value === "") return fallback;
+  if (value == null || value === "")
+    return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 function asInteger(value, fallback = null) {
-  if (value == null || value === "") return fallback;
+  if (value == null || value === "")
+    return fallback;
   const n = Number(value);
   return Number.isInteger(n) ? n : fallback;
 }
@@ -562,12 +589,14 @@ function normalizeRemindDays(value) {
   return [...new Set(days)].sort((a, b) => b - a);
 }
 function isValidDateString(value) {
-  if (!DATE_RE.test(value)) return false;
+  if (!DATE_RE.test(value))
+    return false;
   const d = /* @__PURE__ */ new Date(value + "T00:00:00Z");
   return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(value);
 }
 function isValidHttpUrl(value) {
-  if (!value) return true;
+  if (!value)
+    return true;
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:";
@@ -622,76 +651,107 @@ function createItem(type, data) {
   };
 }
 function validateItem(type, data) {
-  if (!ITEM_TYPES.includes(type)) return "\u65E0\u6548\u7684\u7C7B\u578B";
+  if (!ITEM_TYPES.includes(type))
+    return "\u65E0\u6548\u7684\u7C7B\u578B";
   const name = asString(data.name);
-  if (!name) return "\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A";
-  if (name.length > 120) return "\u540D\u79F0\u4E0D\u80FD\u8D85\u8FC7 120 \u4E2A\u5B57\u7B26";
+  if (!name)
+    return "\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A";
+  if (name.length > 120)
+    return "\u540D\u79F0\u4E0D\u80FD\u8D85\u8FC7 120 \u4E2A\u5B57\u7B26";
   const status = data.status || "active";
-  if (!STATUSES.includes(status)) return "\u72B6\u6001\u53EA\u80FD\u662F active \u6216 paused";
+  if (!STATUSES.includes(status))
+    return "\u72B6\u6001\u53EA\u80FD\u662F active \u6216 paused";
   const cycle = data.cycle;
   if (cycle != null && cycle !== "") {
     const n = Number(cycle);
-    if (!Number.isInteger(n) || n < 1) return "\u5468\u671F\u987B\u4E3A\u6B63\u6574\u6570";
+    if (!Number.isInteger(n) || n < 1)
+      return "\u5468\u671F\u987B\u4E3A\u6B63\u6574\u6570";
   }
   if (type !== "balance") {
-    if (!data.expireDate) return "\u5230\u671F\u65E5\u671F\u4E0D\u80FD\u4E3A\u7A7A";
-    if (!isValidDateString(data.expireDate)) return "\u5230\u671F\u65E5\u671F\u683C\u5F0F\u4E0D\u6B63\u786E";
+    if (!data.expireDate)
+      return "\u5230\u671F\u65E5\u671F\u4E0D\u80FD\u4E3A\u7A7A";
+    if (!isValidDateString(data.expireDate))
+      return "\u5230\u671F\u65E5\u671F\u683C\u5F0F\u4E0D\u6B63\u786E";
   }
   if (type === "balance") {
     if (data.balance != null && data.balance !== "" && !Number.isFinite(Number(data.balance))) {
       return "\u4F59\u989D\u683C\u5F0F\u4E0D\u6B63\u786E";
     }
-    if (!data.monthlyFee && data.monthlyFee !== 0) return "\u6708\u79DF\u4E0D\u80FD\u4E3A\u7A7A";
-    if (!Number.isFinite(Number(data.monthlyFee)) || Number(data.monthlyFee) < 0) return "\u6708\u79DF\u683C\u5F0F\u4E0D\u6B63\u786E";
-    if (!data.billingDay) return "\u6263\u8D39\u65E5\u4E0D\u80FD\u4E3A\u7A7A";
+    if (!data.monthlyFee && data.monthlyFee !== 0)
+      return "\u6708\u79DF\u4E0D\u80FD\u4E3A\u7A7A";
+    if (!Number.isFinite(Number(data.monthlyFee)) || Number(data.monthlyFee) < 0)
+      return "\u6708\u79DF\u683C\u5F0F\u4E0D\u6B63\u786E";
+    if (!data.billingDay)
+      return "\u6263\u8D39\u65E5\u4E0D\u80FD\u4E3A\u7A7A";
     const bd = Number(data.billingDay);
-    if (!Number.isInteger(bd)) return "\u6263\u8D39\u65E5\u987B\u4E3A\u6574\u6570";
-    if (bd < 1 || bd > 28) return "\u6263\u8D39\u65E5\u987B\u4E3A 1-28";
+    if (!Number.isInteger(bd))
+      return "\u6263\u8D39\u65E5\u987B\u4E3A\u6574\u6570";
+    if (bd < 1 || bd > 28)
+      return "\u6263\u8D39\u65E5\u987B\u4E3A 1-28";
   }
   if (type === "subscription") {
     if (data.price != null && data.price !== "") {
       const price = Number(data.price);
-      if (!Number.isFinite(price) || price < 0) return "\u4EF7\u683C\u683C\u5F0F\u4E0D\u6B63\u786E";
+      if (!Number.isFinite(price) || price < 0)
+        return "\u4EF7\u683C\u683C\u5F0F\u4E0D\u6B63\u786E";
     }
-    if (data.billing && !BILLING_TYPES.includes(data.billing)) return "\u8BA1\u8D39\u5468\u671F\u4E0D\u6B63\u786E";
-    if (!isValidHttpUrl(asString(data.url))) return "\u94FE\u63A5\u5FC5\u987B\u4EE5 http:// \u6216 https:// \u5F00\u5934";
+    if (data.billing && !BILLING_TYPES.includes(data.billing))
+      return "\u8BA1\u8D39\u5468\u671F\u4E0D\u6B63\u786E";
+    if (!isValidHttpUrl(asString(data.url)))
+      return "\u94FE\u63A5\u5FC5\u987B\u4EE5 http:// \u6216 https:// \u5F00\u5934";
   }
-  if (data.currency && !CURRENCY_CODES.includes(data.currency)) return "\u8D27\u5E01\u7C7B\u578B\u4E0D\u652F\u6301";
+  if (data.currency && !CURRENCY_CODES.includes(data.currency))
+    return "\u8D27\u5E01\u7C7B\u578B\u4E0D\u652F\u6301";
   const remindDays = normalizeRemindDays(data.remindDays);
-  if (remindDays.length === 0) return "\u63D0\u9192\u65F6\u95F4\u4E0D\u80FD\u4E3A\u7A7A";
+  if (remindDays.length === 0)
+    return "\u63D0\u9192\u65F6\u95F4\u4E0D\u80FD\u4E3A\u7A7A";
   return null;
 }
 function mergeUpdate(existing, data) {
   const updated = { ...existing };
   for (const key of ["name", "expireDate", "cycle", "remark", "status"]) {
     if (data[key] !== void 0) {
-      if (key === "cycle") updated[key] = asInteger(data[key]);
-      else if (key === "name" || key === "remark" || key === "expireDate") updated[key] = asString(data[key]);
-      else updated[key] = data[key];
+      if (key === "cycle")
+        updated[key] = asInteger(data[key]);
+      else if (key === "name" || key === "remark" || key === "expireDate")
+        updated[key] = asString(data[key]);
+      else
+        updated[key] = data[key];
     }
   }
   if (existing.type === "esim") {
-    if (data.number !== void 0) updated.number = asString(data.number);
+    if (data.number !== void 0)
+      updated.number = asString(data.number);
   }
   if (existing.type === "subscription") {
     for (const key of ["category", "region", "subId", "price", "billing", "currency", "autoRenew", "remindDays", "url"]) {
       if (data[key] !== void 0) {
-        if (["category", "region", "subId", "url"].includes(key)) updated[key] = asString(data[key]);
-        else if (key === "price") updated[key] = data[key] === "" || data[key] == null ? null : asString(data[key]);
-        else if (key === "autoRenew") updated[key] = Boolean(data[key]);
-        else if (key === "remindDays") updated[key] = normalizeRemindDays(data[key]);
-        else updated[key] = data[key];
+        if (["category", "region", "subId", "url"].includes(key))
+          updated[key] = asString(data[key]);
+        else if (key === "price")
+          updated[key] = data[key] === "" || data[key] == null ? null : asString(data[key]);
+        else if (key === "autoRenew")
+          updated[key] = Boolean(data[key]);
+        else if (key === "remindDays")
+          updated[key] = normalizeRemindDays(data[key]);
+        else
+          updated[key] = data[key];
       }
     }
   }
   if (existing.type === "balance") {
     for (const key of ["number", "balance", "monthlyFee", "billingDay", "currency", "remindDays"]) {
       if (data[key] !== void 0) {
-        if (key === "balance" || key === "monthlyFee") updated[key] = asNumber(data[key], 0);
-        else if (key === "billingDay") updated[key] = asInteger(data[key], 1);
-        else if (key === "number") updated[key] = asString(data[key]);
-        else if (key === "remindDays") updated[key] = normalizeRemindDays(data[key]);
-        else updated[key] = data[key];
+        if (key === "balance" || key === "monthlyFee")
+          updated[key] = asNumber(data[key], 0);
+        else if (key === "billingDay")
+          updated[key] = asInteger(data[key], 1);
+        else if (key === "number")
+          updated[key] = asString(data[key]);
+        else if (key === "remindDays")
+          updated[key] = normalizeRemindDays(data[key]);
+        else
+          updated[key] = data[key];
       }
     }
     updated.predictedSuspendDate = calcSuspendDate(updated.balance, updated.monthlyFee, updated.billingDay);
@@ -721,9 +781,11 @@ async function recordHistory(env, action, item, details = {}) {
   }
 }
 async function handleItems(request, env, path) {
-  if (request.method === "OPTIONS") return corsPreFlight(request);
+  if (request.method === "OPTIONS")
+    return corsPreFlight(request);
   const authErr = await requireAuth(request, env);
-  if (authErr) return authErr;
+  if (authErr)
+    return authErr;
   if (path === "/api/items/export/json" && request.method === "GET") {
     return await exportJSON(env);
   }
@@ -778,7 +840,8 @@ async function createNewItem(request, env) {
       return errorResponse("\u65E0\u6548\u7684\u7C7B\u578B", 400, request, env);
     }
     const err = validateItem(type, body);
-    if (err) return errorResponse(err, 400, request, env);
+    if (err)
+      return errorResponse(err, 400, request, env);
     const item = createItem(type, body);
     await addItem(env.DB, item);
     await recordHistory(env, "create", item);
@@ -793,10 +856,12 @@ async function updateExistingItem(request, env, id) {
     const result = await updateItem(env.DB, id, (existing) => {
       const updated = mergeUpdate(existing, body);
       const err = validateItem(updated.type, updated);
-      if (err) throw new Error(err);
+      if (err)
+        throw new Error(err);
       return updated;
     });
-    if (!result) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, request, env);
+    if (!result)
+      return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, request, env);
     await recordHistory(env, "update", result);
     return successResponse(null, request, env);
   } catch (e) {
@@ -805,7 +870,8 @@ async function updateExistingItem(request, env, id) {
 }
 async function deleteExistingItem(env, id) {
   const deleted = await deleteItem(env.DB, id);
-  if (!deleted) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
+  if (!deleted)
+    return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
   await recordHistory(env, "delete", deleted);
   return successResponse(null, null, env);
 }
@@ -821,7 +887,8 @@ async function renewItem(env, id) {
       const newExpire = addDays(existing.expireDate, existing.cycle);
       return { ...existing, expireDate: newExpire, status: "active" };
     });
-    if (!result) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
+    if (!result)
+      return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
     await recordHistory(env, "renew", result, { newExpireDate: result.expireDate });
     return successResponse({ newExpireDate: result.expireDate }, null, env);
   } catch (e) {
@@ -848,7 +915,8 @@ async function rechargeItem(request, env, id) {
         predictedSuspendDate: newSuspendDate
       };
     });
-    if (!result) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, request, env);
+    if (!result)
+      return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, request, env);
     await recordHistory(env, "recharge", result, {
       amount,
       newBalance: result.balance,
@@ -914,7 +982,8 @@ async function exportCSV(env) {
   );
 }
 function csvEscape(s) {
-  if (!s) return "";
+  if (!s)
+    return "";
   s = String(s);
   if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
     return '"' + s.replace(/"/g, '""') + '"';
@@ -961,7 +1030,8 @@ async function importJSON(request, env) {
         continue;
       }
       const item = createItem(type, raw);
-      if (importId) item.id = importId;
+      if (importId)
+        item.id = importId;
       existing.push(item);
       existingIds.add(item.id);
       added++;
@@ -975,7 +1045,8 @@ async function importJSON(request, env) {
 }
 async function testNotify(env, id) {
   const item = await getItemById(env.DB, id);
-  if (!item) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
+  if (!item)
+    return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
   const channels = await getConfiguredNotificationChannels(env);
   if (!channels.length) {
     return errorResponse("\u672A\u914D\u7F6E\u901A\u77E5\u6E20\u9053\u3002\u8BF7\u81F3\u5C11\u914D\u7F6E Telegram\u3001Bark\u3001\u4F01\u4E1A\u5FAE\u4FE1\u6216 Webhook \u4E2D\u7684\u4E00\u79CD", 400, null, env);
@@ -999,7 +1070,8 @@ async function testNotify(env, id) {
       "<i>\u8FD9\u662F\u4E00\u6761\u6D4B\u8BD5\u901A\u77E5\uFF0C\u786E\u8BA4\u901A\u77E5\u529F\u80FD\u6B63\u5E38\u3002</i>"
     ].filter(Boolean).join("\n");
     const results2 = await sendNotifications(env, msg2, { title: "Sub-Tracker \u6D4B\u8BD5\u901A\u77E5" });
-    if (results2.some((r) => r.ok)) return successResponse({ channels: results2 }, null, env);
+    if (results2.some((r) => r.ok))
+      return successResponse({ channels: results2 }, null, env);
     return errorResponse("\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u901A\u77E5\u914D\u7F6E", 400, null, env);
   }
   const diff = daysUntil(item.expireDate);
@@ -1019,7 +1091,8 @@ async function testNotify(env, id) {
     "<i>\u8FD9\u662F\u4E00\u6761\u6D4B\u8BD5\u901A\u77E5\uFF0C\u786E\u8BA4\u901A\u77E5\u529F\u80FD\u6B63\u5E38\u3002</i>"
   ].filter(Boolean).join("\n");
   const results = await sendNotifications(env, msg, { title: "Sub-Tracker \u6D4B\u8BD5\u901A\u77E5" });
-  if (results.some((r) => r.ok)) return successResponse({ channels: results }, null, env);
+  if (results.some((r) => r.ok))
+    return successResponse({ channels: results }, null, env);
   return errorResponse("\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u901A\u77E5\u914D\u7F6E", 400, null, env);
 }
 
@@ -1203,9 +1276,12 @@ var PREFIXES_3 = [];
 var PREFIXES_2 = [];
 var PREFIXES_1 = [];
 for (const code of Object.keys(COUNTRY_MAP)) {
-  if (code.length === 3) PREFIXES_3.push(code);
-  else if (code.length === 2) PREFIXES_2.push(code);
-  else PREFIXES_1.push(code);
+  if (code.length === 3)
+    PREFIXES_3.push(code);
+  else if (code.length === 2)
+    PREFIXES_2.push(code);
+  else
+    PREFIXES_1.push(code);
 }
 function getCountryMap() {
   return COUNTRY_MAP;
@@ -1595,7 +1671,7 @@ function cardHTML(item) {
   }
 
   const idArg = jsArg(item.id);
-  const renewBtn = isEsim && item.cycle ?
+  const renewBtn = (isEsim || item.type === 'subscription') && item.cycle ?
     '<button onclick="renewItem('+idArg+')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> \u7EED\u671F</button>' : '';
   const rechargeBtn = isBalance ?
     '<button onclick="rechargeItem('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors"><i class="fa-solid fa-plus-circle"></i> \u5145\u503C</button>' : '';
@@ -1891,7 +1967,7 @@ function openModal(type, item) {
   const expireField = document.getElementById('form-expire').closest('.space-y-4 > div') || document.getElementById('form-expire').parentElement;
   const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
   if (expireField) expireField.classList.toggle('hidden', type === 'balance');
-  if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim');
+  if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim' && type !== 'subscription');
 
   if (item) {
     document.getElementById('form-name').value = item.name || '';
@@ -2722,12 +2798,15 @@ function getIconSVG() {
 function bytesFromBase64(base64) {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  for (let i = 0; i < binary.length; i += 1)
+    bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
 function getIconPNG(size) {
-  if (size === 192) return bytesFromBase64(ICON_192_PNG_BASE64);
-  if (size === 512) return bytesFromBase64(ICON_512_PNG_BASE64);
+  if (size === 192)
+    return bytesFromBase64(ICON_192_PNG_BASE64);
+  if (size === 512)
+    return bytesFromBase64(ICON_512_PNG_BASE64);
   return null;
 }
 function getFaviconICO() {
@@ -2862,11 +2941,13 @@ async function route(request, env) {
   }
   if (path.startsWith("/api/auth")) {
     const result = await handleAuth(request, env, path);
-    if (result) return result;
+    if (result)
+      return result;
   }
   if (path.startsWith("/api/items")) {
     const result = await handleItems(request, env, path);
-    if (result) return result;
+    if (result)
+      return result;
   }
   if (path.startsWith("/api/history")) {
     return await handleHistory(request, env, path);
@@ -2886,28 +2967,36 @@ function tg2(s) {
 }
 async function checkReminders(env) {
   const items = await getAllItems(env.DB);
-  if (!items.length) return;
+  if (!items.length)
+    return;
   const today = todayMidnight();
   const messages = [];
   for (const item of items) {
-    if (item.status !== "active") continue;
+    if (item.status !== "active")
+      continue;
     if (item.type === "balance") {
-      if (item.monthlyFee <= 0) continue;
+      if (item.monthlyFee <= 0)
+        continue;
       const suspendDate = calcSuspendDate(item.balance, item.monthlyFee, item.billingDay);
       const expDate2 = /* @__PURE__ */ new Date(suspendDate + "T00:00:00Z");
       expDate2.setUTCHours(0, 0, 0, 0);
       const diffDays2 = Math.ceil((expDate2 - today) / 864e5);
       const remindDays2 = Array.isArray(item.remindDays) && item.remindDays.length > 0 ? item.remindDays : DEFAULT_REMIND_DAYS;
-      if (!remindDays2.includes(diffDays2)) continue;
+      if (!remindDays2.includes(diffDays2))
+        continue;
       const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
       const remarkText2 = item.remark ? `
 \u{1F4DD} \u5907\u6CE8: ${tg2(item.remark)}` : "";
       const currSym2 = CURRENCY_SYMBOLS[item.currency] || item.currency || "\xA5";
       let urgency2;
-      if (diffDays2 < 0) urgency2 = "\u274C";
-      else if (diffDays2 === 0) urgency2 = "\u{1F6A8}";
-      else if (diffDays2 <= 3) urgency2 = "\u26A0\uFE0F";
-      else urgency2 = "\u{1F4E2}";
+      if (diffDays2 < 0)
+        urgency2 = "\u274C";
+      else if (diffDays2 === 0)
+        urgency2 = "\u{1F6A8}";
+      else if (diffDays2 <= 3)
+        urgency2 = "\u26A0\uFE0F";
+      else
+        urgency2 = "\u{1F4E2}";
       const statusText2 = diffDays2 < 0 ? `\u5DF2\u505C\u673A ${Math.abs(diffDays2)} \u5929` : diffDays2 === 0 ? "\u4ECA\u5929\u6263\u8D39\uFF01\u4F59\u989D\u53EF\u80FD\u4E0D\u8DB3" : `\u9884\u8BA1 ${diffDays2} \u5929\u540E\u505C\u673A`;
       messages.push(
         `${urgency2} \u3010Sub-Tracker \u8BDD\u8D39\u505C\u673A\u63D0\u9192\u3011
@@ -2923,12 +3012,14 @@ async function checkReminders(env) {
       );
       continue;
     }
-    if (!item.expireDate) continue;
+    if (!item.expireDate)
+      continue;
     const expDate = /* @__PURE__ */ new Date(item.expireDate + "T00:00:00Z");
     expDate.setUTCHours(0, 0, 0, 0);
     const diffDays = Math.ceil((expDate - today) / 864e5);
     const remindDays = Array.isArray(item.remindDays) && item.remindDays.length > 0 ? item.remindDays : DEFAULT_REMIND_DAYS;
-    if (!remindDays.includes(diffDays)) continue;
+    if (!remindDays.includes(diffDays))
+      continue;
     const cycleText = item.cycle ? `${item.cycle}\u5929` : "\u672A\u8BBE\u7F6E";
     const remarkText = item.remark ? `
 \u{1F4DD} \u5907\u6CE8: ${tg2(item.remark)}` : "";
@@ -2937,10 +3028,14 @@ async function checkReminders(env) {
     const priceText = item.price ? `
 \u{1F4B0} \u8D39\u7528: ${currSym(item.currency)}${item.price}/${item.billing === "yearly" ? "\u5E74" : item.billing === "once" ? "\u6B21" : "\u6708"}` : "";
     let urgency;
-    if (diffDays < 0) urgency = "\u274C";
-    else if (diffDays === 0) urgency = "\u{1F6A8}";
-    else if (diffDays <= 3) urgency = "\u26A0\uFE0F";
-    else urgency = "\u{1F4E2}";
+    if (diffDays < 0)
+      urgency = "\u274C";
+    else if (diffDays === 0)
+      urgency = "\u{1F6A8}";
+    else if (diffDays <= 3)
+      urgency = "\u26A0\uFE0F";
+    else
+      urgency = "\u{1F4E2}";
     const statusText = diffDays < 0 ? `\u5DF2\u8FC7\u671F ${Math.abs(diffDays)} \u5929` : diffDays === 0 ? "\u4ECA\u5929\u5230\u671F\uFF01" : `\u5269\u4F59 ${diffDays} \u5929`;
     messages.push(
       `${urgency} \u3010Sub-Tracker ${typeLabel}\u63D0\u9192\u3011
@@ -2960,7 +3055,7 @@ ${typeEmoji} \u540D\u79F0: ${tg2(item.name)}
 }
 
 // src/index.js
-var index_default = {
+var src_default = {
   async fetch(request, env, ctx) {
     try {
       return await route(request, env);
@@ -2981,5 +3076,5 @@ var index_default = {
   }
 };
 export {
-  index_default as default
+  src_default as default
 };
