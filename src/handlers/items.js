@@ -16,7 +16,7 @@ import { downloadResponse, errorResponse, successResponse, jsonResponse, corsPre
 import { requireAuth } from './auth.js';
 import { createItem, validateItem, mergeUpdate } from '../data/schema.js';
 import { addHistory, getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById } from '../data/store.js';
-import { addDays, daysUntil, getStatusText, calcSuspendDate } from '../utils/date.js';
+import { addDays, daysUntil, todayString, getStatusText, calcSuspendDate } from '../utils/date.js';
 import { escapeTelegramHTML } from '../services/telegram.js';
 import { getConfiguredNotificationChannels, sendNotifications } from '../services/notify.js';
 import { CURRENCY_SYMBOLS, ITEM_TYPES } from '../data/constants.js';
@@ -92,7 +92,7 @@ export async function handleItems(request, env, path) {
     }
 
     if (request.method === 'POST' && action === '/renew') {
-      return await renewItem(env, id);
+      return await renewItem(env, id, request);
     }
 
     if (request.method === 'POST' && action === '/recharge') {
@@ -165,8 +165,12 @@ async function deleteExistingItem(env, id) {
   return successResponse(null, null, env);
 }
 
-async function renewItem(env, id) {
+async function renewItem(env, id, request) {
   try {
+    // now override for deterministic testing (injected via request header)
+    const now = request?.headers?.get?.('x-test-now')
+      ? new Date(request.headers.get('x-test-now'))
+      : new Date();
     const result = await updateItem(env.DB, id, existing => {
       if (existing.type !== 'esim' && existing.type !== 'subscription') {
         throw new Error('仅 eSIM 和订阅类型支持一键续期');
@@ -181,7 +185,12 @@ async function renewItem(env, id) {
       if (!days) {
         throw new Error('未设置续费周期，无法续期');
       }
-      const newExpire = addDays(existing.expireDate, days);
+      // Renew from the later of today and the existing expiry date.
+      // - If already expired/near expiry: counts from today (correct renewal).
+      // - If renewed early (future expiry): rolls forward without losing
+      //   the already-paid period.
+      const baseDate = todayString(now) > existing.expireDate ? todayString(now) : existing.expireDate;
+      const newExpire = addDays(baseDate, days);
       return { ...existing, expireDate: newExpire, status: 'active' };
     });
 

@@ -7,8 +7,7 @@ const TZ_OFFSET = 8; // UTC+8 (China Standard Time)
 /**
  * Get today's date string in YYYY-MM-DD format (UTC+8)
  */
-export function todayString() {
-  const now = new Date();
+export function todayString(now = new Date()) {
   const local = new Date(now.getTime() + TZ_OFFSET * 3600_000);
   return local.toISOString().split('T')[0];
 }
