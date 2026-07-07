@@ -103,7 +103,7 @@ test('renew counts from today when the item is already expired', async () => {
   assert.equal(result.newExpireDate, '2026-10-05');
 });
 
-test('renew rolls forward from existing expiry when renewed early', async () => {
+test('esim renew always resets from today even when not yet expired', async () => {
   const db = createMockKV();
   const env = { DB: db };
   const id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -113,12 +113,30 @@ test('renew rolls forward from existing expiry when renewed early', async () => 
     { id, type: 'esim', name: 'Early eSIM', cycle: 90, expireDate: '2026-12-01' },
   ]);
 
-  // "today" = 2026-07-07, expiry still in the future -> roll forward
+  // "today" = 2026-07-07, expiry still in the future -> eSIM resets from today
   const response = await handleItems(renewRequest(id, '2026-07-07T12:00:00Z'), env, `/api/items/${id}/renew`);
   const result = await response.json();
   assert.equal(result.success, true);
-  // 90 days from 2026-12-01 -> 2027-03-01
-  assert.equal(result.newExpireDate, '2027-03-01');
+  // 90 days from 2026-07-07 (today) -> 2026-10-05, NOT 2027-03-01
+  assert.equal(result.newExpireDate, '2026-10-05');
+});
+
+test('subscription renew rolls forward from existing expiry when renewed early', async () => {
+  const db = createMockKV();
+  const env = { DB: db };
+  const id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+
+  await db.put('session_token_test-token', 'valid');
+  await saveAllItems(db, [
+    { id, type: 'subscription', name: 'Early sub', billing: 'yearly', expireDate: '2026-12-01' },
+  ]);
+
+  // "today" = 2026-07-07, expiry in future -> subscription rolls forward
+  const response = await handleItems(renewRequest(id, '2026-07-07T12:00:00Z'), env, `/api/items/${id}/renew`);
+  const result = await response.json();
+  assert.equal(result.success, true);
+  // 365 days from 2026-12-01 -> 2027-12-01
+  assert.equal(result.newExpireDate, '2027-12-01');
 });
 
 test('subscription renew uses billing period and counts from today when expired', async () => {

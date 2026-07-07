@@ -185,11 +185,15 @@ async function renewItem(env, id, request) {
       if (!days) {
         throw new Error('未设置续费周期，无法续期');
       }
-      // Renew from the later of today and the existing expiry date.
-      // - If already expired/near expiry: counts from today (correct renewal).
-      // - If renewed early (future expiry): rolls forward without losing
-      //   the already-paid period.
-      const baseDate = todayString(now) > existing.expireDate ? todayString(now) : existing.expireDate;
+      let baseDate;
+      if (existing.type === 'esim') {
+        // eSIM 保号卡：激活/续期后有效期按当前日期 reset（与运营商激活日对齐），
+        // 无论原到期日是否已过，都从今天起算周期。
+        baseDate = todayString(now);
+      } else {
+        // 订阅：提前续费从原到期日顺延，避免倒扣已付周期；过期则从今天起算。
+        baseDate = todayString(now) > existing.expireDate ? todayString(now) : existing.expireDate;
+      }
       const newExpire = addDays(baseDate, days);
       return { ...existing, expireDate: newExpire, status: 'active' };
     });
