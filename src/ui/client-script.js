@@ -4,6 +4,7 @@
 
 import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS } from '../data/constants.js';
 import { getCountryMap } from '../utils/country.js';
+import { countUrgent, sortItemsByPaused } from '../utils/stats.js';
 
 function getFrontendFlagMap() {
   return Object.fromEntries(
@@ -114,14 +115,7 @@ function renderStats() {
   const esims = allItems.filter(i => i.type === 'esim');
   const subs = allItems.filter(i => i.type === 'subscription');
   const balances = allItems.filter(i => i.type === 'balance');
-  const today = new Date(); today.setHours(0,0,0,0);
-  let urgentCount = 0;
-  allItems.forEach(i => {
-    if (i.status === 'paused') return; // 已暂停的不计入即将到期
-    if (i.type === 'balance') {
-      if (i.predictedSuspendDate) { const exp = new Date(i.predictedSuspendDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
-    } else if (i.expireDate) { const exp = new Date(i.expireDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
-  });
+  const urgentCount = countUrgent(allItems);
 
   // Cost calculation — group by currency to avoid mixing
   // 仅统计 active（暂停=不花钱），与 analytics 面板口径一致
@@ -293,6 +287,7 @@ function getFilteredItems() {
     if (currentFilter === 'urgent') {
       const today = new Date(); today.setHours(0,0,0,0);
       items = items.filter(i => {
+        if (i.status === 'paused') return false; // 与即将到期统计口径一致
         const dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
         if (!dateStr) return false;
         const diff = Math.ceil((new Date(dateStr+'T00:00:00') - today) / 86400000);
@@ -308,25 +303,8 @@ function getFilteredItems() {
     (i.region||'').toLowerCase().includes(search) || (i.subId||'').toLowerCase().includes(search) ||
     (i.url||'').toLowerCase().includes(search)
   );
-  const today = new Date(); today.setHours(0,0,0,0);
   const sortBy = document.getElementById('sort-select')?.value || 'expire';
-  items.sort((a,b) => {
-    // 暂停项沉底：paused 始终排在 active 之后
-    const ap = a.status === 'paused' ? 1 : 0;
-    const bp = b.status === 'paused' ? 1 : 0;
-    if (ap !== bp) return ap - bp;
-    if (sortBy === 'name') return (a.name||'').localeCompare(b.name||'', 'zh');
-    if (sortBy === 'price') {
-      const pa = a.type === 'balance' ? (a.monthlyFee||0) : parseFloat(a.price)||0;
-      const pb = b.type === 'balance' ? (b.monthlyFee||0) : parseFloat(b.price)||0;
-      return pb - pa; // high to low
-    }
-    // Default: sort by expiry date (nearest first)
-    const da = a.type === 'balance' ? (a.predictedSuspendDate ? Math.ceil((new Date(a.predictedSuspendDate+'T00:00:00')-today)/86400000) : 9999) : (a.expireDate ? Math.ceil((new Date(a.expireDate+'T00:00:00')-today)/86400000) : 9999);
-    const db = b.type === 'balance' ? (b.predictedSuspendDate ? Math.ceil((new Date(b.predictedSuspendDate+'T00:00:00')-today)/86400000) : 9999) : (b.expireDate ? Math.ceil((new Date(b.expireDate+'T00:00:00')-today)/86400000) : 9999);
-    return da - db;
-  });
-  return items;
+  return sortItemsByPaused(items, sortBy);
 }
 
 function renderItems() {
