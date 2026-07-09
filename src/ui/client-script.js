@@ -4,7 +4,7 @@
 
 import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS } from '../data/constants.js';
 import { getCountryMap } from '../utils/country.js';
-import { countUrgent, sortItemsByPaused } from '../utils/stats.js';
+import { STATS_SRC } from '../utils/stats.js';
 
 function getFrontendFlagMap() {
   return Object.fromEntries(
@@ -14,7 +14,8 @@ function getFrontendFlagMap() {
 
 export function getClientScript() {
   const flagMap = getFrontendFlagMap();
-  return `let TOKEN = localStorage.getItem('token') || '';
+  return `${STATS_SRC}
+let TOKEN = localStorage.getItem('token') || '';
 let allItems = [];
 let currentFilter = 'all';
 let currentView = 'grid';
