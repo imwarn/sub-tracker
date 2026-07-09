@@ -170,6 +170,25 @@ ${getStyles()}
             <label class="text-sm text-slate-400 mb-1 block">号码</label>
             <input id="form-number" type="text" placeholder="+861****8000" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
           </div>
+          <div id="field-esim-activation" class="hidden space-y-3">
+            <p class="text-xs text-amber-400/80">⚠️ 以下为敏感激活信息，仅本地/换机备份用，请勿泄露</p>
+            <div>
+              <label class="text-sm text-slate-400 mb-1 block">SM-DP+ 地址</label>
+              <input id="form-smdp" type="text" placeholder="如: rsp.ultramobile.com" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="text-sm text-slate-400 mb-1 block">激活码 (Activation Code)</label>
+              <input id="form-activation-code" type="password" placeholder="激活码" class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+            </div>
+            <div>
+              <label class="text-sm text-slate-400 mb-1 block">确认码 (Confirmation Code)</label>
+              <input id="form-confirmation-code" type="password" placeholder="确认码" class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+            </div>
+            <div>
+              <label class="text-sm text-slate-400 mb-1 block">WID / EID（eUICC 标识，可选）</label>
+              <input id="form-wid" type="text" placeholder="32位设备标识" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            </div>
+          </div>
           <div id="field-category" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">分类</label>
             <select id="form-category" class="glass-input w-full px-4 py-3 rounded-xl text-sm">

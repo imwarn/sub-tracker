@@ -674,6 +674,7 @@ function openModal(type, item) {
   const typeLabel = type === 'esim' ? ' eSIM' : type === 'balance' ? ' 话费' : ' 订阅';
   document.getElementById('modal-title').textContent = (item ? '编辑' : '添加') + typeLabel;
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim' && type !== 'balance');
+  document.getElementById('field-esim-activation').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-category').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-region').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-sub-id').classList.toggle('hidden', type !== 'subscription');
@@ -690,6 +691,10 @@ function openModal(type, item) {
   if (item) {
     document.getElementById('form-name').value = item.name || '';
     document.getElementById('form-number').value = item.number || '';
+    document.getElementById('form-smdp').value = item.smDp || '';
+    document.getElementById('form-activation-code').value = item.activationCode || '';
+    document.getElementById('form-confirmation-code').value = item.confirmationCode || '';
+    document.getElementById('form-wid').value = item.wid || '';
     document.getElementById('form-category').value = item.category || '';
     document.getElementById('form-region').value = item.region || '';
     document.getElementById('form-sub-id').value = item.subId || '';
@@ -725,6 +730,10 @@ async function saveItem(e) {
     type: document.getElementById('form-type').value,
     name: document.getElementById('form-name').value.trim(),
     number: document.getElementById('form-number').value.trim(),
+    smDp: document.getElementById('form-smdp').value.trim(),
+    activationCode: document.getElementById('form-activation-code').value.trim(),
+    confirmationCode: document.getElementById('form-confirmation-code').value.trim(),
+    wid: document.getElementById('form-wid').value.trim(),
     category: document.getElementById('form-category').value,
     region: document.getElementById('form-region').value,
     subId: document.getElementById('form-sub-id').value.trim(),
@@ -987,7 +996,7 @@ function downloadDemo() {
     exportDate: new Date().toISOString(),
     count: 4,
     items: [
-      { type: 'esim', name: '美国保号卡', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active' },
+      { type: 'esim', name: '美国保号卡', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active', smDp: 'rsp.ultramobile.com', activationCode: 'DEMO-ACT-CODE', confirmationCode: 'DEMO-CONF-CODE', wid: '89012345678901234567890123456789' },
       { type: 'esim', name: '日本 IIJmio', number: '+819****4567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
       { type: 'subscription', name: 'ChatGPT Plus', category: 'AI 工具', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
       { type: 'subscription', name: 'YouTube Premium', category: '视频会员', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '土耳其区', status: 'active' },

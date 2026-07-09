@@ -77,6 +77,12 @@ export function createItem(type, data) {
     return {
       ...base,
       number: asString(data.number),
+      // eSIM 激活信息（敏感，LPA = 1$sm-dp+$activationCode$confirmationCode）
+      smDp: asString(data.smDp),
+      activationCode: asString(data.activationCode),
+      confirmationCode: asString(data.confirmationCode),
+      // WID / EID（eUICC 标识，只读参考，32位）
+      wid: asString(data.wid),
     };
   }
 
@@ -179,7 +185,9 @@ export function mergeUpdate(existing, data) {
   }
   // eSIM fields
   if (existing.type === 'esim') {
-    if (data.number !== undefined) updated.number = asString(data.number);
+    for (const key of ['number', 'smDp', 'activationCode', 'confirmationCode', 'wid']) {
+      if (data[key] !== undefined) updated[key] = asString(data[key]);
+    }
   }
   // Subscription fields
   if (existing.type === 'subscription') {

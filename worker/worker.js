@@ -517,8 +517,7 @@ var CURRENCY_CODES = Object.keys(CURRENCY_SYMBOLS);
 
 // src/utils/date.js
 var TZ_OFFSET = 8;
-function todayString() {
-  const now = /* @__PURE__ */ new Date();
+function todayString(now = /* @__PURE__ */ new Date()) {
   const local = new Date(now.getTime() + TZ_OFFSET * 36e5);
   return local.toISOString().split("T")[0];
 }
@@ -624,7 +623,13 @@ function createItem(type, data) {
   if (type === "esim") {
     return {
       ...base,
-      number: asString(data.number)
+      number: asString(data.number),
+      // eSIM 激活信息（敏感，LPA = 1$sm-dp+$activationCode$confirmationCode）
+      smDp: asString(data.smDp),
+      activationCode: asString(data.activationCode),
+      confirmationCode: asString(data.confirmationCode),
+      // WID / EID（eUICC 标识，只读参考，32位）
+      wid: asString(data.wid)
     };
   }
   if (type === "balance") {
@@ -725,8 +730,10 @@ function mergeUpdate(existing, data) {
     }
   }
   if (existing.type === "esim") {
-    if (data.number !== void 0)
-      updated.number = asString(data.number);
+    for (const key of ["number", "smDp", "activationCode", "confirmationCode", "wid"]) {
+      if (data[key] !== void 0)
+        updated[key] = asString(data[key]);
+    }
   }
   if (existing.type === "subscription") {
     for (const key of ["category", "region", "subId", "price", "billing", "currency", "autoRenew", "remindDays", "url"]) {
@@ -817,7 +824,7 @@ async function handleItems(request, env, path) {
       return await deleteExistingItem(env, id);
     }
     if (request.method === "POST" && action === "/renew") {
-      return await renewItem(env, id);
+      return await renewItem(env, id, request);
     }
     if (request.method === "POST" && action === "/recharge") {
       return await rechargeItem(request, env, id);
@@ -880,8 +887,9 @@ async function deleteExistingItem(env, id) {
   await recordHistory(env, "delete", deleted);
   return successResponse(null, null, env);
 }
-async function renewItem(env, id) {
+async function renewItem(env, id, request) {
   try {
+    const now = request?.headers?.get?.("x-test-now") ? new Date(request.headers.get("x-test-now")) : /* @__PURE__ */ new Date();
     const result = await updateItem(env.DB, id, (existing) => {
       if (existing.type !== "esim" && existing.type !== "subscription") {
         throw new Error("\u4EC5 eSIM \u548C\u8BA2\u9605\u7C7B\u578B\u652F\u6301\u4E00\u952E\u7EED\u671F");
@@ -898,7 +906,13 @@ async function renewItem(env, id) {
       if (!days) {
         throw new Error("\u672A\u8BBE\u7F6E\u7EED\u8D39\u5468\u671F\uFF0C\u65E0\u6CD5\u7EED\u671F");
       }
-      const newExpire = addDays(existing.expireDate, days);
+      let baseDate;
+      if (existing.type === "esim") {
+        baseDate = todayString(now);
+      } else {
+        baseDate = todayString(now) > existing.expireDate ? todayString(now) : existing.expireDate;
+      }
+      const newExpire = addDays(baseDate, days);
       return { ...existing, expireDate: newExpire, status: "active" };
     });
     if (!result)
@@ -1970,6 +1984,7 @@ function openModal(type, item) {
   const typeLabel = type === 'esim' ? ' eSIM' : type === 'balance' ? ' \u8BDD\u8D39' : ' \u8BA2\u9605';
   document.getElementById('modal-title').textContent = (item ? '\u7F16\u8F91' : '\u6DFB\u52A0') + typeLabel;
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim' && type !== 'balance');
+  document.getElementById('field-esim-activation').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-category').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-region').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-sub-id').classList.toggle('hidden', type !== 'subscription');
@@ -1986,6 +2001,10 @@ function openModal(type, item) {
   if (item) {
     document.getElementById('form-name').value = item.name || '';
     document.getElementById('form-number').value = item.number || '';
+    document.getElementById('form-smdp').value = item.smDp || '';
+    document.getElementById('form-activation-code').value = item.activationCode || '';
+    document.getElementById('form-confirmation-code').value = item.confirmationCode || '';
+    document.getElementById('form-wid').value = item.wid || '';
     document.getElementById('form-category').value = item.category || '';
     document.getElementById('form-region').value = item.region || '';
     document.getElementById('form-sub-id').value = item.subId || '';
@@ -2021,6 +2040,10 @@ async function saveItem(e) {
     type: document.getElementById('form-type').value,
     name: document.getElementById('form-name').value.trim(),
     number: document.getElementById('form-number').value.trim(),
+    smDp: document.getElementById('form-smdp').value.trim(),
+    activationCode: document.getElementById('form-activation-code').value.trim(),
+    confirmationCode: document.getElementById('form-confirmation-code').value.trim(),
+    wid: document.getElementById('form-wid').value.trim(),
     category: document.getElementById('form-category').value,
     region: document.getElementById('form-region').value,
     subId: document.getElementById('form-sub-id').value.trim(),
@@ -2283,7 +2306,7 @@ function downloadDemo() {
     exportDate: new Date().toISOString(),
     count: 4,
     items: [
-      { type: 'esim', name: '\u7F8E\u56FD\u4FDD\u53F7\u5361', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile \u4FDD\u53F7', status: 'active' },
+      { type: 'esim', name: '\u7F8E\u56FD\u4FDD\u53F7\u5361', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile \u4FDD\u53F7', status: 'active', smDp: 'rsp.ultramobile.com', activationCode: 'DEMO-ACT-CODE', confirmationCode: 'DEMO-CONF-CODE', wid: '89012345678901234567890123456789' },
       { type: 'esim', name: '\u65E5\u672C IIJmio', number: '+819****4567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
       { type: 'subscription', name: 'ChatGPT Plus', category: 'AI \u5DE5\u5177', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
       { type: 'subscription', name: 'YouTube Premium', category: '\u89C6\u9891\u4F1A\u5458', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '\u571F\u8033\u5176\u533A', status: 'active' },
@@ -2559,6 +2582,25 @@ ${getStyles()}
           <div id="field-number" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">\u53F7\u7801</label>
             <input id="form-number" type="text" placeholder="+861****8000" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+          <div id="field-esim-activation" class="hidden space-y-3">
+            <p class="text-xs text-amber-400/80">\u26A0\uFE0F \u4EE5\u4E0B\u4E3A\u654F\u611F\u6FC0\u6D3B\u4FE1\u606F\uFF0C\u4EC5\u672C\u5730/\u6362\u673A\u5907\u4EFD\u7528\uFF0C\u8BF7\u52FF\u6CC4\u9732</p>
+            <div>
+              <label class="text-sm text-slate-400 mb-1 block">SM-DP+ \u5730\u5740</label>
+              <input id="form-smdp" type="text" placeholder="\u5982: rsp.ultramobile.com" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="text-sm text-slate-400 mb-1 block">\u6FC0\u6D3B\u7801 (Activation Code)</label>
+              <input id="form-activation-code" type="password" placeholder="\u6FC0\u6D3B\u7801" class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+            </div>
+            <div>
+              <label class="text-sm text-slate-400 mb-1 block">\u786E\u8BA4\u7801 (Confirmation Code)</label>
+              <input id="form-confirmation-code" type="password" placeholder="\u786E\u8BA4\u7801" class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+            </div>
+            <div>
+              <label class="text-sm text-slate-400 mb-1 block">WID / EID\uFF08eUICC \u6807\u8BC6\uFF0C\u53EF\u9009\uFF09</label>
+              <input id="form-wid" type="text" placeholder="32\u4F4D\u8BBE\u5907\u6807\u8BC6" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+            </div>
           </div>
           <div id="field-category" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">\u5206\u7C7B</label>
