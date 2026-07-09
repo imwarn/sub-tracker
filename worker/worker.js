@@ -1353,8 +1353,8 @@ function getCountryMap() {
 }
 
 // src/utils/stats.js
-var DAY_MS = 864e5;
 function countUrgent(items, now = /* @__PURE__ */ new Date()) {
+  const DAY_MS = 864e5;
   const base = new Date(now);
   base.setHours(0, 0, 0, 0);
   let count = 0;
@@ -1371,6 +1371,7 @@ function countUrgent(items, now = /* @__PURE__ */ new Date()) {
   return count;
 }
 function sortItemsByPaused(items, sortBy = "expire", now = /* @__PURE__ */ new Date()) {
+  const DAY_MS = 864e5;
   const base = new Date(now);
   base.setHours(0, 0, 0, 0);
   const diffOf = (dateStr) => dateStr ? Math.ceil((/* @__PURE__ */ new Date(dateStr + "T00:00:00") - base) / DAY_MS) : 9999;

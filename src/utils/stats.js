@@ -9,17 +9,18 @@
  *    client-script.js). We must NOT use new Function()/eval here — Cloudflare
  *    Workers forbids runtime code generation (error 10021).
  *
+ * IMPORTANT: each function must be fully SELF-CONTAINED — no references to
+ * module-level constants/helpers. func.toString() captures only the function
+ * body, so any external reference (e.g. DAY_MS) would be undefined once the
+ * source is injected into the browser script.
+ *
  * Rules (per product decisions):
  * - Paused items are excluded from "即将到期" and cost aggregates.
  * - Paused items sink to the bottom in any sort order.
- *
- * Functions are self-contained (no closure over module-level helpers) so that
- * .toString() output is valid on its own when injected into the browser script.
  */
 
-const DAY_MS = 86_400_000;
-
 export function countUrgent(items, now = new Date()) {
+  const DAY_MS = 86400000;
   const base = new Date(now);
   base.setHours(0, 0, 0, 0);
   let count = 0;
@@ -34,6 +35,7 @@ export function countUrgent(items, now = new Date()) {
 }
 
 export function sortItemsByPaused(items, sortBy = 'expire', now = new Date()) {
+  const DAY_MS = 86400000;
   const base = new Date(now);
   base.setHours(0, 0, 0, 0);
   const diffOf = (dateStr) =>
