@@ -553,7 +553,7 @@ function calcSuspendDate(balance, monthlyFee, billingDay, now = /* @__PURE__ */ 
   const thisMonthBD = Math.min(billingDay, daysInMonth);
   const N = monthlyFee > 0 ? Math.max(0, Math.floor(balance / monthlyFee)) : 0;
   let baseYear, baseMonth;
-  if (d <= thisMonthBD) {
+  if (d < thisMonthBD) {
     baseYear = y;
     baseMonth = m;
   } else {
@@ -822,6 +822,9 @@ async function handleItems(request, env, path) {
   if (path === "/api/items" && request.method === "POST") {
     return await createNewItem(request, env);
   }
+  if (path === "/api/items/recompute" && request.method === "POST") {
+    return await recomputeBalances(env);
+  }
   const idMatch = path.match(/^\/api\/items\/([^/]+)(\/.*)?$/);
   if (idMatch) {
     const id = idMatch[1];
@@ -843,6 +846,29 @@ async function handleItems(request, env, path) {
     }
   }
   return null;
+}
+async function recomputeBalances(env) {
+  try {
+    const items = await getAllItems(env.DB);
+    let fixed = 0;
+    for (const item of items) {
+      if (item.type !== "balance")
+        continue;
+      if (item.monthlyFee == null || item.billingDay == null)
+        continue;
+      const fresh = calcSuspendDate(item.balance, item.monthlyFee, item.billingDay);
+      if (fresh !== item.predictedSuspendDate) {
+        await updateItem(env.DB, item.id, (existing) => ({
+          ...existing,
+          predictedSuspendDate: fresh
+        }));
+        fixed++;
+      }
+    }
+    return successResponse({ scanned: items.length, fixed }, null, env);
+  } catch (e) {
+    return errorResponse(e.message || "\u91CD\u7B97\u5931\u8D25", 400, null, env);
+  }
 }
 async function listItems(request, env) {
   const url = new URL(request.url);

@@ -76,9 +76,13 @@ export function getStatusText(days) {
  * Edge cases:
  *   - balance = 0 or balance < monthlyFee → N = 0 → returns next billing day
  *     (correct: the upcoming deduction will drain the balance)
- *   - If today is past this month's billing day, the "next billing day" shifts
- *     to next month. This means N=0 returns next month's billing day, which is
- *     correct because this month's deduction already happened.
+ *   - If today is on or past this month's billing day, the "next billing day"
+ *     shifts to next month. This means N=0 returns next month's billing day,
+ *     which is correct because this month's deduction already happened
+ *     (auto-deduct runs ON the billing day and stores a post-deduction balance).
+ *     NOTE: must use strict `<` against the billing day, not `<=`, otherwise the
+ *     billing day itself is treated as a future deduction point and the suspend
+ *     date is computed as "today" (one month too early).
  *   - billingDay > days-in-month → clamped to last day of that month
  *
  * @param {number} balance - current balance
@@ -102,8 +106,9 @@ export function calcSuspendDate(balance, monthlyFee, billingDay, now = new Date(
 
   // Base month for calculation
   let baseYear, baseMonth;
-  if (d <= thisMonthBD) {
-    // Before or on billing day: next deduction is this month
+  if (d < thisMonthBD) {
+    // Strictly before billing day: next deduction is this month (balance is
+    // still pre-deduction for this month's charge).
     baseYear = y;
     baseMonth = m;
   } else {

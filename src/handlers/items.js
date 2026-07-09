@@ -77,6 +77,12 @@ export async function handleItems(request, env, path) {
     return await createNewItem(request, env);
   }
 
+  // POST /api/items/recompute — recompute predictedSuspendDate for all balance items
+  // (recovers stale dates poisoned by the old `<=` billing-day boundary bug).
+  if (path === '/api/items/recompute' && request.method === 'POST') {
+    return await recomputeBalances(env);
+  }
+
   // Route with ID: /api/items/:id[/action]
   const idMatch = path.match(/^\/api\/items\/([^/]+)(\/.*)?$/);
   if (idMatch) {
@@ -105,6 +111,29 @@ export async function handleItems(request, env, path) {
   }
 
   return null;
+}
+
+async function recomputeBalances(env) {
+  try {
+    const items = await getAllItems(env.DB);
+    let fixed = 0;
+    for (const item of items) {
+      if (item.type !== 'balance') continue;
+      // Skip items missing the data needed to compute (defensive)
+      if (item.monthlyFee == null || item.billingDay == null) continue;
+      const fresh = calcSuspendDate(item.balance, item.monthlyFee, item.billingDay);
+      if (fresh !== item.predictedSuspendDate) {
+        await updateItem(env.DB, item.id, existing => ({
+          ...existing,
+          predictedSuspendDate: fresh,
+        }));
+        fixed++;
+      }
+    }
+    return successResponse({ scanned: items.length, fixed }, null, env);
+  } catch (e) {
+    return errorResponse(e.message || '重算失败', 400, null, env);
+  }
 }
 
 async function listItems(request, env) {
