@@ -171,6 +171,22 @@ async function renewItem(env, id, request) {
     const now = request?.headers?.get?.('x-test-now')
       ? new Date(request.headers.get('x-test-now'))
       : new Date();
+
+    // 可选的余额变更（eSIM 续期联动）：负数=扣费，正数=充值
+    let balanceDelta = null;
+    let balanceNote = '';
+    try {
+      const body = await request.json();
+      if (body && body.balanceDelta !== undefined && body.balanceDelta !== '' && body.balanceDelta != null) {
+        const n = Number(body.balanceDelta);
+        if (!Number.isFinite(n)) throw new Error('余额变动必须是数字');
+        balanceDelta = n;
+        balanceNote = body.balanceNote ? String(body.balanceNote).trim() : '';
+      }
+    } catch {
+      // 无 body（或解析失败）视为不传余额变更，继续续期
+    }
+
     const result = await updateItem(env.DB, id, existing => {
       if (existing.type !== 'esim' && existing.type !== 'subscription') {
         throw new Error('仅 eSIM 和订阅类型支持一键续期');
@@ -195,12 +211,26 @@ async function renewItem(env, id, request) {
         baseDate = todayString(now) > existing.expireDate ? todayString(now) : existing.expireDate;
       }
       const newExpire = addDays(baseDate, days);
-      return { ...existing, expireDate: newExpire, status: 'active' };
+      const updated = { ...existing, expireDate: newExpire, status: 'active' };
+      // eSIM 余额联动：仅当传入了有效 delta 时处理
+      if (existing.type === 'esim' && balanceDelta !== null) {
+        const prev = existing.balance == null ? 0 : existing.balance;
+        updated.balance = Math.round((prev + balanceDelta) * 100) / 100;
+      }
+      return updated;
     });
 
     if (!result) return errorResponse('未找到记录', 404, null, env);
-    await recordHistory(env, 'renew', result, { newExpireDate: result.expireDate });
-    return successResponse({ newExpireDate: result.expireDate }, null, env);
+    const historyDetails = { newExpireDate: result.expireDate };
+    if (result.type === 'esim' && balanceDelta !== null) {
+      historyDetails.balanceDelta = balanceDelta;
+      historyDetails.balanceAfter = result.balance;
+      if (balanceNote) historyDetails.note = balanceNote;
+    }
+    await recordHistory(env, 'renew', result, historyDetails);
+    const resp = { newExpireDate: result.expireDate };
+    if (result.type === 'esim' && balanceDelta !== null) resp.newBalance = result.balance;
+    return successResponse(resp, null, env);
   } catch (e) {
     return errorResponse(e.message || '续期失败', 400, null, env);
   }

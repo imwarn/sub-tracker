@@ -404,6 +404,7 @@ function cardHTML(item) {
     (isBalance && item.predictedSuspendDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>预计停机: '+esc(item.predictedSuspendDate)+'</div>' : '') +
     (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>到期: '+esc(item.expireDate)+'</div>' : '') +
     (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>周期: '+esc(item.cycle)+'天</div>' : '') +
+    (isEsim && item.balance != null ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-wallet mr-1"></i>余额: '+currSym(item.currency || 'CNY')+esc(item.balance)+'</div>' : '') +
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
     rechargeBtn +
@@ -464,6 +465,7 @@ function listRowMobileHTML(item) {
     '<div class="flex items-center justify-between">' +
       '<div class="text-xs text-slate-400">' +
         (isBalance ? '<span>'+balanceInfo+'</span>' : '') +
+        (isEsim && item.balance != null ? '<span>'+sym+esc(item.balance)+'</span>' : '') +
         (!isBalance && item.expireDate ? '<i class="fa-regular fa-calendar mr-1"></i>'+esc(item.expireDate) : '') +
         (item.number ? '<span class="ml-2 font-mono">'+esc(item.number)+'</span>' : '') +
         (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
@@ -495,7 +497,7 @@ function listRowHTML(item) {
     iconClass = 'fa-wallet text-amber-400';
   } else if (isEsim) {
     sub = item.number || '-';
-    priceStr = '';
+    priceStr = item.balance != null ? ' · '+currSym(item.currency || 'CNY')+esc(item.balance) : '';
     iconClass = 'fa-sim-card text-cyan-400';
   } else {
     sub = item.category || '-';
@@ -675,6 +677,7 @@ function openModal(type, item) {
   document.getElementById('modal-title').textContent = (item ? '编辑' : '添加') + typeLabel;
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim' && type !== 'balance');
   document.getElementById('field-esim-activation').classList.toggle('hidden', type !== 'esim');
+  document.getElementById('field-esim-balance').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-category').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-region').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-sub-id').classList.toggle('hidden', type !== 'subscription');
@@ -695,6 +698,8 @@ function openModal(type, item) {
     document.getElementById('form-activation-code').value = item.activationCode || '';
     document.getElementById('form-confirmation-code').value = item.confirmationCode || '';
     document.getElementById('form-wid').value = item.wid || '';
+    document.getElementById('form-balance-esim').value = item.balance == null ? '' : item.balance;
+    document.getElementById('form-currency-esim').value = item.currency || 'CNY';
     document.getElementById('form-category').value = item.category || '';
     document.getElementById('form-region').value = item.region || '';
     document.getElementById('form-sub-id').value = item.subId || '';
@@ -734,6 +739,8 @@ async function saveItem(e) {
     activationCode: document.getElementById('form-activation-code').value.trim(),
     confirmationCode: document.getElementById('form-confirmation-code').value.trim(),
     wid: document.getElementById('form-wid').value.trim(),
+    balance: document.getElementById('form-balance-esim').value.trim(),
+    currency: document.getElementById('form-currency-esim').value,
     category: document.getElementById('form-category').value,
     region: document.getElementById('form-region').value,
     subId: document.getElementById('form-sub-id').value.trim(),
@@ -790,13 +797,38 @@ async function deleteItem(id) {
 }
 
 async function renewItem(id) {
-  if (!confirm('确定续期？将自动延长到期日期。')) return;
-  try {
-    const res = await api('POST', '/api/items/'+id+'/renew');
-    const data = await res.json();
-    if (data.success) { await loadItems(); showToast('续期成功', 'success'); }
-    else showToast(data.message || '续期失败', 'error');
-  } catch { showToast('续期失败', 'error'); }
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  const sym = currSym(item.currency || 'CNY');
+  const overlay = document.getElementById('renew-overlay');
+  document.getElementById('renew-info').textContent = '当前余额: ' + (item.balance == null ? '未追踪' : sym + item.balance);
+  document.getElementById('renew-balance-delta').value = '';
+  document.getElementById('renew-balance-note').value = '';
+  document.getElementById('renew-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const deltaRaw = document.getElementById('renew-balance-delta').value;
+    const note = document.getElementById('renew-balance-note').value.trim();
+    const body = {};
+    if (deltaRaw !== '') {
+      const n = Number(deltaRaw);
+      if (!Number.isFinite(n)) { showToast('余额变动必须是数字', 'error'); return; }
+      body.balanceDelta = n;
+      if (note) body.balanceNote = note;
+    }
+    overlay.classList.add('hidden'); overlay.classList.remove('flex');
+    try {
+      const res = await api('POST', '/api/items/'+id+'/renew', body);
+      const data = await res.json();
+      if (data.success) {
+        await loadItems();
+        const extra = data.newBalance != null ? '，新余额: '+sym+data.newBalance : '';
+        showToast('续期成功'+extra, 'success');
+      }
+      else showToast(data.message || '续期失败', 'error');
+    } catch { showToast('续期失败', 'error'); }
+  };
+  overlay.classList.remove('hidden'); overlay.classList.add('flex');
+  document.getElementById('renew-balance-delta').focus();
 }
 
 async function testNotify(id) {
@@ -996,7 +1028,7 @@ function downloadDemo() {
     exportDate: new Date().toISOString(),
     count: 4,
     items: [
-      { type: 'esim', name: '美国保号卡', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active', smDp: 'rsp.ultramobile.com', activationCode: 'DEMO-ACT-CODE', confirmationCode: 'DEMO-CONF-CODE', wid: '89012345678901234567890123456789' },
+      { type: 'esim', name: '美国保号卡', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active', smDp: 'rsp.ultramobile.com', activationCode: 'DEMO-ACT-CODE', confirmationCode: 'DEMO-CONF-CODE', wid: '89012345678901234567890123456789', balance: 12.5, currency: 'USD' },
       { type: 'esim', name: '日本 IIJmio', number: '+819****4567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
       { type: 'subscription', name: 'ChatGPT Plus', category: 'AI 工具', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
       { type: 'subscription', name: 'YouTube Premium', category: '视频会员', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '土耳其区', status: 'active' },

@@ -77,6 +77,9 @@ export function createItem(type, data) {
     return {
       ...base,
       number: asString(data.number),
+      // eSIM 余额与货币（可选，与续期联动; 缺省无余额）
+      balance: data.balance == null || data.balance === '' ? null : asNumber(data.balance, null),
+      currency: CURRENCY_CODES.includes(data.currency) ? data.currency : 'CNY',
       // eSIM 激活信息（敏感，LPA = 1$sm-dp+$activationCode$confirmationCode）
       smDp: asString(data.smDp),
       activationCode: asString(data.activationCode),
@@ -187,6 +190,12 @@ export function mergeUpdate(existing, data) {
   if (existing.type === 'esim') {
     for (const key of ['number', 'smDp', 'activationCode', 'confirmationCode', 'wid']) {
       if (data[key] !== undefined) updated[key] = asString(data[key]);
+    }
+    if (data.balance !== undefined) {
+      updated.balance = data.balance === '' || data.balance == null ? null : asNumber(data.balance, null);
+    }
+    if (data.currency !== undefined) {
+      updated.currency = CURRENCY_CODES.includes(data.currency) ? data.currency : 'CNY';
     }
   }
   // Subscription fields

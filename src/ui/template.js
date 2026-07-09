@@ -189,6 +189,34 @@ ${getStyles()}
               <input id="form-wid" type="text" placeholder="32位设备标识" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
             </div>
           </div>
+          <div id="field-esim-balance" class="hidden space-y-3">
+            <div class="flex gap-3">
+              <div class="flex-1">
+                <label class="text-sm text-slate-400 mb-1 block">余额（可选）</label>
+                <input id="form-balance-esim" type="number" step="0.01" placeholder="不填表示不追踪余额" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
+              <div class="w-32">
+                <label class="text-sm text-slate-400 mb-1 block">货币</label>
+                <select id="form-currency-esim" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                  <option value="CNY">CNY ¥</option>
+                  <option value="USD">USD $</option>
+                  <option value="EUR">EUR €</option>
+                  <option value="GBP">GBP £</option>
+                  <option value="JPY">JPY ¥</option>
+                  <option value="HKD">HKD $</option>
+                  <option value="TWD">TWD $</option>
+                  <option value="KRW">KRW ₩</option>
+                  <option value="TRY">TRY ₺</option>
+                  <option value="THB">THB ฿</option>
+                  <option value="NGN">NGN ₦</option>
+                  <option value="INR">INR ₹</option>
+                  <option value="PHP">PHP ₱</option>
+                  <option value="MYR">MYR RM</option>
+                  <option value="SGD">SGD $</option>
+                </select>
+              </div>
+            </div>
+          </div>
           <div id="field-category" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">分类</label>
             <select id="form-category" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -379,6 +407,30 @@ ${getStyles()}
 \t        <div class="flex gap-3 mt-5">
 \t          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>确认充值</button>
 \t          <button type="button" onclick="document.getElementById('recharge-overlay').classList.add('hidden');document.getElementById('recharge-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
+\t        </div>
+\t      </form>
+\t    </div>
+\t  </div>
+
+\t  <!-- ========== RENEW MODAL (eSIM: 续期 + 可选余额变更) ========== -->
+\t  <div id="renew-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+\t    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
+\t      <h3 class="text-lg font-bold text-white mb-4">续期 eSIM</h3>
+\t      <p id="renew-info" class="text-sm text-slate-400 mb-4"></p>
+\t      <form id="renew-form">
+\t        <div class="space-y-3">
+\t          <div class="bg-white/5 rounded-xl p-3">
+\t            <label class="text-sm text-slate-400 mb-1 block">本次余额变动（可选）</label>
+\t            <input id="renew-balance-delta" type="number" step="0.01" placeholder="负数=扣费，正数=充值，留空=仅续期" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+\t          </div>
+\t          <div>
+\t            <label class="text-sm text-slate-400 mb-1 block">备注（可选）</label>
+\t            <input id="renew-balance-note" type="text" placeholder="如：年费续期扣款" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+\t          </div>
+\t        </div>
+\t        <div class="flex gap-3 mt-5">
+\t          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>确认续期</button>
+\t          <button type="button" onclick="document.getElementById('renew-overlay').classList.add('hidden');document.getElementById('renew-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
 \t        </div>
 \t      </form>
 \t    </div>

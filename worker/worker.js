@@ -624,6 +624,9 @@ function createItem(type, data) {
     return {
       ...base,
       number: asString(data.number),
+      // eSIM 余额与货币（可选，与续期联动; 缺省无余额）
+      balance: data.balance == null || data.balance === "" ? null : asNumber(data.balance, null),
+      currency: CURRENCY_CODES.includes(data.currency) ? data.currency : "CNY",
       // eSIM 激活信息（敏感，LPA = 1$sm-dp+$activationCode$confirmationCode）
       smDp: asString(data.smDp),
       activationCode: asString(data.activationCode),
@@ -733,6 +736,12 @@ function mergeUpdate(existing, data) {
     for (const key of ["number", "smDp", "activationCode", "confirmationCode", "wid"]) {
       if (data[key] !== void 0)
         updated[key] = asString(data[key]);
+    }
+    if (data.balance !== void 0) {
+      updated.balance = data.balance === "" || data.balance == null ? null : asNumber(data.balance, null);
+    }
+    if (data.currency !== void 0) {
+      updated.currency = CURRENCY_CODES.includes(data.currency) ? data.currency : "CNY";
     }
   }
   if (existing.type === "subscription") {
@@ -890,6 +899,19 @@ async function deleteExistingItem(env, id) {
 async function renewItem(env, id, request) {
   try {
     const now = request?.headers?.get?.("x-test-now") ? new Date(request.headers.get("x-test-now")) : /* @__PURE__ */ new Date();
+    let balanceDelta = null;
+    let balanceNote = "";
+    try {
+      const body = await request.json();
+      if (body && body.balanceDelta !== void 0 && body.balanceDelta !== "" && body.balanceDelta != null) {
+        const n = Number(body.balanceDelta);
+        if (!Number.isFinite(n))
+          throw new Error("\u4F59\u989D\u53D8\u52A8\u5FC5\u987B\u662F\u6570\u5B57");
+        balanceDelta = n;
+        balanceNote = body.balanceNote ? String(body.balanceNote).trim() : "";
+      }
+    } catch {
+    }
     const result = await updateItem(env.DB, id, (existing) => {
       if (existing.type !== "esim" && existing.type !== "subscription") {
         throw new Error("\u4EC5 eSIM \u548C\u8BA2\u9605\u7C7B\u578B\u652F\u6301\u4E00\u952E\u7EED\u671F");
@@ -913,12 +935,27 @@ async function renewItem(env, id, request) {
         baseDate = todayString(now) > existing.expireDate ? todayString(now) : existing.expireDate;
       }
       const newExpire = addDays(baseDate, days);
-      return { ...existing, expireDate: newExpire, status: "active" };
+      const updated = { ...existing, expireDate: newExpire, status: "active" };
+      if (existing.type === "esim" && balanceDelta !== null) {
+        const prev = existing.balance == null ? 0 : existing.balance;
+        updated.balance = Math.round((prev + balanceDelta) * 100) / 100;
+      }
+      return updated;
     });
     if (!result)
       return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
-    await recordHistory(env, "renew", result, { newExpireDate: result.expireDate });
-    return successResponse({ newExpireDate: result.expireDate }, null, env);
+    const historyDetails = { newExpireDate: result.expireDate };
+    if (result.type === "esim" && balanceDelta !== null) {
+      historyDetails.balanceDelta = balanceDelta;
+      historyDetails.balanceAfter = result.balance;
+      if (balanceNote)
+        historyDetails.note = balanceNote;
+    }
+    await recordHistory(env, "renew", result, historyDetails);
+    const resp = { newExpireDate: result.expireDate };
+    if (result.type === "esim" && balanceDelta !== null)
+      resp.newBalance = result.balance;
+    return successResponse(resp, null, env);
   } catch (e) {
     return errorResponse(e.message || "\u7EED\u671F\u5931\u8D25", 400, null, env);
   }
@@ -1714,6 +1751,7 @@ function cardHTML(item) {
     (isBalance && item.predictedSuspendDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>\u9884\u8BA1\u505C\u673A: '+esc(item.predictedSuspendDate)+'</div>' : '') +
     (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>\u5230\u671F: '+esc(item.expireDate)+'</div>' : '') +
     (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>\u5468\u671F: '+esc(item.cycle)+'\u5929</div>' : '') +
+    (isEsim && item.balance != null ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-wallet mr-1"></i>\u4F59\u989D: '+currSym(item.currency || 'CNY')+esc(item.balance)+'</div>' : '') +
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
     '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
     rechargeBtn +
@@ -1774,6 +1812,7 @@ function listRowMobileHTML(item) {
     '<div class="flex items-center justify-between">' +
       '<div class="text-xs text-slate-400">' +
         (isBalance ? '<span>'+balanceInfo+'</span>' : '') +
+        (isEsim && item.balance != null ? '<span>'+sym+esc(item.balance)+'</span>' : '') +
         (!isBalance && item.expireDate ? '<i class="fa-regular fa-calendar mr-1"></i>'+esc(item.expireDate) : '') +
         (item.number ? '<span class="ml-2 font-mono">'+esc(item.number)+'</span>' : '') +
         (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
@@ -1805,7 +1844,7 @@ function listRowHTML(item) {
     iconClass = 'fa-wallet text-amber-400';
   } else if (isEsim) {
     sub = item.number || '-';
-    priceStr = '';
+    priceStr = item.balance != null ? ' \xB7 '+currSym(item.currency || 'CNY')+esc(item.balance) : '';
     iconClass = 'fa-sim-card text-cyan-400';
   } else {
     sub = item.category || '-';
@@ -1985,6 +2024,7 @@ function openModal(type, item) {
   document.getElementById('modal-title').textContent = (item ? '\u7F16\u8F91' : '\u6DFB\u52A0') + typeLabel;
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim' && type !== 'balance');
   document.getElementById('field-esim-activation').classList.toggle('hidden', type !== 'esim');
+  document.getElementById('field-esim-balance').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-category').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-region').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-sub-id').classList.toggle('hidden', type !== 'subscription');
@@ -2005,6 +2045,8 @@ function openModal(type, item) {
     document.getElementById('form-activation-code').value = item.activationCode || '';
     document.getElementById('form-confirmation-code').value = item.confirmationCode || '';
     document.getElementById('form-wid').value = item.wid || '';
+    document.getElementById('form-balance-esim').value = item.balance == null ? '' : item.balance;
+    document.getElementById('form-currency-esim').value = item.currency || 'CNY';
     document.getElementById('form-category').value = item.category || '';
     document.getElementById('form-region').value = item.region || '';
     document.getElementById('form-sub-id').value = item.subId || '';
@@ -2044,6 +2086,8 @@ async function saveItem(e) {
     activationCode: document.getElementById('form-activation-code').value.trim(),
     confirmationCode: document.getElementById('form-confirmation-code').value.trim(),
     wid: document.getElementById('form-wid').value.trim(),
+    balance: document.getElementById('form-balance-esim').value.trim(),
+    currency: document.getElementById('form-currency-esim').value,
     category: document.getElementById('form-category').value,
     region: document.getElementById('form-region').value,
     subId: document.getElementById('form-sub-id').value.trim(),
@@ -2100,13 +2144,38 @@ async function deleteItem(id) {
 }
 
 async function renewItem(id) {
-  if (!confirm('\u786E\u5B9A\u7EED\u671F\uFF1F\u5C06\u81EA\u52A8\u5EF6\u957F\u5230\u671F\u65E5\u671F\u3002')) return;
-  try {
-    const res = await api('POST', '/api/items/'+id+'/renew');
-    const data = await res.json();
-    if (data.success) { await loadItems(); showToast('\u7EED\u671F\u6210\u529F', 'success'); }
-    else showToast(data.message || '\u7EED\u671F\u5931\u8D25', 'error');
-  } catch { showToast('\u7EED\u671F\u5931\u8D25', 'error'); }
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  const sym = currSym(item.currency || 'CNY');
+  const overlay = document.getElementById('renew-overlay');
+  document.getElementById('renew-info').textContent = '\u5F53\u524D\u4F59\u989D: ' + (item.balance == null ? '\u672A\u8FFD\u8E2A' : sym + item.balance);
+  document.getElementById('renew-balance-delta').value = '';
+  document.getElementById('renew-balance-note').value = '';
+  document.getElementById('renew-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const deltaRaw = document.getElementById('renew-balance-delta').value;
+    const note = document.getElementById('renew-balance-note').value.trim();
+    const body = {};
+    if (deltaRaw !== '') {
+      const n = Number(deltaRaw);
+      if (!Number.isFinite(n)) { showToast('\u4F59\u989D\u53D8\u52A8\u5FC5\u987B\u662F\u6570\u5B57', 'error'); return; }
+      body.balanceDelta = n;
+      if (note) body.balanceNote = note;
+    }
+    overlay.classList.add('hidden'); overlay.classList.remove('flex');
+    try {
+      const res = await api('POST', '/api/items/'+id+'/renew', body);
+      const data = await res.json();
+      if (data.success) {
+        await loadItems();
+        const extra = data.newBalance != null ? '\uFF0C\u65B0\u4F59\u989D: '+sym+data.newBalance : '';
+        showToast('\u7EED\u671F\u6210\u529F'+extra, 'success');
+      }
+      else showToast(data.message || '\u7EED\u671F\u5931\u8D25', 'error');
+    } catch { showToast('\u7EED\u671F\u5931\u8D25', 'error'); }
+  };
+  overlay.classList.remove('hidden'); overlay.classList.add('flex');
+  document.getElementById('renew-balance-delta').focus();
 }
 
 async function testNotify(id) {
@@ -2306,7 +2375,7 @@ function downloadDemo() {
     exportDate: new Date().toISOString(),
     count: 4,
     items: [
-      { type: 'esim', name: '\u7F8E\u56FD\u4FDD\u53F7\u5361', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile \u4FDD\u53F7', status: 'active', smDp: 'rsp.ultramobile.com', activationCode: 'DEMO-ACT-CODE', confirmationCode: 'DEMO-CONF-CODE', wid: '89012345678901234567890123456789' },
+      { type: 'esim', name: '\u7F8E\u56FD\u4FDD\u53F7\u5361', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile \u4FDD\u53F7', status: 'active', smDp: 'rsp.ultramobile.com', activationCode: 'DEMO-ACT-CODE', confirmationCode: 'DEMO-CONF-CODE', wid: '89012345678901234567890123456789', balance: 12.5, currency: 'USD' },
       { type: 'esim', name: '\u65E5\u672C IIJmio', number: '+819****4567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
       { type: 'subscription', name: 'ChatGPT Plus', category: 'AI \u5DE5\u5177', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
       { type: 'subscription', name: 'YouTube Premium', category: '\u89C6\u9891\u4F1A\u5458', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '\u571F\u8033\u5176\u533A', status: 'active' },
@@ -2602,6 +2671,34 @@ ${getStyles()}
               <input id="form-wid" type="text" placeholder="32\u4F4D\u8BBE\u5907\u6807\u8BC6" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
             </div>
           </div>
+          <div id="field-esim-balance" class="hidden space-y-3">
+            <div class="flex gap-3">
+              <div class="flex-1">
+                <label class="text-sm text-slate-400 mb-1 block">\u4F59\u989D\uFF08\u53EF\u9009\uFF09</label>
+                <input id="form-balance-esim" type="number" step="0.01" placeholder="\u4E0D\u586B\u8868\u793A\u4E0D\u8FFD\u8E2A\u4F59\u989D" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
+              <div class="w-32">
+                <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
+                <select id="form-currency-esim" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                  <option value="CNY">CNY \xA5</option>
+                  <option value="USD">USD $</option>
+                  <option value="EUR">EUR \u20AC</option>
+                  <option value="GBP">GBP \xA3</option>
+                  <option value="JPY">JPY \xA5</option>
+                  <option value="HKD">HKD $</option>
+                  <option value="TWD">TWD $</option>
+                  <option value="KRW">KRW \u20A9</option>
+                  <option value="TRY">TRY \u20BA</option>
+                  <option value="THB">THB \u0E3F</option>
+                  <option value="NGN">NGN \u20A6</option>
+                  <option value="INR">INR \u20B9</option>
+                  <option value="PHP">PHP \u20B1</option>
+                  <option value="MYR">MYR RM</option>
+                  <option value="SGD">SGD $</option>
+                </select>
+              </div>
+            </div>
+          </div>
           <div id="field-category" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">\u5206\u7C7B</label>
             <select id="form-category" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -2792,6 +2889,30 @@ ${getStyles()}
 	        <div class="flex gap-3 mt-5">
 	          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>\u786E\u8BA4\u5145\u503C</button>
 	          <button type="button" onclick="document.getElementById('recharge-overlay').classList.add('hidden');document.getElementById('recharge-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
+	        </div>
+	      </form>
+	    </div>
+	  </div>
+
+	  <!-- ========== RENEW MODAL (eSIM: \u7EED\u671F + \u53EF\u9009\u4F59\u989D\u53D8\u66F4) ========== -->
+	  <div id="renew-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+	    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
+	      <h3 class="text-lg font-bold text-white mb-4">\u7EED\u671F eSIM</h3>
+	      <p id="renew-info" class="text-sm text-slate-400 mb-4"></p>
+	      <form id="renew-form">
+	        <div class="space-y-3">
+	          <div class="bg-white/5 rounded-xl p-3">
+	            <label class="text-sm text-slate-400 mb-1 block">\u672C\u6B21\u4F59\u989D\u53D8\u52A8\uFF08\u53EF\u9009\uFF09</label>
+	            <input id="renew-balance-delta" type="number" step="0.01" placeholder="\u8D1F\u6570=\u6263\u8D39\uFF0C\u6B63\u6570=\u5145\u503C\uFF0C\u7559\u7A7A=\u4EC5\u7EED\u671F" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+	          </div>
+	          <div>
+	            <label class="text-sm text-slate-400 mb-1 block">\u5907\u6CE8\uFF08\u53EF\u9009\uFF09</label>
+	            <input id="renew-balance-note" type="text" placeholder="\u5982\uFF1A\u5E74\u8D39\u7EED\u671F\u6263\u6B3E" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+	          </div>
+	        </div>
+	        <div class="flex gap-3 mt-5">
+	          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>\u786E\u8BA4\u7EED\u671F</button>
+	          <button type="button" onclick="document.getElementById('renew-overlay').classList.add('hidden');document.getElementById('renew-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
 	        </div>
 	      </form>
 	    </div>
