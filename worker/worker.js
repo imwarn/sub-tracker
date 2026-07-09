@@ -1464,15 +1464,19 @@ function renderStats() {
   const today = new Date(); today.setHours(0,0,0,0);
   let urgentCount = 0;
   allItems.forEach(i => {
+    if (i.status === 'paused') return; // \u5DF2\u6682\u505C\u7684\u4E0D\u8BA1\u5165\u5373\u5C06\u5230\u671F
     if (i.type === 'balance') {
       if (i.predictedSuspendDate) { const exp = new Date(i.predictedSuspendDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
     } else if (i.expireDate) { const exp = new Date(i.expireDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
   });
 
   // Cost calculation \u2014 group by currency to avoid mixing
+  // \u4EC5\u7EDF\u8BA1 active\uFF08\u6682\u505C=\u4E0D\u82B1\u94B1\uFF09\uFF0C\u4E0E analytics \u9762\u677F\u53E3\u5F84\u4E00\u81F4
+  const activeSubs = subs.filter(s => s.status !== 'paused');
+  const activeBalances = balances.filter(b => b.status !== 'paused');
   const monthlyByCur = {};
   const yearlyByCur = {};
-  subs.forEach(s => {
+  activeSubs.forEach(s => {
     if (!s.price) return;
     const p = parseFloat(s.price);
     const cur = s.currency || 'CNY';
@@ -1483,7 +1487,7 @@ function renderStats() {
   });
 
   // Balance: add monthly fees to cost
-  balances.forEach(b => {
+  activeBalances.forEach(b => {
     if (!b.monthlyFee) return;
     const cur = b.currency || 'CNY';
     monthlyByCur[cur] = (monthlyByCur[cur]||0) + parseFloat(b.monthlyFee);
@@ -1654,6 +1658,10 @@ function getFilteredItems() {
   const today = new Date(); today.setHours(0,0,0,0);
   const sortBy = document.getElementById('sort-select')?.value || 'expire';
   items.sort((a,b) => {
+    // \u6682\u505C\u9879\u6C89\u5E95\uFF1Apaused \u59CB\u7EC8\u6392\u5728 active \u4E4B\u540E
+    const ap = a.status === 'paused' ? 1 : 0;
+    const bp = b.status === 'paused' ? 1 : 0;
+    if (ap !== bp) return ap - bp;
     if (sortBy === 'name') return (a.name||'').localeCompare(b.name||'', 'zh');
     if (sortBy === 'price') {
       const pa = a.type === 'balance' ? (a.monthlyFee||0) : parseFloat(a.price)||0;

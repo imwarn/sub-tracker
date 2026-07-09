@@ -117,15 +117,19 @@ function renderStats() {
   const today = new Date(); today.setHours(0,0,0,0);
   let urgentCount = 0;
   allItems.forEach(i => {
+    if (i.status === 'paused') return; // 已暂停的不计入即将到期
     if (i.type === 'balance') {
       if (i.predictedSuspendDate) { const exp = new Date(i.predictedSuspendDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
     } else if (i.expireDate) { const exp = new Date(i.expireDate+'T00:00:00'); const diff = Math.ceil((exp-today)/86400000); if (diff <= 15) urgentCount++; }
   });
 
   // Cost calculation — group by currency to avoid mixing
+  // 仅统计 active（暂停=不花钱），与 analytics 面板口径一致
+  const activeSubs = subs.filter(s => s.status !== 'paused');
+  const activeBalances = balances.filter(b => b.status !== 'paused');
   const monthlyByCur = {};
   const yearlyByCur = {};
-  subs.forEach(s => {
+  activeSubs.forEach(s => {
     if (!s.price) return;
     const p = parseFloat(s.price);
     const cur = s.currency || 'CNY';
@@ -136,7 +140,7 @@ function renderStats() {
   });
 
   // Balance: add monthly fees to cost
-  balances.forEach(b => {
+  activeBalances.forEach(b => {
     if (!b.monthlyFee) return;
     const cur = b.currency || 'CNY';
     monthlyByCur[cur] = (monthlyByCur[cur]||0) + parseFloat(b.monthlyFee);
@@ -307,6 +311,10 @@ function getFilteredItems() {
   const today = new Date(); today.setHours(0,0,0,0);
   const sortBy = document.getElementById('sort-select')?.value || 'expire';
   items.sort((a,b) => {
+    // 暂停项沉底：paused 始终排在 active 之后
+    const ap = a.status === 'paused' ? 1 : 0;
+    const bp = b.status === 'paused' ? 1 : 0;
+    if (ap !== bp) return ap - bp;
     if (sortBy === 'name') return (a.name||'').localeCompare(b.name||'', 'zh');
     if (sortBy === 'price') {
       const pa = a.type === 'balance' ? (a.monthlyFee||0) : parseFloat(a.price)||0;
