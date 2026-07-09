@@ -1354,54 +1354,44 @@ function getCountryMap() {
 
 // src/utils/stats.js
 var DAY_MS = 864e5;
-var SRC = `
-function daysUntil(dateStr, now) {
-  if (!dateStr) return null;
-  const d = new Date(now); d.setHours(0,0,0,0);
-  return Math.ceil((new Date(dateStr + 'T00:00:00') - d) / ${DAY_MS});
-}
-
-function countUrgent(items, now) {
-  now = now || new Date();
+function countUrgent(items, now = /* @__PURE__ */ new Date()) {
+  const base = new Date(now);
+  base.setHours(0, 0, 0, 0);
   let count = 0;
   for (const i of items) {
-    if (i.status === 'paused') continue;
-    const dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
-    const diff = daysUntil(dateStr, now);
-    if (diff !== null && diff <= 15) count++;
+    if (i.status === "paused")
+      continue;
+    const dateStr = i.type === "balance" ? i.predictedSuspendDate : i.expireDate;
+    if (!dateStr)
+      continue;
+    const diff = Math.ceil((/* @__PURE__ */ new Date(dateStr + "T00:00:00") - base) / DAY_MS);
+    if (diff <= 15)
+      count++;
   }
   return count;
 }
-
-function sortItemsByPaused(items, sortBy, now) {
-  sortBy = sortBy || 'expire';
-  now = now || new Date();
-  items.sort(function (a, b) {
-    const ap = a.status === 'paused' ? 1 : 0;
-    const bp = b.status === 'paused' ? 1 : 0;
-    if (ap !== bp) return ap - bp;
-    if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'zh');
-    if (sortBy === 'price') {
-      const pa = a.type === 'balance' ? (a.monthlyFee || 0) : parseFloat(a.price) || 0;
-      const pb = b.type === 'balance' ? (b.monthlyFee || 0) : parseFloat(b.price) || 0;
+function sortItemsByPaused(items, sortBy = "expire", now = /* @__PURE__ */ new Date()) {
+  const base = new Date(now);
+  base.setHours(0, 0, 0, 0);
+  const diffOf = (dateStr) => dateStr ? Math.ceil((/* @__PURE__ */ new Date(dateStr + "T00:00:00") - base) / DAY_MS) : 9999;
+  items.sort((a, b) => {
+    const ap = a.status === "paused" ? 1 : 0;
+    const bp = b.status === "paused" ? 1 : 0;
+    if (ap !== bp)
+      return ap - bp;
+    if (sortBy === "name")
+      return (a.name || "").localeCompare(b.name || "", "zh");
+    if (sortBy === "price") {
+      const pa = a.type === "balance" ? a.monthlyFee || 0 : parseFloat(a.price) || 0;
+      const pb = b.type === "balance" ? b.monthlyFee || 0 : parseFloat(b.price) || 0;
       return pb - pa;
     }
-    const da = a.type === 'balance'
-      ? (a.predictedSuspendDate ? (daysUntil(a.predictedSuspendDate, now) ?? 9999) : 9999)
-      : (a.expireDate ? (daysUntil(a.expireDate, now) ?? 9999) : 9999);
-    const db = b.type === 'balance'
-      ? (b.predictedSuspendDate ? (daysUntil(b.predictedSuspendDate, now) ?? 9999) : 9999)
-      : (b.expireDate ? (daysUntil(b.expireDate, now) ?? 9999) : 9999);
+    const da = a.type === "balance" ? a.predictedSuspendDate ? diffOf(a.predictedSuspendDate) : 9999 : a.expireDate ? diffOf(a.expireDate) : 9999;
+    const db = b.type === "balance" ? b.predictedSuspendDate ? diffOf(b.predictedSuspendDate) : 9999 : b.expireDate ? diffOf(b.expireDate) : 9999;
     return da - db;
   });
   return items;
 }
-`;
-var STATS_SRC = SRC;
-var factory = new Function(SRC + "\nreturn { countUrgent: countUrgent, sortItemsByPaused: sortItemsByPaused };");
-var derived = factory();
-var countUrgent = derived.countUrgent;
-var sortItemsByPaused = derived.sortItemsByPaused;
 
 // src/ui/client-script.js
 function getFrontendFlagMap() {
@@ -1411,7 +1401,8 @@ function getFrontendFlagMap() {
 }
 function getClientScript() {
   const flagMap = getFrontendFlagMap();
-  return `${STATS_SRC}
+  const statsSrc = countUrgent.toString() + "\n" + sortItemsByPaused.toString();
+  return `${statsSrc}
 let TOKEN = localStorage.getItem('token') || '';
 let allItems = [];
 let currentFilter = 'all';

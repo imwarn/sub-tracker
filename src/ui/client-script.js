@@ -4,7 +4,7 @@
 
 import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS } from '../data/constants.js';
 import { getCountryMap } from '../utils/country.js';
-import { STATS_SRC } from '../utils/stats.js';
+import { countUrgent, sortItemsByPaused } from '../utils/stats.js';
 
 function getFrontendFlagMap() {
   return Object.fromEntries(
@@ -14,7 +14,10 @@ function getFrontendFlagMap() {
 
 export function getClientScript() {
   const flagMap = getFrontendFlagMap();
-  return `${STATS_SRC}
+  // Inject pure helpers' source into the browser script string. We use
+  // .toString() (not new Function/eval, which Cloudflare Workers forbids).
+  const statsSrc = countUrgent.toString() + '\n' + sortItemsByPaused.toString();
+  return `${statsSrc}
 let TOKEN = localStorage.getItem('token') || '';
 let allItems = [];
 let currentFilter = 'all';
