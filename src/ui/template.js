@@ -412,13 +412,13 @@ ${getStyles()}
 \t    </div>
 \t  </div>
 
-\t  <!-- ========== RENEW MODAL (eSIM: 续期 + 可选余额变更) ========== -->
+\t  <!-- ========== RENEW MODAL ========== -->
 \t  <div id="renew-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
 \t    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
-\t      <h3 class="text-lg font-bold text-white mb-4">续期 eSIM</h3>
+\t      <h3 id="renew-title" class="text-lg font-bold text-white mb-4">续期</h3>
 \t      <p id="renew-info" class="text-sm text-slate-400 mb-4"></p>
 \t      <form id="renew-form">
-\t        <div class="space-y-3">
+\t        <div id="renew-balance-fields" class="space-y-3">
 \t          <div class="bg-white/5 rounded-xl p-3">
 \t            <label class="text-sm text-slate-400 mb-1 block">本次余额变动（可选）</label>
 \t            <input id="renew-balance-delta" type="number" step="0.01" placeholder="负数=扣费，正数=充值，留空=仅续期" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -429,7 +429,7 @@ ${getStyles()}
 \t          </div>
 \t        </div>
 \t        <div class="flex gap-3 mt-5">
-\t          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>确认续期</button>
+\t          <button id="renew-submit" type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>确认续期</button>
 \t          <button type="button" onclick="document.getElementById('renew-overlay').classList.add('hidden');document.getElementById('renew-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
 \t        </div>
 \t      </form>

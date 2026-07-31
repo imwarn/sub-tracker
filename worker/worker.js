@@ -2201,9 +2201,14 @@ async function deleteItem(id) {
 async function renewItem(id) {
   const item = allItems.find(i => i.id === id);
   if (!item) return;
+  const isEsim = item.type === 'esim';
   const sym = currSym(item.currency || 'CNY');
   const overlay = document.getElementById('renew-overlay');
-  document.getElementById('renew-info').textContent = '\u5F53\u524D\u4F59\u989D: ' + (item.balance == null ? '\u672A\u8FFD\u8E2A' : sym + item.balance);
+  document.getElementById('renew-title').textContent = isEsim ? '\u7EED\u671F eSIM' : '\u7EED\u671F\u8BA2\u9605';
+  document.getElementById('renew-info').textContent = isEsim
+    ? '\u5F53\u524D\u4F59\u989D: ' + (item.balance == null ? '\u672A\u8FFD\u8E2A' : sym + item.balance)
+    : '\u5F53\u524D\u5230\u671F\u65E5: ' + (item.expireDate || '\u672A\u8BBE\u7F6E');
+  document.getElementById('renew-balance-fields').classList.toggle('hidden', !isEsim);
   document.getElementById('renew-balance-delta').value = '';
   document.getElementById('renew-balance-note').value = '';
   document.getElementById('renew-form').onsubmit = async function(e) {
@@ -2211,7 +2216,7 @@ async function renewItem(id) {
     const deltaRaw = document.getElementById('renew-balance-delta').value;
     const note = document.getElementById('renew-balance-note').value.trim();
     const body = {};
-    if (deltaRaw !== '') {
+    if (isEsim && deltaRaw !== '') {
       const n = Number(deltaRaw);
       if (!Number.isFinite(n)) { showToast('\u4F59\u989D\u53D8\u52A8\u5FC5\u987B\u662F\u6570\u5B57', 'error'); return; }
       body.balanceDelta = n;
@@ -2230,7 +2235,7 @@ async function renewItem(id) {
     } catch { showToast('\u7EED\u671F\u5931\u8D25', 'error'); }
   };
   overlay.classList.remove('hidden'); overlay.classList.add('flex');
-  document.getElementById('renew-balance-delta').focus();
+  document.getElementById(isEsim ? 'renew-balance-delta' : 'renew-submit').focus();
 }
 
 async function testNotify(id) {
@@ -2949,13 +2954,13 @@ ${getStyles()}
 	    </div>
 	  </div>
 
-	  <!-- ========== RENEW MODAL (eSIM: \u7EED\u671F + \u53EF\u9009\u4F59\u989D\u53D8\u66F4) ========== -->
+	  <!-- ========== RENEW MODAL ========== -->
 	  <div id="renew-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
 	    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
-	      <h3 class="text-lg font-bold text-white mb-4">\u7EED\u671F eSIM</h3>
+	      <h3 id="renew-title" class="text-lg font-bold text-white mb-4">\u7EED\u671F</h3>
 	      <p id="renew-info" class="text-sm text-slate-400 mb-4"></p>
 	      <form id="renew-form">
-	        <div class="space-y-3">
+	        <div id="renew-balance-fields" class="space-y-3">
 	          <div class="bg-white/5 rounded-xl p-3">
 	            <label class="text-sm text-slate-400 mb-1 block">\u672C\u6B21\u4F59\u989D\u53D8\u52A8\uFF08\u53EF\u9009\uFF09</label>
 	            <input id="renew-balance-delta" type="number" step="0.01" placeholder="\u8D1F\u6570=\u6263\u8D39\uFF0C\u6B63\u6570=\u5145\u503C\uFF0C\u7559\u7A7A=\u4EC5\u7EED\u671F" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -2966,7 +2971,7 @@ ${getStyles()}
 	          </div>
 	        </div>
 	        <div class="flex gap-3 mt-5">
-	          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>\u786E\u8BA4\u7EED\u671F</button>
+	          <button id="renew-submit" type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>\u786E\u8BA4\u7EED\u671F</button>
 	          <button type="button" onclick="document.getElementById('renew-overlay').classList.add('hidden');document.getElementById('renew-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
 	        </div>
 	      </form>

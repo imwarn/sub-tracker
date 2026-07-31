@@ -789,9 +789,14 @@ async function deleteItem(id) {
 async function renewItem(id) {
   const item = allItems.find(i => i.id === id);
   if (!item) return;
+  const isEsim = item.type === 'esim';
   const sym = currSym(item.currency || 'CNY');
   const overlay = document.getElementById('renew-overlay');
-  document.getElementById('renew-info').textContent = '当前余额: ' + (item.balance == null ? '未追踪' : sym + item.balance);
+  document.getElementById('renew-title').textContent = isEsim ? '续期 eSIM' : '续期订阅';
+  document.getElementById('renew-info').textContent = isEsim
+    ? '当前余额: ' + (item.balance == null ? '未追踪' : sym + item.balance)
+    : '当前到期日: ' + (item.expireDate || '未设置');
+  document.getElementById('renew-balance-fields').classList.toggle('hidden', !isEsim);
   document.getElementById('renew-balance-delta').value = '';
   document.getElementById('renew-balance-note').value = '';
   document.getElementById('renew-form').onsubmit = async function(e) {
@@ -799,7 +804,7 @@ async function renewItem(id) {
     const deltaRaw = document.getElementById('renew-balance-delta').value;
     const note = document.getElementById('renew-balance-note').value.trim();
     const body = {};
-    if (deltaRaw !== '') {
+    if (isEsim && deltaRaw !== '') {
       const n = Number(deltaRaw);
       if (!Number.isFinite(n)) { showToast('余额变动必须是数字', 'error'); return; }
       body.balanceDelta = n;
@@ -818,7 +823,7 @@ async function renewItem(id) {
     } catch { showToast('续期失败', 'error'); }
   };
   overlay.classList.remove('hidden'); overlay.classList.add('flex');
-  document.getElementById('renew-balance-delta').focus();
+  document.getElementById(isEsim ? 'renew-balance-delta' : 'renew-submit').focus();
 }
 
 async function testNotify(id) {
