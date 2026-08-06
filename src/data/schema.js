@@ -4,6 +4,7 @@
 
 import {
   BILLING_TYPES,
+  BILLING_MODES,
   CURRENCY_CODES,
   DEFAULT_REMIND_DAYS,
   ITEM_TYPES,
@@ -113,6 +114,8 @@ export function createItem(type, data) {
     subId: asString(data.subId),
     price: data.price === '' || data.price == null ? null : asString(data.price),
     billing: BILLING_TYPES.includes(data.billing) ? data.billing : 'monthly',
+    billingMode: BILLING_MODES.includes(data.billingMode) ? data.billingMode : 'natural',
+    cycleDays: asInteger(data.cycleDays),
     currency: CURRENCY_CODES.includes(data.currency) ? data.currency : 'CNY',
     autoRenew: Boolean(data.autoRenew),
     remindDays: normalizeRemindDays(data.remindDays),
@@ -162,6 +165,7 @@ export function validateItem(type, data) {
       if (!Number.isFinite(price) || price < 0) return '价格格式不正确';
     }
     if (data.billing && !BILLING_TYPES.includes(data.billing)) return '计费周期不正确';
+    if (data.billingMode && !BILLING_MODES.includes(data.billingMode)) return '计费模式不正确';
     if (!isValidHttpUrl(asString(data.url))) return '链接必须以 http:// 或 https:// 开头';
   }
 
@@ -200,12 +204,14 @@ export function mergeUpdate(existing, data) {
   }
   // Subscription fields
   if (existing.type === 'subscription') {
-    for (const key of ['category', 'region', 'subId', 'price', 'billing', 'currency', 'autoRenew', 'remindDays', 'url']) {
+    for (const key of ['category', 'region', 'subId', 'price', 'billing', 'billingMode', 'cycleDays', 'currency', 'autoRenew', 'remindDays', 'url']) {
       if (data[key] !== undefined) {
         if (['category', 'region', 'subId', 'url'].includes(key)) updated[key] = asString(data[key]);
         else if (key === 'price') updated[key] = data[key] === '' || data[key] == null ? null : asString(data[key]);
         else if (key === 'autoRenew') updated[key] = Boolean(data[key]);
         else if (key === 'remindDays') updated[key] = normalizeRemindDays(data[key]);
+        else if (key === 'billingMode') updated[key] = BILLING_MODES.includes(data[key]) ? data[key] : 'natural';
+        else if (key === 'cycleDays') updated[key] = asInteger(data[key]);
         else updated[key] = data[key];
       }
     }

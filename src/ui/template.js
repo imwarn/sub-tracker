@@ -339,6 +339,17 @@ ${getStyles()}
                   <option value="once">一次性</option>
                 </select>
               </div>
+              <div id="field-billing-mode">
+                <label class="text-sm text-slate-400 mb-1 block">计费方式</label>
+                <select id="form-billing-mode" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                  <option value="natural">自然月/年</option>
+                  <option value="fixed">固定天数</option>
+                </select>
+              </div>
+              <div id="field-cycle-days" class="hidden">
+                <label class="text-sm text-slate-400 mb-1 block">固定天数</label>
+                <input id="form-cycle-days" type="number" min="1" placeholder="默认30天" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
             </div>
           </div>
           <div id="field-url" class="hidden">

@@ -680,6 +680,8 @@ function openModal(type, item) {
   const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
   if (expireField) expireField.classList.toggle('hidden', type === 'balance');
   if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim');
+  document.getElementById('field-billing-mode').classList.toggle('hidden', type !== 'subscription');
+  updateCycleDaysVisibility(type);
 
   if (item) {
     document.getElementById('form-name').value = item.name || '';
@@ -698,6 +700,8 @@ function openModal(type, item) {
     document.getElementById('form-price').value = item.price || '';
     document.getElementById('form-currency').value = item.currency || 'CNY';
     document.getElementById('form-billing').value = item.billing || 'monthly';
+    document.getElementById('form-billing-mode').value = item.billingMode || 'natural';
+    document.getElementById('form-cycle-days').value = item.cycleDays || '';
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
     document.getElementById('form-status').value = item.status || 'active';
@@ -717,6 +721,25 @@ function openModal(type, item) {
 
 function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('flex'); }
 function closeHistory() { document.getElementById('history-overlay').classList.add('hidden'); document.getElementById('history-overlay').classList.remove('flex'); }
+
+function updateCycleDaysVisibility(type) {
+  const field = document.getElementById('field-cycle-days');
+  if (!field) return;
+  const isFixed = type === 'subscription' && document.getElementById('form-billing-mode').value === 'fixed';
+  field.classList.toggle('hidden', !isFixed);
+  if (isFixed) {
+    const billing = document.getElementById('form-billing').value;
+    const input = document.getElementById('form-cycle-days');
+    input.placeholder = billing === 'yearly' ? '默认365天' : '默认30天';
+  }
+}
+
+// Listen for billing mode & billing type changes to toggle cycleDays field
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'form-billing-mode' || e.target.id === 'form-billing') {
+    updateCycleDaysVisibility(document.getElementById('form-type')?.value || 'subscription');
+  }
+});
 
 async function saveItem(e) {
   e.preventDefault();
@@ -739,6 +762,8 @@ async function saveItem(e) {
     price: document.getElementById('form-price').value || null,
     currency: document.getElementById('form-currency').value,
     billing: document.getElementById('form-billing').value,
+    billingMode: document.getElementById('form-billing-mode').value,
+    cycleDays: parseInt(document.getElementById('form-cycle-days').value) || null,
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
     status: document.getElementById('form-status').value,

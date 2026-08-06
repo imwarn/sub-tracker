@@ -66,6 +66,29 @@ export function getStatusText(days) {
 }
 
 /**
+ * Add one billing period to a date string.
+ * @param {string} dateStr - "YYYY-MM-DD"
+ * @param {'monthly'|'yearly'} billing
+ * @param {'natural'|'fixed'} mode - natural=calendar, fixed=fixed days
+ * @param {number} [cycleDays] - custom days for fixed mode (overrides default 30/365)
+ * @returns {string} new "YYYY-MM-DD"
+ */
+export function addBillingPeriod(dateStr, billing, mode = 'natural', cycleDays) {
+  if (mode === 'fixed') {
+    const days = cycleDays || (billing === 'yearly' ? 365 : 30);
+    return addDays(dateStr, days);
+  }
+  // natural: calendar arithmetic
+  const d = new Date(dateStr + 'T00:00:00Z');
+  if (billing === 'yearly') {
+    d.setUTCFullYear(d.getUTCFullYear() + 1);
+  } else {
+    d.setUTCMonth(d.getUTCMonth() + 1);
+  }
+  return d.toISOString().split('T')[0];
+}
+
+/**
  * Calculate predicted suspend date for balance-type items
  *
  * Logic: balance covers N monthly fee deductions.

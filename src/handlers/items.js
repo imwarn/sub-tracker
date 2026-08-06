@@ -16,7 +16,7 @@ import { downloadResponse, errorResponse, successResponse, jsonResponse, corsPre
 import { requireAuth } from './auth.js';
 import { createItem, validateItem, mergeUpdate } from '../data/schema.js';
 import { addHistory, getAllItems, addItem, updateItem, deleteItem, saveAllItems, getItemById } from '../data/store.js';
-import { addDays, daysUntil, todayString, getStatusText, calcSuspendDate } from '../utils/date.js';
+import { addDays, daysUntil, todayString, getStatusText, calcSuspendDate, addBillingPeriod } from '../utils/date.js';
 import { escapeTelegramHTML } from '../services/telegram.js';
 import { getConfiguredNotificationChannels, sendNotifications } from '../services/notify.js';
 import { CURRENCY_SYMBOLS, ITEM_TYPES } from '../data/constants.js';
@@ -220,16 +220,7 @@ async function renewItem(env, id, request) {
       if (existing.type !== 'esim' && existing.type !== 'subscription') {
         throw new Error('仅 eSIM 和订阅类型支持一键续期');
       }
-      // eSIM uses cycle (days), subscription uses billing (monthly/yearly)
-      let days = existing.cycle;
-      if (existing.type === 'subscription' && !days) {
-        if (existing.billing === 'yearly') days = 365;
-        else if (existing.billing === 'monthly') days = 30;
-        else throw new Error('一次性订阅无需续期');
-      }
-      if (!days) {
-        throw new Error('未设置续费周期，无法续期');
-      }
+      // 计算 baseDate
       let baseDate;
       if (existing.type === 'esim') {
         // eSIM 保号卡：激活/续期后有效期按当前日期 reset（与运营商激活日对齐），
@@ -239,7 +230,18 @@ async function renewItem(env, id, request) {
         // 订阅：提前续费从原到期日顺延，避免倒扣已付周期；过期则从今天起算。
         baseDate = todayString(now) > existing.expireDate ? todayString(now) : existing.expireDate;
       }
-      const newExpire = addDays(baseDate, days);
+      // 计算新到期日
+      let newExpire;
+      if (existing.type === 'esim') {
+        const days = existing.cycle;
+        if (!days) throw new Error('未设置续费周期，无法续期');
+        newExpire = addDays(baseDate, days);
+      } else {
+        // subscription
+        if (existing.billing === 'once') throw new Error('一次性订阅无需续期');
+        const mode = existing.billingMode || 'natural';
+        newExpire = addBillingPeriod(baseDate, existing.billing, mode, existing.cycleDays);
+      }
       const updated = { ...existing, expireDate: newExpire, status: 'active' };
       // eSIM 余额联动：仅当传入了有效 delta 时处理
       if (existing.type === 'esim' && balanceDelta !== null) {

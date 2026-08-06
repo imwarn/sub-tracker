@@ -4,6 +4,8 @@ export const STATUSES = ['active', 'paused'];
 
 export const BILLING_TYPES = ['monthly', 'yearly', 'once'];
 
+export const BILLING_MODES = ['natural', 'fixed'];
+
 export const DEFAULT_REMIND_DAYS = [3, 1, 0];
 
 export const REMIND_DAY_OPTIONS = [30, 15, 7, 3, 1, 0];
