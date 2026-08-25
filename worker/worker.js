@@ -2815,6 +2815,31 @@ async function toggleStatus(id) {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+  // Check and fallback for FontAwesome
+  setTimeout(() => {
+    try {
+      const testEl = document.createElement('i');
+      testEl.className = 'fa-solid fa-gear';
+      testEl.style.position = 'absolute';
+      testEl.style.left = '-9999px';
+      document.body.appendChild(testEl);
+      const font = window.getComputedStyle(testEl).fontFamily.toLowerCase();
+      if (!font.includes('font awesome') && !font.includes('fontawesome')) {
+        const fallbacks = [
+          'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css',
+          'https://unpkg.com/@fortawesome/fontawesome-free@6.5.0/css/all.min.css'
+        ];
+        fallbacks.forEach(href => {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = href;
+          document.head.appendChild(link);
+        });
+      }
+      testEl.remove();
+    } catch {}
+  }, 1000);
+
   const ok = await checkAuth();
   if (ok) enterDashboard();
   else { TOKEN = ''; localStorage.removeItem('token'); }
@@ -2891,7 +2916,8 @@ function getHTML() {
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <script src="https://cdn.tailwindcss.com"><\/script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
 ${getStyles()}
   </style>

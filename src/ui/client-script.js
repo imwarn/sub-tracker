@@ -1223,6 +1223,31 @@ async function toggleStatus(id) {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+  // Check and fallback for FontAwesome
+  setTimeout(() => {
+    try {
+      const testEl = document.createElement('i');
+      testEl.className = 'fa-solid fa-gear';
+      testEl.style.position = 'absolute';
+      testEl.style.left = '-9999px';
+      document.body.appendChild(testEl);
+      const font = window.getComputedStyle(testEl).fontFamily.toLowerCase();
+      if (!font.includes('font awesome') && !font.includes('fontawesome')) {
+        const fallbacks = [
+          'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css',
+          'https://unpkg.com/@fortawesome/fontawesome-free@6.5.0/css/all.min.css'
+        ];
+        fallbacks.forEach(href => {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = href;
+          document.head.appendChild(link);
+        });
+      }
+      testEl.remove();
+    } catch {}
+  }, 1000);
+
   const ok = await checkAuth();
   if (ok) enterDashboard();
   else { TOKEN = ''; localStorage.removeItem('token'); }
