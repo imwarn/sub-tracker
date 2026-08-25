@@ -2,9 +2,10 @@
  * Browser-side application script injected into the HTML shell.
  */
 
-import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS } from '../data/constants.js';
+import { CURRENCY_SYMBOLS, DEFAULT_REMIND_DAYS, DEFAULT_EXCHANGE_RATES } from '../data/constants.js';
 import { getCountryMap } from '../utils/country.js';
 import { countUrgent, sortItemsByPaused } from '../utils/stats.js';
+import { getQRCodeClientScript } from '../utils/qrcode.js';
 
 function getFrontendFlagMap() {
   return Object.fromEntries(
@@ -14,15 +15,18 @@ function getFrontendFlagMap() {
 
 export function getClientScript() {
   const flagMap = getFrontendFlagMap();
-  // Inject pure helpers' source into the browser script string. We use
-  // .toString() (not new Function/eval, which Cloudflare Workers forbids).
   const statsSrc = countUrgent.toString() + '\n' + sortItemsByPaused.toString();
+  const qrScript = getQRCodeClientScript();
+
   return `${statsSrc}
+${qrScript}
+
 let TOKEN = localStorage.getItem('token') || '';
 let allItems = [];
 let currentFilter = 'all';
 let currentView = 'grid';
 let calYear, calMonth;
+let currentLpaString = '';
 let _renderTimer = null;
 function debouncedRender() { clearTimeout(_renderTimer); _renderTimer = setTimeout(renderItems, 300); }
 
@@ -35,8 +39,58 @@ function showToast(msg, type = 'info') {
   setTimeout(() => { t.style.animation = 'toastOut 0.3s ease forwards'; setTimeout(() => t.remove(), 300); }, 3500);
 }
 
+function copyText(text, label = '') {
+  if (!text) return;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast((label ? label + ' ' : '') + '已复制到剪贴板', 'success');
+    }).catch(() => fallbackCopy(text, label));
+  } else {
+    fallbackCopy(text, label);
+  }
+}
+
+function fallbackCopy(text, label) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast((label ? label + ' ' : '') + '已复制到剪贴板', 'success');
+  } catch (e) {
+    showToast('复制失败，请手动选择复制', 'error');
+  }
+  document.body.removeChild(ta);
+}
+
+function togglePasswordVis(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPass = input.type === 'password';
+  input.type = isPass ? 'text' : 'password';
+  const icon = btn.querySelector('i');
+  if (icon) {
+    icon.className = isPass ? 'fa-solid fa-eye text-sky-400' : 'fa-solid fa-eye-slash text-slate-400';
+  }
+}
+
+function toggleFab() {
+  const menu = document.getElementById('fab-menu');
+  const icon = document.getElementById('fab-icon');
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !isHidden);
+  if (icon) {
+    icon.style.transform = isHidden ? 'rotate(45deg)' : 'rotate(0deg)';
+  }
+}
+
 const API = '';
 const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
+const DEFAULT_EXCHANGE_RATES = ${JSON.stringify(DEFAULT_EXCHANGE_RATES)};
 
 // ==================== API ====================
 async function api(method, path, body) {
@@ -44,7 +98,6 @@ async function api(method, path, body) {
   if (TOKEN) opts.headers['Authorization'] = TOKEN;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
-  // Auto-logout on session expiry
   if (res.status === 401 && TOKEN) {
     TOKEN = ''; localStorage.removeItem('token');
     document.getElementById('dashboard-view').classList.add('hidden');
@@ -98,8 +151,7 @@ async function enterDashboard() {
   document.getElementById('dashboard-view').classList.remove('hidden');
   const now = new Date();
   document.getElementById('today-display').textContent = now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
-  const now2 = new Date();
-  calYear = now2.getFullYear(); calMonth = now2.getMonth();
+  calYear = now.getFullYear(); calMonth = now.getMonth();
   await loadItems();
 }
 
@@ -121,12 +173,11 @@ function renderStats() {
   const balances = allItems.filter(i => i.type === 'balance');
   const urgentCount = countUrgent(allItems);
 
-  // Cost calculation — group by currency to avoid mixing
-  // 仅统计 active（暂停=不花钱），与 analytics 面板口径一致
   const activeSubs = subs.filter(s => s.status !== 'paused');
   const activeBalances = balances.filter(b => b.status !== 'paused');
   const monthlyByCur = {};
   const yearlyByCur = {};
+
   activeSubs.forEach(s => {
     if (!s.price) return;
     const p = parseFloat(s.price);
@@ -137,7 +188,6 @@ function renderStats() {
     else { yearlyByCur[cur] = (yearlyByCur[cur]||0) + p; }
   });
 
-  // Balance: add monthly fees to cost
   activeBalances.forEach(b => {
     if (!b.monthlyFee) return;
     const cur = b.currency || 'CNY';
@@ -145,7 +195,6 @@ function renderStats() {
     yearlyByCur[cur] = (yearlyByCur[cur]||0) + parseFloat(b.monthlyFee) * 12;
   });
 
-  // Total balance (grouped)
   const balanceByCur = {};
   balances.forEach(b => {
     if (b.balance == null) return;
@@ -153,16 +202,10 @@ function renderStats() {
     balanceByCur[cur] = (balanceByCur[cur]||0) + b.balance;
   });
 
-  // Format: show primary currency, append others if mixed
   const allCurs = [...new Set([...Object.keys(monthlyByCur), ...Object.keys(balanceByCur)])].sort();
-  const primaryCur = allCurs[0] || 'CNY';
-  const sym = currSym(primaryCur);
 
-  function fmtCost(bucket) {
-    if (!allCurs.length) return sym + '0';
-    const parts = allCurs.filter(c => bucket[c] > 0).map(c => currSym(c) + Math.round(bucket[c]));
-    return parts.length ? parts[0] + (parts.length > 1 ? ' +' : '') : sym + '0';
-  }
+  // Multi-currency converted estimate to CNY
+  const convertedMonthlyCNY = Object.entries(monthlyByCur).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
 
   function fmtBalance() {
     if (!allCurs.length) return '0';
@@ -175,7 +218,7 @@ function renderStats() {
     { label:'订阅', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10', filter:'subscription' },
     { label:'话费', value:balances.length ? fmtBalance() : '0', icon:'fa-wallet', color:'text-amber-400', bg:'bg-amber-500/10', filter:'balance' },
     { label:'即将到期', value:urgentCount, icon:'fa-clock', color:'text-rose-400', bg:'bg-rose-500/10', filter:'urgent' },
-    { label:'月度支出', value:fmtCost(monthlyByCur), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
+    { label:'月度总支出 (折算)', value:'¥' + Math.round(convertedMonthlyCNY), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
@@ -233,6 +276,9 @@ function renderAnalytics() {
   const currencies = Object.keys(monthly).sort();
   if (!currencies.length) { panel.innerHTML = ''; return; }
 
+  const totalMonthlyCNY = Object.entries(monthly).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
+  const totalYearlyCNY = Object.entries(yearly).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
+
   const currencyHTML = currencies.map(cur =>
     '<div class="glass-card rounded-xl p-4">' +
       '<div class="text-xs text-slate-400 mb-1">'+cur+'</div>' +
@@ -252,9 +298,19 @@ function renderAnalytics() {
     ).join('');
 
   panel.innerHTML =
+    '<div class="glass rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-sky-950/40 to-slate-900/40 border border-sky-500/20">' +
+      '<div>' +
+        '<div class="text-xs text-sky-400 font-semibold mb-0.5"><i class="fa-solid fa-calculator mr-1"></i>全币种汇率折算总支出 (基准: CNY)</div>' +
+        '<div class="text-xl sm:text-2xl font-bold text-white">¥' + totalMonthlyCNY.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ 月</span></div>' +
+      '</div>' +
+      '<div class="sm:text-right sm:border-l sm:border-white/10 sm:pl-6">' +
+        '<div class="text-xs text-slate-400 mb-0.5">折算年度总预算</div>' +
+        '<div class="text-base sm:text-lg font-bold text-emerald-400">¥' + totalYearlyCNY.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ 年</span></div>' +
+      '</div>' +
+    '</div>' +
     '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
-      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-chart-simple text-emerald-400 mr-2"></i>按货币统计</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'+currencyHTML+'</div></div>' +
-      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-layer-group text-violet-400 mr-2"></i>按分类统计</div>'+categoryRows+'</div>' +
+      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-chart-simple text-emerald-400 mr-2"></i>按原始币种统计</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'+currencyHTML+'</div></div>' +
+      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-layer-group text-violet-400 mr-2"></i>按分类支出统计</div>'+categoryRows+'</div>' +
     '</div>';
 }
 
@@ -266,7 +322,6 @@ function setFilter(f) {
     b.classList.toggle('tab-active', active);
     b.classList.toggle('text-slate-400', !active);
   });
-  // Clear tab-active from all if filter is not a standard type
   if (!['all','esim','subscription','balance'].includes(f)) {
     document.querySelectorAll('.filter-tab').forEach(b => { b.classList.remove('tab-active'); b.classList.add('text-slate-400'); });
   }
@@ -291,7 +346,7 @@ function getFilteredItems() {
     if (currentFilter === 'urgent') {
       const today = new Date(); today.setHours(0,0,0,0);
       items = items.filter(i => {
-        if (i.status === 'paused') return false; // 与即将到期统计口径一致
+        if (i.status === 'paused') return false;
         const dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
         if (!dateStr) return false;
         const diff = Math.ceil((new Date(dateStr+'T00:00:00') - today) / 86400000);
@@ -357,7 +412,6 @@ function cardHTML(item) {
   if (isBalance) {
     const sym = currSym(item.currency);
     const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
-    const suspendStr = item.predictedSuspendDate || '未计算';
     body = (item.number ? '<div class="text-sm text-slate-300 font-mono mb-1">'+esc(item.number)+'</div>' : '') +
       '<div class="text-lg text-emerald-400 font-bold">'+sym+esc(item.balance)+'</div>' +
       '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-receipt mr-1"></i>月租 '+sym+esc(item.monthlyFee)+'/月 · 每月'+esc(item.billingDay)+'日扣</div>' +
@@ -365,24 +419,30 @@ function cardHTML(item) {
       (item.lastRecharge ? '<div class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-plus-circle mr-1"></i>上次 '+((item.lastRecharge.amount>0)?'+':'')+esc(item.lastRecharge.amount)+' ('+esc(item.lastRecharge.date)+')</div>' : '');
   } else if (isEsim) {
     const iso = getFlag(item.number);
+    const hasLPA = item.smDp || item.activationCode;
     body = (iso ? '<div class="text-xs font-mono text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded mb-2 inline-block">'+esc(iso)+'</div>' : '') +
-      (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
+      (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '') +
+      (hasLPA ? '<div class="text-xs text-cyan-400/90 mt-1 cursor-pointer hover:text-cyan-300 flex items-center gap-1.5" onclick="showQrCode('+jsArg(item.id)+')"><i class="fa-solid fa-qrcode text-cyan-400"></i><span>点击展示安装二维码</span></div>' : '');
   } else {
     const ps = item.price ? (item.billing==='yearly' ? currSym(item.currency)+item.price+'/年' : item.billing==='once' ? currSym(item.currency)+item.price+'(一次性)' : currSym(item.currency)+item.price+'/月') : '';
     const regionStr = item.region ? esc(item.region) : '';
     const catStr = item.category ? esc(item.category) : '';
     const metaLine = [catStr, regionStr].filter(Boolean).join(' · ');
+    const autoBadge = item.autoRenew ? '<span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded ml-2" title="到期自动顺延"><i class="fa-solid fa-arrows-rotate mr-1"></i>自动续费</span>' : '';
     body = (metaLine ? '<div class="text-xs text-slate-400 mb-1">'+metaLine+'</div>' : '') +
-      (ps ? '<div class="text-sm text-emerald-400 font-semibold">'+esc(ps)+'</div>' : '') +
+      (ps ? '<div class="text-sm text-emerald-400 font-semibold flex items-center">'+esc(ps)+autoBadge+'</div>' : '') +
       (item.subId ? '<div class="text-xs text-slate-500 mt-1 truncate"><i class="fa-solid fa-id-card mr-1"></i>'+esc(item.subId)+'</div>' : '');
     if (item.url) body += '<a href="'+safeHref(item.url)+'" target="_blank" rel="noopener noreferrer" class="text-xs text-sky-400 hover:underline mt-1 inline-block"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>访问</a>';
   }
 
   const idArg = jsArg(item.id);
+  const hasLPA = isEsim && (item.smDp || item.activationCode);
+  const qrBtn = hasLPA ?
+    '<button onclick="showQrCode('+idArg+')" class="text-xs btn-touch text-cyan-400 hover:text-cyan-300 px-2 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors" title="查看 eSIM 二维码"><i class="fa-solid fa-qrcode"></i></button>' : '';
   const renewBtn = (isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ?
-    '<button onclick="renewItem('+idArg+')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> 续期</button>' : '';
+    '<button onclick="renewItem('+idArg+')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2.5 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors font-medium"><i class="fa-solid fa-rotate mr-1"></i>续期</button>' : '';
   const rechargeBtn = isBalance ?
-    '<button onclick="rechargeItem('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors"><i class="fa-solid fa-plus-circle"></i> 充值</button>' : '';
+    '<button onclick="rechargeItem('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors font-medium"><i class="fa-solid fa-plus-circle mr-1"></i>充值</button>' : '';
 
   return '<div class="glass-card rounded-xl p-5">' +
     '<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2">' +
@@ -396,13 +456,14 @@ function cardHTML(item) {
     (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>周期: '+esc(item.cycle)+'天</div>' : '') +
     (isEsim && item.balance != null ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-wallet mr-1"></i>余额: '+currSym(item.currency || 'CNY')+esc(item.balance)+'</div>' : '') +
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
-    '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
-    rechargeBtn +
-    renewBtn +
-    '<button onclick="toggleStatus('+idArg+')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
-    '<button onclick="testNotify('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
-    '<button onclick="editItem('+idArg+')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
-    '<button onclick="deleteItem('+idArg+')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
+    '<div class="flex justify-between items-center gap-2 mt-3 pt-3 border-t border-white/5">' +
+      '<div class="flex items-center gap-1">' + qrBtn + rechargeBtn + renewBtn + '</div>' +
+      '<div class="flex items-center gap-1">' +
+        '<button onclick="toggleStatus('+idArg+')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
+        '<button onclick="testNotify('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="测试通知"><i class="fa-solid fa-bell"></i></button>' +
+        '<button onclick="editItem('+idArg+')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5" title="编辑"><i class="fa-solid fa-pen"></i></button>' +
+        '<button onclick="deleteItem('+idArg+')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10" title="删除"><i class="fa-solid fa-trash"></i></button>' +
+      '</div>' +
     '</div></div>';
 }
 
@@ -410,14 +471,12 @@ function cardHTML(item) {
 function renderList(items, area) {
   const isMobile = window.innerWidth < 640;
   if (isMobile) {
-    // Mobile: stacked card layout, no grid table
     let html = '<div class="space-y-2">';
     html += items.map(i => listRowMobileHTML(i)).join('');
     html += '</div>';
     area.innerHTML = html;
     return;
   }
-  // Desktop: grid table
   let html = '<div class="glass rounded-xl overflow-hidden">';
   html += '<div class="hidden sm:grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold text-slate-400 border-b border-white/10 bg-white/5">' +
     '<div class="col-span-4">名称</div><div class="col-span-2">类型/号码</div>' +
@@ -433,6 +492,7 @@ function listRowMobileHTML(item) {
   const isBalance = item.type === 'balance';
   const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
   const isEsim = item.type === 'esim';
+  const hasLPA = isEsim && (item.smDp || item.activationCode);
   const idArg = jsArg(item.id);
   let tc, ti;
   if (isBalance) { tc = 'text-amber-400'; ti = 'fa-wallet'; }
@@ -461,6 +521,7 @@ function listRowMobileHTML(item) {
         (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
       '</div>' +
       '<div class="flex gap-1 flex-shrink-0">' +
+        (hasLPA ? '<button onclick="showQrCode('+idArg+')" class="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded hover:bg-cyan-500/10" title="二维码"><i class="fa-solid fa-qrcode"></i></button>' : '') +
         (isBalance ? '<button onclick="rechargeItem('+idArg+')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
         ((isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ? '<button onclick="renewItem('+idArg+')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
         '<button onclick="toggleStatus('+idArg+')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
@@ -477,6 +538,7 @@ function listRowHTML(item) {
   const isBalance = item.type === 'balance';
   const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
   const isEsim = item.type === 'esim';
+  const hasLPA = isEsim && (item.smDp || item.activationCode);
   const flag = isEsim ? getFlag(item.number) : '';
   const idArg = jsArg(item.id);
   let sub, priceStr, iconClass;
@@ -505,6 +567,7 @@ function listRowHTML(item) {
     '<div class="col-span-3 sm:col-span-2 text-xs text-slate-300">'+dateCol+'</div>' +
     '<div class="col-span-2 hidden sm:block text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'已暂停':st.text)+'</div>' +
     '<div class="col-span-3 sm:col-span-2 flex justify-end gap-1">' +
+      (hasLPA ? '<button onclick="showQrCode('+idArg+')" class="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded hover:bg-cyan-500/10" title="二维码"><i class="fa-solid fa-qrcode"></i></button>' : '') +
       (isBalance ? '<button onclick="rechargeItem('+idArg+')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
       ((isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ? '<button onclick="renewItem('+idArg+')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
       '<button onclick="toggleStatus('+idArg+')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'启用':'暂停')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
@@ -518,19 +581,13 @@ function listRowHTML(item) {
 function renderCalendar(items, area) {
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDay = new Date(calYear, calMonth + 1, 0);
-  const startPad = firstDay.getDay(); // 0=Sun
+  const startPad = firstDay.getDay();
   const daysInMonth = lastDay.getDate();
   const today = new Date(); today.setHours(0,0,0,0);
 
-  // Build events map
   const events = {};
   items.forEach(i => {
-    let dateStr;
-    if (i.type === 'balance') {
-      dateStr = i.predictedSuspendDate;
-    } else {
-      dateStr = i.expireDate;
-    }
+    let dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
     if (!dateStr) return;
     const d = new Date(dateStr+'T00:00:00');
     const key = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
@@ -538,26 +595,39 @@ function renderCalendar(items, area) {
     events[key].push(i);
   });
 
+  // Project recurring active subscriptions onto the viewed month
+  items.forEach(i => {
+    if (i.status === 'paused') return;
+    if (i.type === 'subscription' && i.billing === 'monthly' && i.expireDate) {
+      const orig = new Date(i.expireDate + 'T00:00:00');
+      const dayOfMonth = orig.getDate();
+      const targetDay = Math.min(dayOfMonth, daysInMonth);
+      const key = calYear + '-' + (calMonth + 1) + '-' + targetDay;
+      if (!events[key]) events[key] = [];
+      if (!events[key].some(e => e.id === i.id)) {
+        events[key].push({ ...i, _isProjected: true });
+      }
+    }
+  });
+
   const monthName = calYear + '年' + (calMonth+1) + '月';
   const weekDays = ['日','一','二','三','四','五','六'];
 
   let html = '<div class="glass rounded-xl p-4">';
-  // Header
   html += '<div class="flex justify-between items-center mb-4">' +
-    '<button onclick="calPrev()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-left"></i></button>' +
+    '<div class="flex items-center gap-2">' +
+      '<button onclick="calPrev()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-left"></i></button>' +
+      '<button onclick="calToday()" class="text-xs text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">今天</button>' +
+    '</div>' +
     '<h3 class="text-lg font-bold text-white">'+monthName+'</h3>' +
     '<button onclick="calNext()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-right"></i></button></div>';
 
-  // Weekday headers
   html += '<div class="grid grid-cols-7 gap-1 mb-1">';
   weekDays.forEach(d => html += '<div class="text-center text-xs font-semibold text-slate-400 py-2">'+d+'</div>');
   html += '</div>';
 
-  // Days grid
   html += '<div class="grid grid-cols-7 gap-1">';
-  // Padding
   for (let i = 0; i < startPad; i++) html += '<div class="cal-day rounded-lg"></div>';
-  // Days
   for (let d = 1; d <= daysInMonth; d++) {
     const key = calYear+'-'+(calMonth+1)+'-'+d;
     const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
@@ -569,8 +639,9 @@ function renderCalendar(items, area) {
       let bg;
       if (e.type === 'balance') bg = 'bg-amber-500/30 text-amber-300';
       else if (e.type === 'esim') bg = 'bg-cyan-500/30 text-cyan-300';
-      else bg = 'bg-violet-500/30 text-violet-300';
-      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem('+jsArg(e.id)+')" title="'+esc(e.name)+'（点击编辑）">'+esc(e.name)+'</div>';
+      else bg = e._isProjected ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-violet-500/30 text-violet-300';
+      const prefix = e._isProjected ? '🔄 ' : '';
+      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem('+jsArg(e.id)+')" title="'+esc(prefix + e.name)+'（点击编辑）">'+esc(prefix + e.name)+'</div>';
     });
     html += '</div>';
   }
@@ -583,6 +654,7 @@ function renderCalendar(items, area) {
 
 function calPrev() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderItems(); }
 function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderItems(); }
+function calToday() { const n = new Date(); calYear = n.getFullYear(); calMonth = n.getMonth(); renderItems(); }
 
 // ==================== HELPERS ====================
 function getDiff(item) {
@@ -657,7 +729,60 @@ document.addEventListener('click', e => {
   const menu = document.getElementById('dropdown-menu');
   const trigger = document.getElementById('menu-trigger');
   if (menu && !menu.contains(e.target) && !trigger.contains(e.target)) hideMenu();
+  const fabMenu = document.getElementById('fab-menu');
+  const fabBtn = document.getElementById('fab-btn');
+  if (fabMenu && !fabMenu.contains(e.target) && !fabBtn.contains(e.target)) {
+    fabMenu.classList.add('hidden');
+    const icon = document.getElementById('fab-icon');
+    if (icon) icon.style.transform = 'rotate(0deg)';
+  }
 });
+
+// ==================== QR MODAL ====================
+function showQrCode(id) {
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  const smdp = (item.smDp || '').trim();
+  const act = (item.activationCode || '').trim();
+  const conf = (item.confirmationCode || '').trim();
+
+  // GSMA LPA Standard format
+  let lpa = 'LPA:1$' + smdp + '$' + act;
+  if (conf) lpa += '$' + conf;
+  currentLpaString = lpa;
+
+  document.getElementById('qr-title').textContent = (item.name || 'eSIM') + ' 安装二维码';
+  document.getElementById('qr-smdp-val').textContent = smdp || '(未填写)';
+  document.getElementById('qr-act-val').textContent = act || '(未填写)';
+
+  const confRow = document.getElementById('qr-conf-row');
+  if (conf) {
+    confRow.classList.remove('hidden');
+    document.getElementById('qr-conf-val').textContent = conf;
+  } else {
+    confRow.classList.add('hidden');
+  }
+
+  const svg = generateQRCodeSVG(lpa, { size: 210 });
+  document.getElementById('qr-container').innerHTML = svg || '<p class="text-slate-500 text-xs">无法生成二维码，请先填写 SM-DP+ 与激活码</p>';
+
+  const overlay = document.getElementById('qr-overlay');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+}
+
+function closeQrModal() {
+  const overlay = document.getElementById('qr-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+  }
+}
+
+function copyLpaString() {
+  if (!currentLpaString) return;
+  copyText(currentLpaString, 'LPA 激活代码');
+}
 
 // ==================== MODAL ====================
 function openModal(type, item) {
@@ -674,8 +799,7 @@ function openModal(type, item) {
   document.getElementById('field-price').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-balance').classList.toggle('hidden', type !== 'balance');
-  // expireDate: hidden for balance only
-  // cycle: only shown for esim
+  
   const expireField = document.getElementById('form-expire').closest('.space-y-4 > div') || document.getElementById('form-expire').parentElement;
   const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
   if (expireField) expireField.classList.toggle('hidden', type === 'balance');
@@ -702,6 +826,7 @@ function openModal(type, item) {
     document.getElementById('form-billing').value = item.billing || 'monthly';
     document.getElementById('form-billing-mode').value = item.billingMode || 'natural';
     document.getElementById('form-cycle-days').value = item.cycleDays || '';
+    document.getElementById('form-auto-renew').checked = Boolean(item.autoRenew);
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
     document.getElementById('form-status').value = item.status || 'active';
@@ -713,7 +838,8 @@ function openModal(type, item) {
     setSelectedRemindDays(item.remindDays);
   } else {
     document.getElementById('item-form').reset();
-    setSelectedRemindDays(DEFAULT_REMIND_DAYS_CLIENT); // defaults
+    document.getElementById('form-auto-renew').checked = false;
+    setSelectedRemindDays(DEFAULT_REMIND_DAYS_CLIENT);
   }
   document.getElementById('modal-overlay').classList.remove('hidden');
   document.getElementById('modal-overlay').classList.add('flex');
@@ -734,7 +860,6 @@ function updateCycleDaysVisibility(type) {
   }
 }
 
-// Listen for billing mode & billing type changes to toggle cycleDays field
 document.addEventListener('change', (e) => {
   if (e.target.id === 'form-billing-mode' || e.target.id === 'form-billing') {
     updateCycleDaysVisibility(document.getElementById('form-type')?.value || 'subscription');
@@ -764,6 +889,7 @@ async function saveItem(e) {
     billing: document.getElementById('form-billing').value,
     billingMode: document.getElementById('form-billing-mode').value,
     cycleDays: parseInt(document.getElementById('form-cycle-days').value) || null,
+    autoRenew: document.getElementById('form-auto-renew').checked,
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
     status: document.getElementById('form-status').value,
@@ -773,11 +899,9 @@ async function saveItem(e) {
     billingDay: document.getElementById('form-billing-day').value,
   };
 
-  // Client-side validation for non-balance types
   if (body.type !== 'balance' && !body.expireDate) {
     showToast('到期日期不能为空', 'error'); return;
   }
-  // Client-side validation for balance type
   if (body.type === 'balance') {
     if (!body.balance && body.balance !== 0) { showToast('请输入当前余额', 'error'); return; }
     if (!body.monthlyFee && body.monthlyFee !== 0) { showToast('请输入月租', 'error'); return; }
@@ -928,9 +1052,6 @@ async function importJSON(input) {
     const result = await res.json();
     if (result.success) {
       const skipped = result.skipped ? '，跳过 ' + result.skipped + ' 条' : '';
-      const details = result.errors && result.errors.length
-        ? '\\n前几条错误：\\n' + result.errors.map(e => '#' + (e.index + 1) + ' ' + (e.name || '') + ' ' + e.message).join('\\n')
-        : '';
       showToast('导入完成！新增 ' + result.added + ' 条' + skipped, 'success');
       await loadItems();
     } else {
@@ -1015,7 +1136,10 @@ function historyHTML(entry) {
 
 function historyDetail(entry) {
   const d = entry.details || {};
-  if (entry.action === 'renew' && d.newExpireDate) return '新到期日：' + esc(d.newExpireDate);
+  if (entry.action === 'renew' && d.newExpireDate) {
+    const autoBadge = d.auto ? ' (自动续费)' : '';
+    return '新到期日：' + esc(d.newExpireDate) + autoBadge;
+  }
   if (entry.action === 'recharge') {
     const parts = [];
     if (d.amount != null) parts.push('金额：' + esc(d.amount));
@@ -1050,8 +1174,8 @@ function downloadDemo() {
     items: [
       { type: 'esim', name: '美国保号卡', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile 保号', status: 'active', smDp: 'rsp.ultramobile.com', activationCode: 'DEMO-ACT-CODE', confirmationCode: 'DEMO-CONF-CODE', wid: '89012345678901234567890123456789', balance: 12.5, currency: 'USD' },
       { type: 'esim', name: '日本 IIJmio', number: '+819****4567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
-      { type: 'subscription', name: 'ChatGPT Plus', category: 'AI 工具', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
-      { type: 'subscription', name: 'YouTube Premium', category: '视频会员', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '土耳其区', status: 'active' },
+      { type: 'subscription', name: 'ChatGPT Plus', category: 'AI 服务', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
+      { type: 'subscription', name: 'YouTube Premium', category: '流媒体', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '土耳其区', status: 'active' },
     ]
   };
   const blob = new Blob([JSON.stringify(demo, null, 2)], { type: 'application/json' });
@@ -1066,15 +1190,14 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeModal();
     closeHistory();
+    closeQrModal();
     const ro = document.getElementById('recharge-overlay');
     if (ro) { ro.classList.add('hidden'); ro.classList.remove('flex'); }
     const menu = document.getElementById('dropdown-menu');
     if (menu) menu.classList.add('hidden');
     return;
   }
-  // Skip shortcuts when typing in inputs
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-  // / = focus search
   if (e.key === '/') {
     e.preventDefault();
     const search = document.getElementById('search-input');

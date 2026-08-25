@@ -5,6 +5,7 @@
 import { route } from './router.js';
 import { checkReminders } from './services/reminder.js';
 import { autoDeduct } from './services/auto-deduct.js';
+import { autoRenewSubscriptions } from './services/auto-renew.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -22,6 +23,7 @@ export default {
   async scheduled(event, env, ctx) {
     try {
       await autoDeduct(env);
+      await autoRenewSubscriptions(env);
       await checkReminders(env);
     } catch (err) {
       console.error('Cron error:', err);

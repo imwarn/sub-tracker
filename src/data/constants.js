@@ -29,3 +29,22 @@ export const CURRENCY_SYMBOLS = {
 };
 
 export const CURRENCY_CODES = Object.keys(CURRENCY_SYMBOLS);
+
+// Reference exchange rates (to CNY base)
+export const DEFAULT_EXCHANGE_RATES = {
+  CNY: 1.0,
+  USD: 7.25,
+  EUR: 7.85,
+  GBP: 9.20,
+  JPY: 0.048,
+  HKD: 0.93,
+  TWD: 0.23,
+  KRW: 0.0054,
+  TRY: 0.22,
+  THB: 0.20,
+  NGN: 0.0048,
+  INR: 0.087,
+  PHP: 0.13,
+  MYR: 1.62,
+  SGD: 5.40,
+};

@@ -8,17 +8,17 @@ import { getStyles } from './styles.js';
 export function getHTML() {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
-	<head>
-	  <meta charset="UTF-8">
-	    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-	    <meta name="apple-mobile-web-app-capable" content="yes">
-	  <meta name="theme-color" content="#0ea5e9">
-	    <title>Sub-Tracker | eSIM 保号 & 订阅管理</title>
-	  <link rel="manifest" href="/manifest.webmanifest">
-	  <link rel="icon" href="/favicon.ico" sizes="any">
-	  <link rel="icon" href="/icon.svg" type="image/svg+xml">
-	  <link rel="apple-touch-icon" href="/icon-192.png">
-\t  <script src="https://cdn.tailwindcss.com"></script>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0ea5e9">
+  <title>Sub-Tracker | eSIM 保号 & 订阅管理</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
   <style>
 ${getStyles()}
@@ -74,7 +74,7 @@ ${getStyles()}
               <i class="fa-solid fa-wallet"></i> 话费
             </button>
             <div class="relative" id="menu-trigger">
-              <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
+              <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors" title="更多功能">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
               </button>
             </div>
@@ -83,9 +83,9 @@ ${getStyles()}
       </div>
     </div>
 
-	    <!-- Stats -->
-	    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6" id="stats-bar"></div>
-	    <div id="analytics-panel" class="mb-6"></div>
+    <!-- Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6" id="stats-bar"></div>
+    <div id="analytics-panel" class="mb-6"></div>
 
     <!-- View toggle + Filter -->
     <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -149,6 +149,24 @@ ${getStyles()}
         </button>
       </div>
     </div>
+
+    <!-- Mobile Floating Action Button (FAB) -->
+    <div class="fixed right-4 bottom-6 sm:hidden z-40">
+      <div id="fab-menu" class="hidden flex flex-col gap-2 mb-3 items-end fade-in">
+        <button onclick="openModal('esim');toggleFab();" class="glass bg-cyan-600/90 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-cyan-400/30">
+          <i class="fa-solid fa-sim-card"></i> eSIM 卡
+        </button>
+        <button onclick="openModal('subscription');toggleFab();" class="glass bg-violet-600/90 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-violet-400/30">
+          <i class="fa-solid fa-credit-card"></i> 订阅服务
+        </button>
+        <button onclick="openModal('balance');toggleFab();" class="glass bg-amber-600/90 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-amber-400/30">
+          <i class="fa-solid fa-wallet"></i> 话费管理
+        </button>
+      </div>
+      <button id="fab-btn" onclick="toggleFab()" class="fab-btn btn-primary rounded-full text-white flex items-center justify-center text-xl shadow-2xl transition-transform active:scale-95" style="width:52px;height:52px;" aria-label="快捷添加">
+        <i id="fab-icon" class="fa-solid fa-plus transition-transform duration-200"></i>
+      </button>
+    </div>
   </div>
 
   <!-- ========== MODAL ========== -->
@@ -178,15 +196,25 @@ ${getStyles()}
             </div>
             <div>
               <label class="text-sm text-slate-400 mb-1 block">激活码 (Activation Code)</label>
-              <input id="form-activation-code" type="password" placeholder="激活码" class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+              <div class="relative">
+                <input id="form-activation-code" type="password" placeholder="激活码" class="glass-input w-full pl-4 pr-10 py-3 rounded-xl text-sm font-mono" autocomplete="off">
+                <button type="button" onclick="togglePasswordVis('form-activation-code', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                  <i class="fa-solid fa-eye-slash"></i>
+                </button>
+              </div>
             </div>
             <div>
               <label class="text-sm text-slate-400 mb-1 block">确认码 (Confirmation Code)</label>
-              <input id="form-confirmation-code" type="password" placeholder="确认码" class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+              <div class="relative">
+                <input id="form-confirmation-code" type="password" placeholder="确认码 (可选)" class="glass-input w-full pl-4 pr-10 py-3 rounded-xl text-sm font-mono" autocomplete="off">
+                <button type="button" onclick="togglePasswordVis('form-confirmation-code', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                  <i class="fa-solid fa-eye-slash"></i>
+                </button>
+              </div>
             </div>
             <div>
               <label class="text-sm text-slate-400 mb-1 block">WID / EID（eUICC 标识，可选）</label>
-              <input id="form-wid" type="text" placeholder="32位设备标识" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              <input id="form-wid" type="text" placeholder="32位设备标识" class="glass-input w-full px-4 py-3 rounded-xl text-sm font-mono">
             </div>
           </div>
           <div id="field-esim-balance" class="hidden space-y-3">
@@ -350,6 +378,12 @@ ${getStyles()}
                 <label class="text-sm text-slate-400 mb-1 block">固定天数</label>
                 <input id="form-cycle-days" type="number" min="1" placeholder="默认30天" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
               </div>
+              <div class="flex items-center gap-2 pt-6">
+                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input type="checkbox" id="form-auto-renew" class="rounded accent-sky-500">
+                  <span>自动续费 (到期免手动续期)</span>
+                </label>
+              </div>
             </div>
           </div>
           <div id="field-url" class="hidden">
@@ -374,85 +408,123 @@ ${getStyles()}
         </div>
       </form>
     </div>
-	  </div>
+  </div>
 
-	  <!-- ========== HISTORY MODAL ========== -->
-	  <div id="history-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
-	    <div class="glass rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[86vh] overflow-y-auto fade-in">
-	      <div class="flex justify-between items-center mb-6 gap-3">
-	        <h3 class="text-xl font-bold text-white">操作历史</h3>
-	        <div class="flex items-center gap-2">
-	          <button onclick="clearHistory()" class="text-xs text-red-300 hover:text-red-200 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/10 transition-colors">清空</button>
-	          <button onclick="closeHistory()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
-	        </div>
-	      </div>
-	      <div id="history-filters" class="flex flex-wrap gap-2 mb-4">
-	        <button onclick="filterHistory('all')" data-hfilter="all" class="hfilter-tab tab-active px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all">全部</button>
-	        <button onclick="filterHistory('create')" data-hfilter="create" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus mr-1"></i>新增</button>
-	        <button onclick="filterHistory('update')" data-hfilter="update" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-pen mr-1"></i>更新</button>
-	        <button onclick="filterHistory('delete')" data-hfilter="delete" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-trash mr-1"></i>删除</button>
-	        <button onclick="filterHistory('renew')" data-hfilter="renew" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-rotate mr-1"></i>续期</button>
-	        <button onclick="filterHistory('recharge')" data-hfilter="recharge" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus-circle mr-1"></i>充值</button>
-	        <button onclick="filterHistory('deduct')" data-hfilter="deduct" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-minus-circle mr-1"></i>扣费</button>
-	        <button onclick="filterHistory('import')" data-hfilter="import" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-upload mr-1"></i>导入</button>
-	      </div>
-	      <div id="history-content" class="space-y-2"></div>
-	    </div>
-	  </div>
-	  <!-- ========== RECHARGE MODAL ========== -->
-	  <div id="recharge-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
-	    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
-	      <h3 class="text-lg font-bold text-white mb-4">充值</h3>
-	      <p id="recharge-info" class="text-sm text-slate-400 mb-4"></p>
-	      <form id="recharge-form">
-	        <div class="space-y-3">
-	          <div>
-	            <label class="text-sm text-slate-400 mb-1 block">充值金额（负数为校正扣减）</label>
-	            <input id="recharge-amount" type="number" step="0.01" required placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-	          </div>
-	          <div>
-\t            <label class="text-sm text-slate-400 mb-1 block">备注（可选）</label>
-\t            <input id="recharge-note" type="text" placeholder="如：微信充值" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-\t          </div>
-\t        </div>
-\t        <div class="flex gap-3 mt-5">
-\t          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>确认充值</button>
-\t          <button type="button" onclick="document.getElementById('recharge-overlay').classList.add('hidden');document.getElementById('recharge-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
-\t        </div>
-\t      </form>
-\t    </div>
-\t  </div>
+  <!-- ========== QR CODE MODAL ========== -->
+  <div id="qr-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in text-center">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="qr-title" class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-qrcode text-cyan-400"></i> eSIM 安装二维码
+        </h3>
+        <button onclick="closeQrModal()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="qr-container" class="flex items-center justify-center p-4 bg-white rounded-2xl mb-4 shadow-inner">
+        <!-- SVG QR Code rendered here -->
+      </div>
+      <div class="text-left bg-white/5 rounded-xl p-3 mb-4 space-y-2 text-xs font-mono">
+        <div class="flex justify-between items-center text-slate-300">
+          <span class="text-slate-400 font-sans">SM-DP+:</span>
+          <span id="qr-smdp-val" class="truncate max-w-[180px]"></span>
+        </div>
+        <div class="flex justify-between items-center text-slate-300">
+          <span class="text-slate-400 font-sans">激活码:</span>
+          <span id="qr-act-val" class="truncate max-w-[180px]"></span>
+        </div>
+        <div id="qr-conf-row" class="flex justify-between items-center text-slate-300 hidden">
+          <span class="text-slate-400 font-sans">确认码:</span>
+          <span id="qr-conf-val" class="truncate max-w-[180px]"></span>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <button onclick="copyLpaString()" class="btn-primary w-full py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2">
+          <i class="fa-solid fa-copy"></i> 复制完整 LPA 激活代码
+        </button>
+        <div class="flex gap-2">
+          <button onclick="copyText(document.getElementById('qr-smdp-val').textContent, 'SM-DP+ 地址')" class="flex-1 py-2 rounded-lg text-xs text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">复制 SM-DP+</button>
+          <button onclick="copyText(document.getElementById('qr-act-val').textContent, '激活码')" class="flex-1 py-2 rounded-lg text-xs text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">复制激活码</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-\t  <!-- ========== RENEW MODAL ========== -->
-\t  <div id="renew-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
-\t    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
-\t      <h3 id="renew-title" class="text-lg font-bold text-white mb-4">续期</h3>
-\t      <p id="renew-info" class="text-sm text-slate-400 mb-4"></p>
-\t      <form id="renew-form">
-\t        <div id="renew-balance-fields" class="space-y-3">
-\t          <div class="bg-white/5 rounded-xl p-3">
-\t            <label class="text-sm text-slate-400 mb-1 block">本次余额变动（可选）</label>
-\t            <input id="renew-balance-delta" type="number" step="0.01" placeholder="负数=扣费，正数=充值，留空=仅续期" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-\t          </div>
-\t          <div>
-\t            <label class="text-sm text-slate-400 mb-1 block">备注（可选）</label>
-\t            <input id="renew-balance-note" type="text" placeholder="如：年费续期扣款" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-\t          </div>
-\t        </div>
-\t        <div class="flex gap-3 mt-5">
-\t          <button id="renew-submit" type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>确认续期</button>
-\t          <button type="button" onclick="document.getElementById('renew-overlay').classList.add('hidden');document.getElementById('renew-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
-\t        </div>
-\t      </form>
-\t    </div>
-\t  </div>
+  <!-- ========== HISTORY MODAL ========== -->
+  <div id="history-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[86vh] overflow-y-auto fade-in">
+      <div class="flex justify-between items-center mb-6 gap-3">
+        <h3 class="text-xl font-bold text-white">操作历史</h3>
+        <div class="flex items-center gap-2">
+          <button onclick="clearHistory()" class="text-xs text-red-300 hover:text-red-200 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/10 transition-colors">清空</button>
+          <button onclick="closeHistory()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div id="history-filters" class="flex flex-wrap gap-2 mb-4">
+        <button onclick="filterHistory('all')" data-hfilter="all" class="hfilter-tab tab-active px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all">全部</button>
+        <button onclick="filterHistory('create')" data-hfilter="create" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus mr-1"></i>新增</button>
+        <button onclick="filterHistory('update')" data-hfilter="update" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-pen mr-1"></i>更新</button>
+        <button onclick="filterHistory('delete')" data-hfilter="delete" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-trash mr-1"></i>删除</button>
+        <button onclick="filterHistory('renew')" data-hfilter="renew" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-rotate mr-1"></i>续期</button>
+        <button onclick="filterHistory('recharge')" data-hfilter="recharge" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus-circle mr-1"></i>充值</button>
+        <button onclick="filterHistory('deduct')" data-hfilter="deduct" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-minus-circle mr-1"></i>扣费</button>
+        <button onclick="filterHistory('import')" data-hfilter="import" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-upload mr-1"></i>导入</button>
+      </div>
+      <div id="history-content" class="space-y-2"></div>
+    </div>
+  </div>
 
+  <!-- ========== RECHARGE MODAL ========== -->
+  <div id="recharge-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
+      <h3 class="text-lg font-bold text-white mb-4">充值</h3>
+      <p id="recharge-info" class="text-sm text-slate-400 mb-4"></p>
+      <form id="recharge-form">
+        <div class="space-y-3">
+          <div>
+            <label class="text-sm text-slate-400 mb-1 block">充值金额（负数为校正扣减）</label>
+            <input id="recharge-amount" type="number" step="0.01" required placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-sm text-slate-400 mb-1 block">备注（可选）</label>
+            <input id="recharge-note" type="text" placeholder="如：微信充值" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>确认充值</button>
+          <button type="button" onclick="document.getElementById('recharge-overlay').classList.add('hidden');document.getElementById('recharge-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-\t  <!-- ========== TOAST ========== -->
-\t  <div id="toast-container" class="toast-container"></div>
+  <!-- ========== RENEW MODAL ========== -->
+  <div id="renew-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
+      <h3 id="renew-title" class="text-lg font-bold text-white mb-4">续期</h3>
+      <p id="renew-info" class="text-sm text-slate-400 mb-4"></p>
+      <form id="renew-form">
+        <div id="renew-balance-fields" class="space-y-3">
+          <div class="bg-white/5 rounded-xl p-3">
+            <label class="text-sm text-slate-400 mb-1 block">本次余额变动（可选）</label>
+            <input id="renew-balance-delta" type="number" step="0.01" placeholder="负数=扣费，正数=充值，留空=仅续期" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-sm text-slate-400 mb-1 block">备注（可选）</label>
+            <input id="renew-balance-note" type="text" placeholder="如：年费续期扣款" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button id="renew-submit" type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>确认续期</button>
+          <button type="button" onclick="document.getElementById('renew-overlay').classList.add('hidden');document.getElementById('renew-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-\t  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
-\t  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
+  <!-- ========== TOAST ========== -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
+  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
     <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-download mr-2 text-emerald-400"></i>导出 JSON
     </button>
@@ -462,13 +534,13 @@ ${getStyles()}
     <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-upload mr-2 text-amber-400"></i>导入 JSON
     </button>
-	    <button onclick="downloadDemo()" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/10 transition-colors">
-	      <i class="fa-solid fa-download mr-2 text-slate-500"></i>下载导入示例
-	    </button>
-	    <button onclick="openHistory()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
-	      <i class="fa-solid fa-clock-rotate-left mr-2 text-cyan-400"></i>操作历史
-	    </button>
-	    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
+    <button onclick="downloadDemo()" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-download mr-2 text-slate-500"></i>下载导入示例
+    </button>
+    <button onclick="openHistory()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-clock-rotate-left mr-2 text-cyan-400"></i>操作历史
+    </button>
+    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
     <hr class="border-white/10 my-1">
     <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-right-from-bracket mr-2"></i>退出登录

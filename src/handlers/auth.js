@@ -19,7 +19,7 @@ export async function handleAuth(request, env, path) {
 
   // POST /api/auth/send - Send OTP via configured notification channel
   if (path === '/api/auth/send' && request.method === 'POST') {
-    return await sendOTP(env);
+    return await sendOTP(request, env);
   }
 
   // POST /api/auth/verify - Verify OTP code
@@ -71,13 +71,24 @@ function channelRequirements(channel) {
   }[channel] || 'Telegram、Bark、企业微信或 Webhook 中的一种';
 }
 
+function getClientIp(request) {
+  if (!request) return '127.0.0.1';
+  return (
+    request.headers.get('cf-connecting-ip') ||
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    '127.0.0.1'
+  );
+}
+
 /**
  * Send 6-digit OTP to configured notification channel.
  */
-async function sendOTP(env) {
+async function sendOTP(request, env) {
+  const ip = getClientIp(request);
   const cooldown = await getConfig(env.DB, OTP_SEND_COOLDOWN_KEY);
-  if (cooldown) {
-    return errorResponse('验证码发送过于频繁，请稍后再试', 429, null, env);
+  const ipCooldown = await getConfig(env.DB, `admin_auth_ip_cooldown_${ip}`);
+  if (cooldown || ipCooldown) {
+    return errorResponse('验证码发送过于频繁，请稍后再试', 429, request, env);
   }
 
   const channel = await getAuthNotificationChannel(env);
@@ -86,7 +97,7 @@ async function sendOTP(env) {
       `未配置可用的登录验证码通道。请至少配置 Telegram、Bark、企业微信或 Webhook 中的一种。\n` +
       `1. Cloudflare Dashboard → Workers → Settings → Variables (推荐)\n` +
       `2. KV 数据库中手动添加对应键值对`,
-      500, null, env
+      500, request, env
     );
   }
 
@@ -113,7 +124,8 @@ async function sendOTP(env) {
 
   if (results.some(result => result.ok)) {
     await setConfig(env.DB, OTP_SEND_COOLDOWN_KEY, '1', { expirationTtl: 60 });
-    return successResponse({ channel }, null, env);
+    await setConfig(env.DB, `admin_auth_ip_cooldown_${ip}`, '1', { expirationTtl: 60 });
+    return successResponse({ channel }, request, env);
   }
 
   await env.DB.delete('admin_auth_code');

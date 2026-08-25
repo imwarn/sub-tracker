@@ -21,27 +21,36 @@ GitHub: https://github.com/imwarn/sub-tracker
 
 ```
 sub-tracker/
+├── docs/                     # 评估报告与优化实施规划
+│   ├── EVALUATION_REPORT.md  # 全维度评估报告
+│   └── OPTIMIZATION_PLAN.md  # 优化实施方案与技术规范
 ├── src/
 │   ├── index.js              # Worker 入口 (fetch + scheduled)
 │   ├── router.js             # 请求路由分发
 │   ├── handlers/
-│   │   ├── auth.js           # 认证: 多通道 OTP 登录
+│   │   ├── auth.js           # 认证: 多通道 OTP 登录 (含 IP 速率限制)
 │   │   ├── items.js          # 业务: 统一 CRUD + 导入导出 + 充值 + 测试通知
 │   │   └── history.js        # 操作历史: 查询 & 清空
 │   ├── services/
 │   │   ├── telegram.js       # Telegram 消息发送 & HTML 转义
 │   │   ├── notify.js         # 多渠道通知: 通道检测 / 选择 / 发送
+│   │   ├── auto-renew.js     # 订阅自动续期服务 (Cron 自动触发)
+│   │   ├── auto-deduct.js    # 话费自动扣费服务 (Cron 自动触发)
 │   │   └── reminder.js       # 到期/停机提醒逻辑 (支持货币显示)
 │   ├── data/
-│   │   ├── constants.js      # 共享常量: 条目类型 / 状态 / 计费周期 / 货币
+│   │   ├── constants.js      # 共享常量: 条目类型 / 状态 / 计费周期 / 货币 / 参考汇率
 │   │   ├── schema.js         # 数据模型定义 & 校验
 │   │   └── store.js          # KV 读写操作封装 (items + history + config)
 │   ├── utils/
 │   │   ├── response.js       # HTTP 响应工具 (JSON/CORS/安全头)
 │   │   ├── country.js        # 国码匹配 (E.164 完整码表)
-│   │   └── date.js           # 日期工具 (UTC+8) + 预计停机日计算
+│   │   ├── qrcode.js         # 纯 JS 轻量 QR Code SVG 生成器 (eSIM LPA 二维码)
+│   │   ├── date.js           # 日期工具 (UTC+8) + 预计停机日计算
+│   │   └── stats.js          # 统计与排序辅助工具
 │   └── ui/
 │       ├── template.js       # 完整前端 HTML/JS 模板 + PWA manifest/SW
+│       ├── client-script.js  # 浏览器交互逻辑 (含 LPA 二维码、脱敏/复制、多币种折算)
+│       ├── styles.js         # 响应式样式与动画
 │       └── brand-assets.js   # SVG 图标 & favicon 二进制资源
 ├── scripts/
 │   ├── build.js              # esbuild 构建脚本 (含图标生成)
@@ -53,8 +62,10 @@ sub-tracker/
 │   ├── icon-512.png          # PWA 图标 512px
 │   └── favicon.ico           # 浏览器标签图标
 ├── test/                     # 单元测试 (node:test)
-│   ├── auth.test.mjs         # OTP 认证流程
+│   ├── auth.test.mjs         # OTP 认证流程与 IP 限流
+│   ├── auto-renew.test.mjs   # 订阅自动续费逻辑
 │   ├── notify.test.mjs       # 多渠道通知发送
+│   ├── qrcode.test.mjs       # LPA 二维码生成测试
 │   ├── schema.test.mjs       # 数据模型校验
 │   ├── store.test.mjs        # KV 存储操作
 │   ├── template.test.mjs     # 前端模板渲染
@@ -181,13 +192,17 @@ N = Math.floor(balance / monthlyFee)    // 余额可撑 N 个月
 | 数据导入导出 | ✅ | JSON/CSV 导出，JSON 导入 |
 | 操作历史 | ✅ | 最近 100 条新增/更新/删除/续期/充值/导入记录 |
 | PWA | ✅ | Manifest + Service Worker 应用壳离线缓存 |
-| 增强统计 | ✅ | 按货币与分类展示月度/年度支出 |
-| 毛玻璃 UI | ✅ | 深色渐变 + glass morphism |
+| 增强统计 | ✅ | 按货币与分类展示月度/年度支出 + 本位币汇率折算 |
+| 毛玻璃 UI | ✅ | 深色渐变 + glass morphism + 移动端 FAB 快捷操作 |
+| eSIM LPA 二维码 | ✅ | 动态生成标准 LPA 二维码，换机/跨设备一键扫码激活 |
+| 敏感信息脱敏 | ✅ | 激活码/确认码眼球切换遮罩与一键复制 |
+| 订阅自动续期 | ✅ | Cron 定时任务检测 autoRenew 到期自动顺延周期并记录通知 |
+| IP 速率限制 | ✅ | 防暴力刷验证码接口 (基于 cf-connecting-ip) |
 
 ## 安全机制
 
 1. **多通道 OTP 认证**: 不在代码中写死密码，每次登录需要通过配置的通知通道获取动态验证码
-2. **防爆破**: 连续输错 5 次自动作废验证码，60 秒发送冷却 + 并发延迟防御
+2. **防爆破 & IP 限流**: 连续输错 5 次自动作废验证码，60 秒全局及单 IP 发送冷却 + 并发延迟防御
 3. **会话管理**: UUID token，30天 TTL，存储在 KV 中
 4. **CORS**: 所有 API 响应带 CORS 头
 5. **安全头**: `X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`、`Permissions-Policy`、`Cache-Control: no-store`
@@ -237,21 +252,20 @@ npm run deploy   # → bash scripts/deploy.sh (自动设 secrets + deploy)
 - [x] **Phase 3.1**: 测试通知 — 单条记录发送测试通知
 - [x] **Phase 4**: 话费余额管理 — 余额/月租/扣费日/预计停机日/充值校正/停机提醒
 - [x] **Phase 5**: 多渠道推送 — Telegram / Bark / 企业微信 / 通用 Webhook
-- [x] **Phase 6**: 数据统计增强 — 按货币与分类统计月度/年度支出
+- [x] **Phase 6**: 数据统计增强 — 按货币与分类统计月度/年度支出 + 全币种汇率折算
 - [x] **Phase 7.1**: 操作历史 — 最近 100 条关键操作记录
 - [x] **Phase 8.1**: PWA 基础支持 — manifest + service worker + SVG 图标
+- [x] **Phase 9.1**: eSIM LPA 二维码生成 & 激活信息脱敏与快捷复制
+- [x] **Phase 9.2**: 订阅自动续期 (Auto-Renew) Cron 自动顺延与通知
+- [x] **Phase 9.3**: 移动端单手操作优化 (FAB 悬浮按钮) 与日历未来循环投影
 
 ### 🔲 待开发
 
-- [ ] **Phase 7: 高级功能**
-  - [ ] 订阅自动续费提醒（结合 autoRenew 字段）
-  - [ ] eSIM 保号操作记录（上次保号时间）
-  - [ ] 批量操作（批量暂停/删除）
-  - [ ] 暗色/亮色主题切换
-
-- [ ] **Phase 8: 移动端优化**
-  - [ ] iOS/Android 添加到主屏幕
-  - [ ] 离线数据只读模式
+- [ ] **Phase 10: 进阶功能**
+  - [ ] 家庭组 / 拼车车位分摊管理与收款标记
+  - [ ] CSV 批量导入 (从 1Password / Bobby / MoneyWiz 迁移)
+  - [ ] 定时数据全量 JSON 备份到 Telegram / Webhook
+  - [ ] 暗色 / 亮色主题跟随与手动切换
 
 ### 🐛 已知问题
 

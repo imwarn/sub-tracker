@@ -149,12 +149,11 @@ test('subscription renew uses billing period and counts from today when expired'
     { id, type: 'subscription', name: 'Monthly sub', billing: 'monthly', expireDate: '2026-06-01' },
   ]);
 
-  // "today" = 2026-07-07, expired -> 30 days forward
+  // "today" = 2026-07-07, expired -> 1 natural month forward -> 2026-08-07
   const response = await handleItems(renewRequest(id, '2026-07-07T12:00:00Z'), env, `/api/items/${id}/renew`);
   const result = await response.json();
   assert.equal(result.success, true);
-  // 30 days from 2026-07-07 -> 2026-08-06
-  assert.equal(result.newExpireDate, '2026-08-06');
+  assert.equal(result.newExpireDate, '2026-08-07');
 });
 
 test('renew rejects non-renewable types', async () => {

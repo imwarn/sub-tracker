@@ -60,8 +60,7 @@ function errorResponse(message, status = 400, request = null, env = null) {
 }
 function successResponse(data = null, request = null, env = null) {
   const res = { success: true };
-  if (data)
-    Object.assign(res, data);
+  if (data) Object.assign(res, data);
   return jsonResponse(res, 200, request, env);
 }
 function downloadResponse(body, contentType, filename, request = null, env = null) {
@@ -106,8 +105,7 @@ async function addItem(db, item) {
 async function updateItem(db, id, updater) {
   const items = await getAllItems(db);
   const idx = items.findIndex((item) => item.id === id);
-  if (idx === -1)
-    return null;
+  if (idx === -1) return null;
   items[idx] = updater(items[idx]);
   await saveAllItems(db, items);
   return items[idx];
@@ -116,8 +114,7 @@ async function deleteItem(db, id) {
   const items = await getAllItems(db);
   const deleted = items.find((item) => item.id === id);
   const filtered = items.filter((item) => item.id !== id);
-  if (filtered.length === items.length)
-    return false;
+  if (filtered.length === items.length) return false;
   await saveAllItems(db, filtered);
   return deleted;
 }
@@ -169,8 +166,7 @@ async function sendTelegram(token, chatId, text) {
 // src/services/notify.js
 var CHANNELS = ["telegram", "bark", "wecom", "webhook"];
 async function config(env, key) {
-  if (env[key])
-    return env[key];
+  if (env[key]) return env[key];
   try {
     return await getConfig(env.DB, key);
   } catch {
@@ -193,8 +189,7 @@ async function sendBark(env, title, text) {
   const barkKey = await config(env, "BARK_KEY");
   const barkServer = await config(env, "BARK_SERVER") || "https://api.day.app";
   const endpoint = barkUrl || (barkKey ? `${barkServer.replace(/\/$/, "")}/${encodeURIComponent(barkKey)}` : "");
-  if (!endpoint)
-    return null;
+  if (!endpoint) return null;
   return {
     channel: "bark",
     ok: await postJSON(endpoint, {
@@ -206,8 +201,7 @@ async function sendBark(env, title, text) {
 }
 async function sendWeCom(env, title, text) {
   const webhook = await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL");
-  if (!webhook)
-    return null;
+  if (!webhook) return null;
   return {
     channel: "wecom",
     ok: await postJSON(webhook, {
@@ -220,8 +214,7 @@ ${stripHTML(text)}` }
 }
 async function sendGenericWebhook(env, title, text) {
   const webhook = await config(env, "WEBHOOK_URL");
-  if (!webhook)
-    return null;
+  if (!webhook) return null;
   return {
     channel: "webhook",
     ok: await postJSON(webhook, {
@@ -236,8 +229,7 @@ async function sendGenericWebhook(env, title, text) {
 async function sendTelegramIfConfigured(env, text) {
   const token = await config(env, "TG_BOT_TOKEN");
   const chatId = await config(env, "TG_CHAT_ID");
-  if (!token || !chatId)
-    return null;
+  if (!token || !chatId) return null;
   return {
     channel: "telegram",
     ok: await sendTelegram(token, chatId, text)
@@ -245,8 +237,7 @@ async function sendTelegramIfConfigured(env, text) {
 }
 function normalizeChannel(value, { allowAll = false } = {}) {
   const raw = String(value || "").trim().toLowerCase();
-  if (allowAll && raw === "all")
-    return "all";
+  if (allowAll && raw === "all") return "all";
   const aliases = {
     tg: "telegram",
     telegram: "telegram",
@@ -286,23 +277,17 @@ var SENDERS = {
 };
 async function getConfiguredNotificationChannels(env) {
   const channels = [];
-  if (await config(env, "TG_BOT_TOKEN") && await config(env, "TG_CHAT_ID"))
-    channels.push("telegram");
-  if (await config(env, "BARK_URL") || await config(env, "BARK_KEY"))
-    channels.push("bark");
-  if (await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL"))
-    channels.push("wecom");
-  if (await config(env, "WEBHOOK_URL"))
-    channels.push("webhook");
+  if (await config(env, "TG_BOT_TOKEN") && await config(env, "TG_CHAT_ID")) channels.push("telegram");
+  if (await config(env, "BARK_URL") || await config(env, "BARK_KEY")) channels.push("bark");
+  if (await config(env, "WECOM_WEBHOOK_URL") || await config(env, "WECHAT_WORK_WEBHOOK_URL")) channels.push("wecom");
+  if (await config(env, "WEBHOOK_URL")) channels.push("webhook");
   return channels;
 }
 async function getAuthNotificationChannel(env) {
   const authChannel = normalizeChannel(await config(env, "AUTH_NOTIFY_CHANNEL"));
-  if (authChannel)
-    return authChannel;
+  if (authChannel) return authChannel;
   const defaultMode = await getDefaultNotificationMode(env);
-  if (defaultMode !== "all")
-    return defaultMode;
+  if (defaultMode !== "all") return defaultMode;
   const configured = await getConfiguredNotificationChannels(env);
   return configured.includes("telegram") ? "telegram" : configured[0] || "";
 }
@@ -313,10 +298,8 @@ async function sendNotifications(env, text, options = {}) {
   for (const channel of channels) {
     try {
       const result = await SENDERS[channel](env, title, text);
-      if (result)
-        results.push(result);
-      else if (explicit)
-        results.push({ channel, ok: false, message: "\u901A\u77E5\u6E20\u9053\u672A\u914D\u7F6E" });
+      if (result) results.push(result);
+      else if (explicit) results.push({ channel, ok: false, message: "\u901A\u77E5\u6E20\u9053\u672A\u914D\u7F6E" });
     } catch (err) {
       results.push({ channel, ok: false, message: err.message });
     }
@@ -331,7 +314,7 @@ async function handleAuth(request, env, path) {
     return corsPreFlight(request);
   }
   if (path === "/api/auth/send" && request.method === "POST") {
-    return await sendOTP(env);
+    return await sendOTP(request, env);
   }
   if (path === "/api/auth/verify" && request.method === "POST") {
     return await verifyOTP(request, env);
@@ -370,10 +353,16 @@ function channelRequirements(channel) {
     webhook: "WEBHOOK_URL"
   }[channel] || "Telegram\u3001Bark\u3001\u4F01\u4E1A\u5FAE\u4FE1\u6216 Webhook \u4E2D\u7684\u4E00\u79CD";
 }
-async function sendOTP(env) {
+function getClientIp(request) {
+  if (!request) return "127.0.0.1";
+  return request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+}
+async function sendOTP(request, env) {
+  const ip = getClientIp(request);
   const cooldown = await getConfig(env.DB, OTP_SEND_COOLDOWN_KEY);
-  if (cooldown) {
-    return errorResponse("\u9A8C\u8BC1\u7801\u53D1\u9001\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5", 429, null, env);
+  const ipCooldown = await getConfig(env.DB, `admin_auth_ip_cooldown_${ip}`);
+  if (cooldown || ipCooldown) {
+    return errorResponse("\u9A8C\u8BC1\u7801\u53D1\u9001\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5", 429, request, env);
   }
   const channel = await getAuthNotificationChannel(env);
   if (!channel) {
@@ -382,7 +371,7 @@ async function sendOTP(env) {
 1. Cloudflare Dashboard \u2192 Workers \u2192 Settings \u2192 Variables (\u63A8\u8350)
 2. KV \u6570\u636E\u5E93\u4E2D\u624B\u52A8\u6DFB\u52A0\u5BF9\u5E94\u952E\u503C\u5BF9`,
       500,
-      null,
+      request,
       env
     );
   }
@@ -404,7 +393,8 @@ async function sendOTP(env) {
   });
   if (results.some((result) => result.ok)) {
     await setConfig(env.DB, OTP_SEND_COOLDOWN_KEY, "1", { expirationTtl: 60 });
-    return successResponse({ channel }, null, env);
+    await setConfig(env.DB, `admin_auth_ip_cooldown_${ip}`, "1", { expirationTtl: 60 });
+    return successResponse({ channel }, request, env);
   }
   await env.DB.delete("admin_auth_code");
   await env.DB.delete("admin_auth_attempts");
@@ -454,30 +444,24 @@ async function logoutSession(request, env) {
 }
 async function checkSession(request, env) {
   const token = request.headers.get("Authorization");
-  if (!token)
-    return errorResponse("\u672A\u767B\u5F55", 401, request, env);
+  if (!token) return errorResponse("\u672A\u767B\u5F55", 401, request, env);
   const valid = await getConfig(env.DB, `session_token_${token}`);
-  if (!valid)
-    return errorResponse("\u4F1A\u8BDD\u5DF2\u8FC7\u671F", 401, request, env);
+  if (!valid) return errorResponse("\u4F1A\u8BDD\u5DF2\u8FC7\u671F", 401, request, env);
   return successResponse(null, request, env);
 }
 async function requireAuth(request, env) {
   const token = request.headers.get("Authorization");
-  if (!token)
-    return errorResponse("Unauthorized: Missing Token", 401, request, env);
+  if (!token) return errorResponse("Unauthorized: Missing Token", 401, request, env);
   const valid = await getConfig(env.DB, `session_token_${token}`);
-  if (!valid)
-    return errorResponse("Unauthorized: Invalid or Expired Token", 401, request, env);
+  if (!valid) return errorResponse("Unauthorized: Invalid or Expired Token", 401, request, env);
   return null;
 }
 
 // src/handlers/history.js
 async function handleHistory(request, env, path) {
-  if (request.method === "OPTIONS")
-    return corsPreFlight(request);
+  if (request.method === "OPTIONS") return corsPreFlight(request);
   const authErr = await requireAuth(request, env);
-  if (authErr)
-    return authErr;
+  if (authErr) return authErr;
   if (path === "/api/history" && request.method === "GET") {
     const url = new URL(request.url);
     const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 100));
@@ -494,6 +478,7 @@ async function handleHistory(request, env, path) {
 var ITEM_TYPES = ["esim", "subscription", "balance"];
 var STATUSES = ["active", "paused"];
 var BILLING_TYPES = ["monthly", "yearly", "once"];
+var BILLING_MODES = ["natural", "fixed"];
 var DEFAULT_REMIND_DAYS = [3, 1, 0];
 var REMIND_DAY_OPTIONS = [30, 15, 7, 3, 1, 0];
 var CURRENCY_SYMBOLS = {
@@ -514,6 +499,23 @@ var CURRENCY_SYMBOLS = {
   SGD: "$"
 };
 var CURRENCY_CODES = Object.keys(CURRENCY_SYMBOLS);
+var DEFAULT_EXCHANGE_RATES = {
+  CNY: 1,
+  USD: 7.25,
+  EUR: 7.85,
+  GBP: 9.2,
+  JPY: 0.048,
+  HKD: 0.93,
+  TWD: 0.23,
+  KRW: 54e-4,
+  TRY: 0.22,
+  THB: 0.2,
+  NGN: 48e-4,
+  INR: 0.087,
+  PHP: 0.13,
+  MYR: 1.62,
+  SGD: 5.4
+};
 
 // src/utils/date.js
 var TZ_OFFSET = 8;
@@ -538,11 +540,22 @@ function addDays(dateStr, days) {
   return d.toISOString().split("T")[0];
 }
 function getStatusText(days) {
-  if (days < 0)
-    return `\u5DF2\u8FC7\u671F ${Math.abs(days)} \u5929`;
-  if (days === 0)
-    return "\u4ECA\u5929\u5230\u671F";
+  if (days < 0) return `\u5DF2\u8FC7\u671F ${Math.abs(days)} \u5929`;
+  if (days === 0) return "\u4ECA\u5929\u5230\u671F";
   return `\u5269\u4F59 ${days} \u5929`;
+}
+function addBillingPeriod(dateStr, billing, mode = "natural", cycleDays) {
+  if (mode === "fixed") {
+    const days = cycleDays || (billing === "yearly" ? 365 : 30);
+    return addDays(dateStr, days);
+  }
+  const d = /* @__PURE__ */ new Date(dateStr + "T00:00:00Z");
+  if (billing === "yearly") {
+    d.setUTCFullYear(d.getUTCFullYear() + 1);
+  } else {
+    d.setUTCMonth(d.getUTCMonth() + 1);
+  }
+  return d.toISOString().split("T")[0];
 }
 function calcSuspendDate(balance, monthlyFee, billingDay, now = /* @__PURE__ */ new Date()) {
   const tzNow = new Date(now.getTime() + TZ_OFFSET * 36e5);
@@ -576,14 +589,12 @@ function asString(value, fallback = "") {
   return value == null ? fallback : String(value).trim();
 }
 function asNumber(value, fallback = null) {
-  if (value == null || value === "")
-    return fallback;
+  if (value == null || value === "") return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 function asInteger(value, fallback = null) {
-  if (value == null || value === "")
-    return fallback;
+  if (value == null || value === "") return fallback;
   const n = Number(value);
   return Number.isInteger(n) ? n : fallback;
 }
@@ -593,14 +604,12 @@ function normalizeRemindDays(value) {
   return [...new Set(days)].sort((a, b) => b - a);
 }
 function isValidDateString(value) {
-  if (!DATE_RE.test(value))
-    return false;
+  if (!DATE_RE.test(value)) return false;
   const d = /* @__PURE__ */ new Date(value + "T00:00:00Z");
   return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(value);
 }
 function isValidHttpUrl(value) {
-  if (!value)
-    return true;
+  if (!value) return true;
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:";
@@ -657,6 +666,8 @@ function createItem(type, data) {
     subId: asString(data.subId),
     price: data.price === "" || data.price == null ? null : asString(data.price),
     billing: BILLING_TYPES.includes(data.billing) ? data.billing : "monthly",
+    billingMode: BILLING_MODES.includes(data.billingMode) ? data.billingMode : "natural",
+    cycleDays: asInteger(data.cycleDays),
     currency: CURRENCY_CODES.includes(data.currency) ? data.currency : "CNY",
     autoRenew: Boolean(data.autoRenew),
     remindDays: normalizeRemindDays(data.remindDays),
@@ -664,78 +675,58 @@ function createItem(type, data) {
   };
 }
 function validateItem(type, data) {
-  if (!ITEM_TYPES.includes(type))
-    return "\u65E0\u6548\u7684\u7C7B\u578B";
+  if (!ITEM_TYPES.includes(type)) return "\u65E0\u6548\u7684\u7C7B\u578B";
   const name = asString(data.name);
-  if (!name)
-    return "\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A";
-  if (name.length > 120)
-    return "\u540D\u79F0\u4E0D\u80FD\u8D85\u8FC7 120 \u4E2A\u5B57\u7B26";
+  if (!name) return "\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A";
+  if (name.length > 120) return "\u540D\u79F0\u4E0D\u80FD\u8D85\u8FC7 120 \u4E2A\u5B57\u7B26";
   const status = data.status || "active";
-  if (!STATUSES.includes(status))
-    return "\u72B6\u6001\u53EA\u80FD\u662F active \u6216 paused";
+  if (!STATUSES.includes(status)) return "\u72B6\u6001\u53EA\u80FD\u662F active \u6216 paused";
   const cycle = data.cycle;
   if (cycle != null && cycle !== "") {
     const n = Number(cycle);
-    if (!Number.isInteger(n) || n < 1)
-      return "\u5468\u671F\u987B\u4E3A\u6B63\u6574\u6570";
+    if (!Number.isInteger(n) || n < 1) return "\u5468\u671F\u987B\u4E3A\u6B63\u6574\u6570";
   }
   if (type !== "balance") {
-    if (!data.expireDate)
-      return "\u5230\u671F\u65E5\u671F\u4E0D\u80FD\u4E3A\u7A7A";
-    if (!isValidDateString(data.expireDate))
-      return "\u5230\u671F\u65E5\u671F\u683C\u5F0F\u4E0D\u6B63\u786E";
+    if (!data.expireDate) return "\u5230\u671F\u65E5\u671F\u4E0D\u80FD\u4E3A\u7A7A";
+    if (!isValidDateString(data.expireDate)) return "\u5230\u671F\u65E5\u671F\u683C\u5F0F\u4E0D\u6B63\u786E";
   }
   if (type === "balance") {
     if (data.balance != null && data.balance !== "" && !Number.isFinite(Number(data.balance))) {
       return "\u4F59\u989D\u683C\u5F0F\u4E0D\u6B63\u786E";
     }
-    if (!data.monthlyFee && data.monthlyFee !== 0)
-      return "\u6708\u79DF\u4E0D\u80FD\u4E3A\u7A7A";
-    if (!Number.isFinite(Number(data.monthlyFee)) || Number(data.monthlyFee) < 0)
-      return "\u6708\u79DF\u683C\u5F0F\u4E0D\u6B63\u786E";
-    if (!data.billingDay)
-      return "\u6263\u8D39\u65E5\u4E0D\u80FD\u4E3A\u7A7A";
+    if (!data.monthlyFee && data.monthlyFee !== 0) return "\u6708\u79DF\u4E0D\u80FD\u4E3A\u7A7A";
+    if (!Number.isFinite(Number(data.monthlyFee)) || Number(data.monthlyFee) < 0) return "\u6708\u79DF\u683C\u5F0F\u4E0D\u6B63\u786E";
+    if (!data.billingDay) return "\u6263\u8D39\u65E5\u4E0D\u80FD\u4E3A\u7A7A";
     const bd = Number(data.billingDay);
-    if (!Number.isInteger(bd))
-      return "\u6263\u8D39\u65E5\u987B\u4E3A\u6574\u6570";
-    if (bd < 1 || bd > 28)
-      return "\u6263\u8D39\u65E5\u987B\u4E3A 1-28";
+    if (!Number.isInteger(bd)) return "\u6263\u8D39\u65E5\u987B\u4E3A\u6574\u6570";
+    if (bd < 1 || bd > 28) return "\u6263\u8D39\u65E5\u987B\u4E3A 1-28";
   }
   if (type === "subscription") {
     if (data.price != null && data.price !== "") {
       const price = Number(data.price);
-      if (!Number.isFinite(price) || price < 0)
-        return "\u4EF7\u683C\u683C\u5F0F\u4E0D\u6B63\u786E";
+      if (!Number.isFinite(price) || price < 0) return "\u4EF7\u683C\u683C\u5F0F\u4E0D\u6B63\u786E";
     }
-    if (data.billing && !BILLING_TYPES.includes(data.billing))
-      return "\u8BA1\u8D39\u5468\u671F\u4E0D\u6B63\u786E";
-    if (!isValidHttpUrl(asString(data.url)))
-      return "\u94FE\u63A5\u5FC5\u987B\u4EE5 http:// \u6216 https:// \u5F00\u5934";
+    if (data.billing && !BILLING_TYPES.includes(data.billing)) return "\u8BA1\u8D39\u5468\u671F\u4E0D\u6B63\u786E";
+    if (data.billingMode && !BILLING_MODES.includes(data.billingMode)) return "\u8BA1\u8D39\u6A21\u5F0F\u4E0D\u6B63\u786E";
+    if (!isValidHttpUrl(asString(data.url))) return "\u94FE\u63A5\u5FC5\u987B\u4EE5 http:// \u6216 https:// \u5F00\u5934";
   }
-  if (data.currency && !CURRENCY_CODES.includes(data.currency))
-    return "\u8D27\u5E01\u7C7B\u578B\u4E0D\u652F\u6301";
+  if (data.currency && !CURRENCY_CODES.includes(data.currency)) return "\u8D27\u5E01\u7C7B\u578B\u4E0D\u652F\u6301";
   const remindDays = normalizeRemindDays(data.remindDays);
-  if (remindDays.length === 0)
-    return "\u63D0\u9192\u65F6\u95F4\u4E0D\u80FD\u4E3A\u7A7A";
+  if (remindDays.length === 0) return "\u63D0\u9192\u65F6\u95F4\u4E0D\u80FD\u4E3A\u7A7A";
   return null;
 }
 function mergeUpdate(existing, data) {
   const updated = { ...existing };
   for (const key of ["name", "expireDate", "cycle", "remark", "status"]) {
     if (data[key] !== void 0) {
-      if (key === "cycle")
-        updated[key] = asInteger(data[key]);
-      else if (key === "name" || key === "remark" || key === "expireDate")
-        updated[key] = asString(data[key]);
-      else
-        updated[key] = data[key];
+      if (key === "cycle") updated[key] = asInteger(data[key]);
+      else if (key === "name" || key === "remark" || key === "expireDate") updated[key] = asString(data[key]);
+      else updated[key] = data[key];
     }
   }
   if (existing.type === "esim") {
     for (const key of ["number", "smDp", "activationCode", "confirmationCode", "wid"]) {
-      if (data[key] !== void 0)
-        updated[key] = asString(data[key]);
+      if (data[key] !== void 0) updated[key] = asString(data[key]);
     }
     if (data.balance !== void 0) {
       updated.balance = data.balance === "" || data.balance == null ? null : asNumber(data.balance, null);
@@ -745,34 +736,26 @@ function mergeUpdate(existing, data) {
     }
   }
   if (existing.type === "subscription") {
-    for (const key of ["category", "region", "subId", "price", "billing", "currency", "autoRenew", "remindDays", "url"]) {
+    for (const key of ["category", "region", "subId", "price", "billing", "billingMode", "cycleDays", "currency", "autoRenew", "remindDays", "url"]) {
       if (data[key] !== void 0) {
-        if (["category", "region", "subId", "url"].includes(key))
-          updated[key] = asString(data[key]);
-        else if (key === "price")
-          updated[key] = data[key] === "" || data[key] == null ? null : asString(data[key]);
-        else if (key === "autoRenew")
-          updated[key] = Boolean(data[key]);
-        else if (key === "remindDays")
-          updated[key] = normalizeRemindDays(data[key]);
-        else
-          updated[key] = data[key];
+        if (["category", "region", "subId", "url"].includes(key)) updated[key] = asString(data[key]);
+        else if (key === "price") updated[key] = data[key] === "" || data[key] == null ? null : asString(data[key]);
+        else if (key === "autoRenew") updated[key] = Boolean(data[key]);
+        else if (key === "remindDays") updated[key] = normalizeRemindDays(data[key]);
+        else if (key === "billingMode") updated[key] = BILLING_MODES.includes(data[key]) ? data[key] : "natural";
+        else if (key === "cycleDays") updated[key] = asInteger(data[key]);
+        else updated[key] = data[key];
       }
     }
   }
   if (existing.type === "balance") {
     for (const key of ["number", "balance", "monthlyFee", "billingDay", "currency", "remindDays"]) {
       if (data[key] !== void 0) {
-        if (key === "balance" || key === "monthlyFee")
-          updated[key] = asNumber(data[key], 0);
-        else if (key === "billingDay")
-          updated[key] = asInteger(data[key], 1);
-        else if (key === "number")
-          updated[key] = asString(data[key]);
-        else if (key === "remindDays")
-          updated[key] = normalizeRemindDays(data[key]);
-        else
-          updated[key] = data[key];
+        if (key === "balance" || key === "monthlyFee") updated[key] = asNumber(data[key], 0);
+        else if (key === "billingDay") updated[key] = asInteger(data[key], 1);
+        else if (key === "number") updated[key] = asString(data[key]);
+        else if (key === "remindDays") updated[key] = normalizeRemindDays(data[key]);
+        else updated[key] = data[key];
       }
     }
     updated.predictedSuspendDate = calcSuspendDate(updated.balance, updated.monthlyFee, updated.billingDay);
@@ -802,11 +785,9 @@ async function recordHistory(env, action, item, details = {}) {
   }
 }
 async function handleItems(request, env, path) {
-  if (request.method === "OPTIONS")
-    return corsPreFlight(request);
+  if (request.method === "OPTIONS") return corsPreFlight(request);
   const authErr = await requireAuth(request, env);
-  if (authErr)
-    return authErr;
+  if (authErr) return authErr;
   if (path === "/api/items/export/json" && request.method === "GET") {
     return await exportJSON(env);
   }
@@ -852,10 +833,8 @@ async function recomputeBalances(env) {
     const items = await getAllItems(env.DB);
     let fixed = 0;
     for (const item of items) {
-      if (item.type !== "balance")
-        continue;
-      if (item.monthlyFee == null || item.billingDay == null)
-        continue;
+      if (item.type !== "balance") continue;
+      if (item.monthlyFee == null || item.billingDay == null) continue;
       const fresh = calcSuspendDate(item.balance, item.monthlyFee, item.billingDay);
       if (fresh !== item.predictedSuspendDate) {
         await updateItem(env.DB, item.id, (existing) => ({
@@ -887,8 +866,7 @@ async function createNewItem(request, env) {
       return errorResponse("\u65E0\u6548\u7684\u7C7B\u578B", 400, request, env);
     }
     const err = validateItem(type, body);
-    if (err)
-      return errorResponse(err, 400, request, env);
+    if (err) return errorResponse(err, 400, request, env);
     const item = createItem(type, body);
     await addItem(env.DB, item);
     await recordHistory(env, "create", item);
@@ -903,12 +881,10 @@ async function updateExistingItem(request, env, id) {
     const result = await updateItem(env.DB, id, (existing) => {
       const updated = mergeUpdate(existing, body);
       const err = validateItem(updated.type, updated);
-      if (err)
-        throw new Error(err);
+      if (err) throw new Error(err);
       return updated;
     });
-    if (!result)
-      return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, request, env);
+    if (!result) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, request, env);
     await recordHistory(env, "update", result);
     return successResponse(null, request, env);
   } catch (e) {
@@ -917,8 +893,7 @@ async function updateExistingItem(request, env, id) {
 }
 async function deleteExistingItem(env, id) {
   const deleted = await deleteItem(env.DB, id);
-  if (!deleted)
-    return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
+  if (!deleted) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
   await recordHistory(env, "delete", deleted);
   return successResponse(null, null, env);
 }
@@ -931,8 +906,7 @@ async function renewItem(env, id, request) {
       const body = await request.json();
       if (body && body.balanceDelta !== void 0 && body.balanceDelta !== "" && body.balanceDelta != null) {
         const n = Number(body.balanceDelta);
-        if (!Number.isFinite(n))
-          throw new Error("\u4F59\u989D\u53D8\u52A8\u5FC5\u987B\u662F\u6570\u5B57");
+        if (!Number.isFinite(n)) throw new Error("\u4F59\u989D\u53D8\u52A8\u5FC5\u987B\u662F\u6570\u5B57");
         balanceDelta = n;
         balanceNote = body.balanceNote ? String(body.balanceNote).trim() : "";
       }
@@ -942,25 +916,22 @@ async function renewItem(env, id, request) {
       if (existing.type !== "esim" && existing.type !== "subscription") {
         throw new Error("\u4EC5 eSIM \u548C\u8BA2\u9605\u7C7B\u578B\u652F\u6301\u4E00\u952E\u7EED\u671F");
       }
-      let days = existing.cycle;
-      if (existing.type === "subscription" && !days) {
-        if (existing.billing === "yearly")
-          days = 365;
-        else if (existing.billing === "monthly")
-          days = 30;
-        else
-          throw new Error("\u4E00\u6B21\u6027\u8BA2\u9605\u65E0\u9700\u7EED\u671F");
-      }
-      if (!days) {
-        throw new Error("\u672A\u8BBE\u7F6E\u7EED\u8D39\u5468\u671F\uFF0C\u65E0\u6CD5\u7EED\u671F");
-      }
       let baseDate;
       if (existing.type === "esim") {
         baseDate = todayString(now);
       } else {
         baseDate = todayString(now) > existing.expireDate ? todayString(now) : existing.expireDate;
       }
-      const newExpire = addDays(baseDate, days);
+      let newExpire;
+      if (existing.type === "esim") {
+        const days = existing.cycle;
+        if (!days) throw new Error("\u672A\u8BBE\u7F6E\u7EED\u8D39\u5468\u671F\uFF0C\u65E0\u6CD5\u7EED\u671F");
+        newExpire = addDays(baseDate, days);
+      } else {
+        if (existing.billing === "once") throw new Error("\u4E00\u6B21\u6027\u8BA2\u9605\u65E0\u9700\u7EED\u671F");
+        const mode = existing.billingMode || "natural";
+        newExpire = addBillingPeriod(baseDate, existing.billing, mode, existing.cycleDays);
+      }
       const updated = { ...existing, expireDate: newExpire, status: "active" };
       if (existing.type === "esim" && balanceDelta !== null) {
         const prev = existing.balance == null ? 0 : existing.balance;
@@ -968,19 +939,16 @@ async function renewItem(env, id, request) {
       }
       return updated;
     });
-    if (!result)
-      return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
+    if (!result) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
     const historyDetails = { newExpireDate: result.expireDate };
     if (result.type === "esim" && balanceDelta !== null) {
       historyDetails.balanceDelta = balanceDelta;
       historyDetails.balanceAfter = result.balance;
-      if (balanceNote)
-        historyDetails.note = balanceNote;
+      if (balanceNote) historyDetails.note = balanceNote;
     }
     await recordHistory(env, "renew", result, historyDetails);
     const resp = { newExpireDate: result.expireDate };
-    if (result.type === "esim" && balanceDelta !== null)
-      resp.newBalance = result.balance;
+    if (result.type === "esim" && balanceDelta !== null) resp.newBalance = result.balance;
     return successResponse(resp, null, env);
   } catch (e) {
     return errorResponse(e.message || "\u7EED\u671F\u5931\u8D25", 400, null, env);
@@ -1006,8 +974,7 @@ async function rechargeItem(request, env, id) {
         predictedSuspendDate: newSuspendDate
       };
     });
-    if (!result)
-      return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, request, env);
+    if (!result) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, request, env);
     await recordHistory(env, "recharge", result, {
       amount,
       newBalance: result.balance,
@@ -1073,8 +1040,7 @@ async function exportCSV(env) {
   );
 }
 function csvEscape(s) {
-  if (!s)
-    return "";
+  if (!s) return "";
   s = String(s);
   if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
     return '"' + s.replace(/"/g, '""') + '"';
@@ -1121,8 +1087,7 @@ async function importJSON(request, env) {
         continue;
       }
       const item = createItem(type, raw);
-      if (importId)
-        item.id = importId;
+      if (importId) item.id = importId;
       existing.push(item);
       existingIds.add(item.id);
       added++;
@@ -1136,8 +1101,7 @@ async function importJSON(request, env) {
 }
 async function testNotify(env, id) {
   const item = await getItemById(env.DB, id);
-  if (!item)
-    return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
+  if (!item) return errorResponse("\u672A\u627E\u5230\u8BB0\u5F55", 404, null, env);
   const channels = await getConfiguredNotificationChannels(env);
   if (!channels.length) {
     return errorResponse("\u672A\u914D\u7F6E\u901A\u77E5\u6E20\u9053\u3002\u8BF7\u81F3\u5C11\u914D\u7F6E Telegram\u3001Bark\u3001\u4F01\u4E1A\u5FAE\u4FE1\u6216 Webhook \u4E2D\u7684\u4E00\u79CD", 400, null, env);
@@ -1161,8 +1125,7 @@ async function testNotify(env, id) {
       "<i>\u8FD9\u662F\u4E00\u6761\u6D4B\u8BD5\u901A\u77E5\uFF0C\u786E\u8BA4\u901A\u77E5\u529F\u80FD\u6B63\u5E38\u3002</i>"
     ].filter(Boolean).join("\n");
     const results2 = await sendNotifications(env, msg2, { title: "Sub-Tracker \u6D4B\u8BD5\u901A\u77E5" });
-    if (results2.some((r) => r.ok))
-      return successResponse({ channels: results2 }, null, env);
+    if (results2.some((r) => r.ok)) return successResponse({ channels: results2 }, null, env);
     return errorResponse("\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u901A\u77E5\u914D\u7F6E", 400, null, env);
   }
   const diff = daysUntil(item.expireDate);
@@ -1182,8 +1145,7 @@ async function testNotify(env, id) {
     "<i>\u8FD9\u662F\u4E00\u6761\u6D4B\u8BD5\u901A\u77E5\uFF0C\u786E\u8BA4\u901A\u77E5\u529F\u80FD\u6B63\u5E38\u3002</i>"
   ].filter(Boolean).join("\n");
   const results = await sendNotifications(env, msg, { title: "Sub-Tracker \u6D4B\u8BD5\u901A\u77E5" });
-  if (results.some((r) => r.ok))
-    return successResponse({ channels: results }, null, env);
+  if (results.some((r) => r.ok)) return successResponse({ channels: results }, null, env);
   return errorResponse("\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u901A\u77E5\u914D\u7F6E", 400, null, env);
 }
 
@@ -1367,12 +1329,9 @@ var PREFIXES_3 = [];
 var PREFIXES_2 = [];
 var PREFIXES_1 = [];
 for (const code of Object.keys(COUNTRY_MAP)) {
-  if (code.length === 3)
-    PREFIXES_3.push(code);
-  else if (code.length === 2)
-    PREFIXES_2.push(code);
-  else
-    PREFIXES_1.push(code);
+  if (code.length === 3) PREFIXES_3.push(code);
+  else if (code.length === 2) PREFIXES_2.push(code);
+  else PREFIXES_1.push(code);
 }
 function getCountryMap() {
   return COUNTRY_MAP;
@@ -1385,14 +1344,11 @@ function countUrgent(items, now = /* @__PURE__ */ new Date()) {
   base.setHours(0, 0, 0, 0);
   let count = 0;
   for (const i of items) {
-    if (i.status === "paused")
-      continue;
+    if (i.status === "paused") continue;
     const dateStr = i.type === "balance" ? i.predictedSuspendDate : i.expireDate;
-    if (!dateStr)
-      continue;
+    if (!dateStr) continue;
     const diff = Math.ceil((/* @__PURE__ */ new Date(dateStr + "T00:00:00") - base) / DAY_MS);
-    if (diff <= 15)
-      count++;
+    if (diff <= 15) count++;
   }
   return count;
 }
@@ -1404,10 +1360,8 @@ function sortItemsByPaused(items, sortBy = "expire", now = /* @__PURE__ */ new D
   items.sort((a, b) => {
     const ap = a.status === "paused" ? 1 : 0;
     const bp = b.status === "paused" ? 1 : 0;
-    if (ap !== bp)
-      return ap - bp;
-    if (sortBy === "name")
-      return (a.name || "").localeCompare(b.name || "", "zh");
+    if (ap !== bp) return ap - bp;
+    if (sortBy === "name") return (a.name || "").localeCompare(b.name || "", "zh");
     if (sortBy === "price") {
       const pa = a.type === "balance" ? a.monthlyFee || 0 : parseFloat(a.price) || 0;
       const pb = b.type === "balance" ? b.monthlyFee || 0 : parseFloat(b.price) || 0;
@@ -1420,6 +1374,232 @@ function sortItemsByPaused(items, sortBy = "expire", now = /* @__PURE__ */ new D
   return items;
 }
 
+// src/utils/qrcode.js
+function getQRCodeClientScript() {
+  return `
+function generateQRCodeSVG(text, options) {
+  options = options || {};
+  var size = options.size || 220;
+  var margin = options.margin !== undefined ? options.margin : 2;
+  var darkColor = options.darkColor || '#0f172a';
+  var lightColor = options.lightColor || '#ffffff';
+  if (!text) return '';
+  
+  var EXP = new Uint8Array(512);
+  var LOG = new Uint8Array(256);
+  (function() {
+    var x = 1;
+    for (var i = 0; i < 255; i++) {
+      EXP[i] = x;
+      EXP[i + 255] = x;
+      LOG[x] = i;
+      x = (x << 1) ^ (x >= 128 ? 0x11d : 0);
+    }
+  })();
+  function gfMul(x, y) { return x === 0 || y === 0 ? 0 : EXP[LOG[x] + LOG[y]]; }
+  function rsGenPoly(n) {
+    var poly = [1];
+    for (var i = 0; i < n; i++) {
+      var next = new Array(poly.length + 1).fill(0);
+      for (var j = 0; j < poly.length; j++) {
+        next[j] ^= gfMul(poly[j], EXP[i]);
+        next[j + 1] ^= poly[j];
+      }
+      poly = next;
+    }
+    return poly;
+  }
+  function rsEncode(data, ecCount) {
+    var gen = rsGenPoly(ecCount);
+    var res = new Array(ecCount).fill(0);
+    for (var i = 0; i < data.length; i++) {
+      var factor = data[i] ^ res[0];
+      res.shift();
+      res.push(0);
+      for (var j = 0; j < ecCount; j++) {
+        res[j] ^= gfMul(gen[j + 1], factor);
+      }
+    }
+    return res;
+  }
+  var VERSION_SPECS = [
+    null,
+    { ver: 1, size: 21, totalCW: 26, ecCW: 10, blocks: 1, cap: 14 },
+    { ver: 2, size: 25, totalCW: 44, ecCW: 16, blocks: 1, cap: 26 },
+    { ver: 3, size: 29, totalCW: 70, ecCW: 26, blocks: 1, cap: 42 },
+    { ver: 4, size: 33, totalCW: 100, ecCW: 18, blocks: 2, cap: 62 },
+    { ver: 5, size: 37, totalCW: 134, ecCW: 24, blocks: 2, cap: 84 },
+    { ver: 6, size: 41, totalCW: 172, ecCW: 16, blocks: 4, cap: 106 },
+    { ver: 7, size: 45, totalCW: 196, ecCW: 18, blocks: 4, cap: 122 },
+    { ver: 8, size: 49, totalCW: 242, ecCW: 22, blocks: 4, cap: 152 },
+    { ver: 9, size: 53, totalCW: 292, ecCW: 22, blocks: 5, cap: 180 },
+    { ver: 10, size: 57, totalCW: 346, ecCW: 26, blocks: 5, cap: 213 }
+  ];
+  function getAlign(ver) {
+    if (ver === 1) return [];
+    if (ver === 2) return [6, 18];
+    if (ver === 3) return [6, 22];
+    if (ver === 4) return [6, 26];
+    if (ver === 5) return [6, 30];
+    if (ver === 6) return [6, 34];
+    if (ver === 7) return [6, 22, 38];
+    if (ver === 8) return [6, 24, 42];
+    if (ver === 9) return [6, 26, 46];
+    if (ver === 10) return [6, 28, 50];
+    return [6, ver * 4 + 10];
+  }
+  var utf8 = new TextEncoder().encode(text);
+  var spec = null;
+  for (var v = 1; v < VERSION_SPECS.length; v++) {
+    if (utf8.length <= VERSION_SPECS[v].cap) { spec = VERSION_SPECS[v]; break; }
+  }
+  if (!spec) spec = VERSION_SPECS[VERSION_SPECS.length - 1];
+  var bitBuf = [];
+  function pushBits(val, len) {
+    for (var i = len - 1; i >= 0; i--) bitBuf.push((val >> i) & 1);
+  }
+  pushBits(4, 4);
+  pushBits(utf8.length, spec.ver < 10 ? 8 : 16);
+  for (var i = 0; i < utf8.length; i++) pushBits(utf8[i], 8);
+  var dataCWCapacity = spec.totalCW - spec.ecCW * spec.blocks;
+  var dataBitCapacity = dataCWCapacity * 8;
+  var termLen = Math.min(4, dataBitCapacity - bitBuf.length);
+  for (var i = 0; i < termLen; i++) bitBuf.push(0);
+  while (bitBuf.length % 8 !== 0) bitBuf.push(0);
+  var padBytes = [236, 17];
+  var padIdx = 0;
+  while (bitBuf.length < dataBitCapacity) { pushBits(padBytes[padIdx % 2], 8); padIdx++; }
+  var dataCW = [];
+  for (var i = 0; i < bitBuf.length; i += 8) {
+    var byte = 0;
+    for (var b = 0; b < 8; b++) byte = (byte << 1) | bitBuf[i + b];
+    dataCW.push(byte);
+  }
+  var numBlocks = spec.blocks;
+  var blockSize = Math.floor(dataCW.length / numBlocks);
+  var extraCW = dataCW.length % numBlocks;
+  var dataBlocks = [], ecBlocks = [];
+  var cwOffset = 0;
+  for (var b = 0; b < numBlocks; b++) {
+    var len = blockSize + (b >= numBlocks - extraCW ? 1 : 0);
+    var blockData = dataCW.slice(cwOffset, cwOffset + len);
+    cwOffset += len;
+    dataBlocks.push(blockData);
+    ecBlocks.push(rsEncode(blockData, spec.ecCW));
+  }
+  var finalCW = [];
+  var maxDataLen = Math.max.apply(null, dataBlocks.map(function(b) { return b.length; }));
+  for (var i = 0; i < maxDataLen; i++) {
+    for (var b = 0; b < numBlocks; b++) {
+      if (i < dataBlocks[b].length) finalCW.push(dataBlocks[b][i]);
+    }
+  }
+  for (var i = 0; i < spec.ecCW; i++) {
+    for (var b = 0; b < numBlocks; b++) {
+      finalCW.push(ecBlocks[b][i]);
+    }
+  }
+  var N = spec.size;
+  var matrix = Array.from({ length: N }, function() { return Array(N).fill(null); });
+  var isFunction = Array.from({ length: N }, function() { return Array(N).fill(false); });
+  function setFinder(row, col) {
+    for (var r = 0; r < 7; r++) {
+      for (var c = 0; c < 7; c++) {
+        var isDark = r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+        matrix[row + r][col + c] = isDark;
+        isFunction[row + r][col + c] = true;
+      }
+    }
+    for (var r = -1; r <= 7; r++) {
+      for (var c = -1; c <= 7; c++) {
+        var rr = row + r, cc = col + c;
+        if (rr >= 0 && rr < N && cc >= 0 && cc < N && !isFunction[rr][cc]) {
+          matrix[rr][cc] = false;
+          isFunction[rr][cc] = true;
+        }
+      }
+    }
+  }
+  setFinder(0, 0); setFinder(0, N - 7); setFinder(N - 7, 0);
+  if (spec.ver >= 2) {
+    var alignPos = getAlign(spec.ver);
+    for (var ai = 0; ai < alignPos.length; ai++) {
+      for (var aj = 0; aj < alignPos.length; aj++) {
+        var r = alignPos[ai], c = alignPos[aj];
+        if (isFunction[r][c]) continue;
+        for (var dr = -2; dr <= 2; dr++) {
+          for (var dc = -2; dc <= 2; dc++) {
+            var isDark = dr === -2 || dr === 2 || dc === -2 || dc === 2 || (dr === 0 && dc === 0);
+            matrix[r + dr][c + dc] = isDark;
+            isFunction[r + dr][c + dc] = true;
+          }
+        }
+      }
+    }
+  }
+  for (var i = 8; i < N - 8; i++) {
+    if (!isFunction[6][i]) { matrix[6][i] = i % 2 === 0; isFunction[6][i] = true; }
+    if (!isFunction[i][6]) { matrix[i][6] = i % 2 === 0; isFunction[i][6] = true; }
+  }
+  matrix[4 * spec.ver + 9][8] = true; isFunction[4 * spec.ver + 9][8] = true;
+  for (var i = 0; i < 9; i++) { if (!isFunction[8][i]) isFunction[8][i] = true; if (!isFunction[i][8]) isFunction[i][8] = true; }
+  for (var i = 0; i < 8; i++) { if (!isFunction[8][N - 1 - i]) isFunction[8][N - 1 - i] = true; if (!isFunction[N - 1 - i][8]) isFunction[N - 1 - i] = true; }
+  var bitIdx = 0, allBits = [];
+  for (var i = 0; i < finalCW.length; i++) {
+    for (var b = 7; b >= 0; b--) allBits.push((finalCW[i] >> b) & 1);
+  }
+  var right = N - 1, upwards = true;
+  while (right > 0) {
+    if (right === 6) right--;
+    for (var step = 0; step < N; step++) {
+      var row = upwards ? N - 1 - step : step;
+      for (var ci = 0; ci < 2; ci++) {
+        var col = right - ci;
+        if (!isFunction[row][col]) {
+          var bit = bitIdx < allBits.length ? allBits[bitIdx++] : 0;
+          var mask = (row + col) % 2 === 0;
+          matrix[row][col] = (bit ^ (mask ? 1 : 0)) === 1;
+        }
+      }
+    }
+    upwards = !upwards;
+    right -= 2;
+  }
+  var formatBits = [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0];
+  var formatPosTL = [[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
+  for (var i = 0; i < 15; i++) { matrix[formatPosTL[i][0]][formatPosTL[i][1]] = formatBits[i] === 1; }
+  var formatPosSplit = [[N-1,8],[N-2,8],[N-3,8],[N-4,8],[N-5,8],[N-6,8],[N-7,8],[8,N-8],[8,N-7],[8,N-6],[8,N-5],[8,N-4],[8,N-3],[8,N-2],[8,N-1]];
+  for (var i = 0; i < 15; i++) { matrix[formatPosSplit[i][0]][formatPosSplit[i][1]] = formatBits[i] === 1; }
+  
+  var n = matrix.length;
+  var total = n + margin * 2;
+  var cellSize = size / total;
+  var rects = '';
+  for (var r = 0; r < n; r++) {
+    for (var c = 0; c < n; c++) {
+      if (matrix[r][c]) {
+        var x = (c + margin) * cellSize;
+        var y = (r + margin) * cellSize;
+        rects += '<rect x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" width="' + cellSize.toFixed(2) + '" height="' + cellSize.toFixed(2) + '" fill="' + darkColor + '"/>';
+      }
+    }
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '" shape-rendering="crispEdges"><rect width="' + size + '" height="' + size + '" fill="' + lightColor + '" rx="12"/>' + rects + '</svg>';
+}
+`;
+}
+var EXP = new Uint8Array(512);
+var LOG = new Uint8Array(256);
+(function initGF() {
+  let x = 1;
+  for (let i = 0; i < 255; i++) {
+    EXP[i] = x;
+    EXP[i + 255] = x;
+    LOG[x] = i;
+    x = x << 1 ^ (x >= 128 ? 285 : 0);
+  }
+})();
+
 // src/ui/client-script.js
 function getFrontendFlagMap() {
   return Object.fromEntries(
@@ -1429,12 +1609,16 @@ function getFrontendFlagMap() {
 function getClientScript() {
   const flagMap = getFrontendFlagMap();
   const statsSrc = countUrgent.toString() + "\n" + sortItemsByPaused.toString();
+  const qrScript = getQRCodeClientScript();
   return `${statsSrc}
+${qrScript}
+
 let TOKEN = localStorage.getItem('token') || '';
 let allItems = [];
 let currentFilter = 'all';
 let currentView = 'grid';
 let calYear, calMonth;
+let currentLpaString = '';
 let _renderTimer = null;
 function debouncedRender() { clearTimeout(_renderTimer); _renderTimer = setTimeout(renderItems, 300); }
 
@@ -1447,8 +1631,58 @@ function showToast(msg, type = 'info') {
   setTimeout(() => { t.style.animation = 'toastOut 0.3s ease forwards'; setTimeout(() => t.remove(), 300); }, 3500);
 }
 
+function copyText(text, label = '') {
+  if (!text) return;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast((label ? label + ' ' : '') + '\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F', 'success');
+    }).catch(() => fallbackCopy(text, label));
+  } else {
+    fallbackCopy(text, label);
+  }
+}
+
+function fallbackCopy(text, label) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast((label ? label + ' ' : '') + '\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F', 'success');
+  } catch (e) {
+    showToast('\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9\u590D\u5236', 'error');
+  }
+  document.body.removeChild(ta);
+}
+
+function togglePasswordVis(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPass = input.type === 'password';
+  input.type = isPass ? 'text' : 'password';
+  const icon = btn.querySelector('i');
+  if (icon) {
+    icon.className = isPass ? 'fa-solid fa-eye text-sky-400' : 'fa-solid fa-eye-slash text-slate-400';
+  }
+}
+
+function toggleFab() {
+  const menu = document.getElementById('fab-menu');
+  const icon = document.getElementById('fab-icon');
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !isHidden);
+  if (icon) {
+    icon.style.transform = isHidden ? 'rotate(45deg)' : 'rotate(0deg)';
+  }
+}
+
 const API = '';
 const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
+const DEFAULT_EXCHANGE_RATES = ${JSON.stringify(DEFAULT_EXCHANGE_RATES)};
 
 // ==================== API ====================
 async function api(method, path, body) {
@@ -1456,7 +1690,6 @@ async function api(method, path, body) {
   if (TOKEN) opts.headers['Authorization'] = TOKEN;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
-  // Auto-logout on session expiry
   if (res.status === 401 && TOKEN) {
     TOKEN = ''; localStorage.removeItem('token');
     document.getElementById('dashboard-view').classList.add('hidden');
@@ -1510,8 +1743,7 @@ async function enterDashboard() {
   document.getElementById('dashboard-view').classList.remove('hidden');
   const now = new Date();
   document.getElementById('today-display').textContent = now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
-  const now2 = new Date();
-  calYear = now2.getFullYear(); calMonth = now2.getMonth();
+  calYear = now.getFullYear(); calMonth = now.getMonth();
   await loadItems();
 }
 
@@ -1533,12 +1765,11 @@ function renderStats() {
   const balances = allItems.filter(i => i.type === 'balance');
   const urgentCount = countUrgent(allItems);
 
-  // Cost calculation \u2014 group by currency to avoid mixing
-  // \u4EC5\u7EDF\u8BA1 active\uFF08\u6682\u505C=\u4E0D\u82B1\u94B1\uFF09\uFF0C\u4E0E analytics \u9762\u677F\u53E3\u5F84\u4E00\u81F4
   const activeSubs = subs.filter(s => s.status !== 'paused');
   const activeBalances = balances.filter(b => b.status !== 'paused');
   const monthlyByCur = {};
   const yearlyByCur = {};
+
   activeSubs.forEach(s => {
     if (!s.price) return;
     const p = parseFloat(s.price);
@@ -1549,7 +1780,6 @@ function renderStats() {
     else { yearlyByCur[cur] = (yearlyByCur[cur]||0) + p; }
   });
 
-  // Balance: add monthly fees to cost
   activeBalances.forEach(b => {
     if (!b.monthlyFee) return;
     const cur = b.currency || 'CNY';
@@ -1557,7 +1787,6 @@ function renderStats() {
     yearlyByCur[cur] = (yearlyByCur[cur]||0) + parseFloat(b.monthlyFee) * 12;
   });
 
-  // Total balance (grouped)
   const balanceByCur = {};
   balances.forEach(b => {
     if (b.balance == null) return;
@@ -1565,16 +1794,10 @@ function renderStats() {
     balanceByCur[cur] = (balanceByCur[cur]||0) + b.balance;
   });
 
-  // Format: show primary currency, append others if mixed
   const allCurs = [...new Set([...Object.keys(monthlyByCur), ...Object.keys(balanceByCur)])].sort();
-  const primaryCur = allCurs[0] || 'CNY';
-  const sym = currSym(primaryCur);
 
-  function fmtCost(bucket) {
-    if (!allCurs.length) return sym + '0';
-    const parts = allCurs.filter(c => bucket[c] > 0).map(c => currSym(c) + Math.round(bucket[c]));
-    return parts.length ? parts[0] + (parts.length > 1 ? ' +' : '') : sym + '0';
-  }
+  // Multi-currency converted estimate to CNY
+  const convertedMonthlyCNY = Object.entries(monthlyByCur).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
 
   function fmtBalance() {
     if (!allCurs.length) return '0';
@@ -1587,7 +1810,7 @@ function renderStats() {
     { label:'\u8BA2\u9605', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10', filter:'subscription' },
     { label:'\u8BDD\u8D39', value:balances.length ? fmtBalance() : '0', icon:'fa-wallet', color:'text-amber-400', bg:'bg-amber-500/10', filter:'balance' },
     { label:'\u5373\u5C06\u5230\u671F', value:urgentCount, icon:'fa-clock', color:'text-rose-400', bg:'bg-rose-500/10', filter:'urgent' },
-    { label:'\u6708\u5EA6\u652F\u51FA', value:fmtCost(monthlyByCur), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
+    { label:'\u6708\u5EA6\u603B\u652F\u51FA (\u6298\u7B97)', value:'\xA5' + Math.round(convertedMonthlyCNY), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
@@ -1645,6 +1868,9 @@ function renderAnalytics() {
   const currencies = Object.keys(monthly).sort();
   if (!currencies.length) { panel.innerHTML = ''; return; }
 
+  const totalMonthlyCNY = Object.entries(monthly).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
+  const totalYearlyCNY = Object.entries(yearly).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
+
   const currencyHTML = currencies.map(cur =>
     '<div class="glass-card rounded-xl p-4">' +
       '<div class="text-xs text-slate-400 mb-1">'+cur+'</div>' +
@@ -1664,9 +1890,19 @@ function renderAnalytics() {
     ).join('');
 
   panel.innerHTML =
+    '<div class="glass rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-sky-950/40 to-slate-900/40 border border-sky-500/20">' +
+      '<div>' +
+        '<div class="text-xs text-sky-400 font-semibold mb-0.5"><i class="fa-solid fa-calculator mr-1"></i>\u5168\u5E01\u79CD\u6C47\u7387\u6298\u7B97\u603B\u652F\u51FA (\u57FA\u51C6: CNY)</div>' +
+        '<div class="text-xl sm:text-2xl font-bold text-white">\xA5' + totalMonthlyCNY.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u6708</span></div>' +
+      '</div>' +
+      '<div class="sm:text-right sm:border-l sm:border-white/10 sm:pl-6">' +
+        '<div class="text-xs text-slate-400 mb-0.5">\u6298\u7B97\u5E74\u5EA6\u603B\u9884\u7B97</div>' +
+        '<div class="text-base sm:text-lg font-bold text-emerald-400">\xA5' + totalYearlyCNY.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u5E74</span></div>' +
+      '</div>' +
+    '</div>' +
     '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
-      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-chart-simple text-emerald-400 mr-2"></i>\u6309\u8D27\u5E01\u7EDF\u8BA1</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'+currencyHTML+'</div></div>' +
-      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-layer-group text-violet-400 mr-2"></i>\u6309\u5206\u7C7B\u7EDF\u8BA1</div>'+categoryRows+'</div>' +
+      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-chart-simple text-emerald-400 mr-2"></i>\u6309\u539F\u59CB\u5E01\u79CD\u7EDF\u8BA1</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'+currencyHTML+'</div></div>' +
+      '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-layer-group text-violet-400 mr-2"></i>\u6309\u5206\u7C7B\u652F\u51FA\u7EDF\u8BA1</div>'+categoryRows+'</div>' +
     '</div>';
 }
 
@@ -1678,7 +1914,6 @@ function setFilter(f) {
     b.classList.toggle('tab-active', active);
     b.classList.toggle('text-slate-400', !active);
   });
-  // Clear tab-active from all if filter is not a standard type
   if (!['all','esim','subscription','balance'].includes(f)) {
     document.querySelectorAll('.filter-tab').forEach(b => { b.classList.remove('tab-active'); b.classList.add('text-slate-400'); });
   }
@@ -1703,7 +1938,7 @@ function getFilteredItems() {
     if (currentFilter === 'urgent') {
       const today = new Date(); today.setHours(0,0,0,0);
       items = items.filter(i => {
-        if (i.status === 'paused') return false; // \u4E0E\u5373\u5C06\u5230\u671F\u7EDF\u8BA1\u53E3\u5F84\u4E00\u81F4
+        if (i.status === 'paused') return false;
         const dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
         if (!dateStr) return false;
         const diff = Math.ceil((new Date(dateStr+'T00:00:00') - today) / 86400000);
@@ -1769,7 +2004,6 @@ function cardHTML(item) {
   if (isBalance) {
     const sym = currSym(item.currency);
     const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
-    const suspendStr = item.predictedSuspendDate || '\u672A\u8BA1\u7B97';
     body = (item.number ? '<div class="text-sm text-slate-300 font-mono mb-1">'+esc(item.number)+'</div>' : '') +
       '<div class="text-lg text-emerald-400 font-bold">'+sym+esc(item.balance)+'</div>' +
       '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-receipt mr-1"></i>\u6708\u79DF '+sym+esc(item.monthlyFee)+'/\u6708 \xB7 \u6BCF\u6708'+esc(item.billingDay)+'\u65E5\u6263</div>' +
@@ -1777,24 +2011,30 @@ function cardHTML(item) {
       (item.lastRecharge ? '<div class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-plus-circle mr-1"></i>\u4E0A\u6B21 '+((item.lastRecharge.amount>0)?'+':'')+esc(item.lastRecharge.amount)+' ('+esc(item.lastRecharge.date)+')</div>' : '');
   } else if (isEsim) {
     const iso = getFlag(item.number);
+    const hasLPA = item.smDp || item.activationCode;
     body = (iso ? '<div class="text-xs font-mono text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded mb-2 inline-block">'+esc(iso)+'</div>' : '') +
-      (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '');
+      (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '') +
+      (hasLPA ? '<div class="text-xs text-cyan-400/90 mt-1 cursor-pointer hover:text-cyan-300 flex items-center gap-1.5" onclick="showQrCode('+jsArg(item.id)+')"><i class="fa-solid fa-qrcode text-cyan-400"></i><span>\u70B9\u51FB\u5C55\u793A\u5B89\u88C5\u4E8C\u7EF4\u7801</span></div>' : '');
   } else {
     const ps = item.price ? (item.billing==='yearly' ? currSym(item.currency)+item.price+'/\u5E74' : item.billing==='once' ? currSym(item.currency)+item.price+'(\u4E00\u6B21\u6027)' : currSym(item.currency)+item.price+'/\u6708') : '';
     const regionStr = item.region ? esc(item.region) : '';
     const catStr = item.category ? esc(item.category) : '';
     const metaLine = [catStr, regionStr].filter(Boolean).join(' \xB7 ');
+    const autoBadge = item.autoRenew ? '<span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded ml-2" title="\u5230\u671F\u81EA\u52A8\u987A\u5EF6"><i class="fa-solid fa-arrows-rotate mr-1"></i>\u81EA\u52A8\u7EED\u8D39</span>' : '';
     body = (metaLine ? '<div class="text-xs text-slate-400 mb-1">'+metaLine+'</div>' : '') +
-      (ps ? '<div class="text-sm text-emerald-400 font-semibold">'+esc(ps)+'</div>' : '') +
+      (ps ? '<div class="text-sm text-emerald-400 font-semibold flex items-center">'+esc(ps)+autoBadge+'</div>' : '') +
       (item.subId ? '<div class="text-xs text-slate-500 mt-1 truncate"><i class="fa-solid fa-id-card mr-1"></i>'+esc(item.subId)+'</div>' : '');
     if (item.url) body += '<a href="'+safeHref(item.url)+'" target="_blank" rel="noopener noreferrer" class="text-xs text-sky-400 hover:underline mt-1 inline-block"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>\u8BBF\u95EE</a>';
   }
 
   const idArg = jsArg(item.id);
+  const hasLPA = isEsim && (item.smDp || item.activationCode);
+  const qrBtn = hasLPA ?
+    '<button onclick="showQrCode('+idArg+')" class="text-xs btn-touch text-cyan-400 hover:text-cyan-300 px-2 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors" title="\u67E5\u770B eSIM \u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '';
   const renewBtn = (isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ?
-    '<button onclick="renewItem('+idArg+')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors"><i class="fa-solid fa-rotate"></i> \u7EED\u671F</button>' : '';
+    '<button onclick="renewItem('+idArg+')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2.5 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors font-medium"><i class="fa-solid fa-rotate mr-1"></i>\u7EED\u671F</button>' : '';
   const rechargeBtn = isBalance ?
-    '<button onclick="rechargeItem('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors"><i class="fa-solid fa-plus-circle"></i> \u5145\u503C</button>' : '';
+    '<button onclick="rechargeItem('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors font-medium"><i class="fa-solid fa-plus-circle mr-1"></i>\u5145\u503C</button>' : '';
 
   return '<div class="glass-card rounded-xl p-5">' +
     '<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2">' +
@@ -1808,13 +2048,14 @@ function cardHTML(item) {
     (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>\u5468\u671F: '+esc(item.cycle)+'\u5929</div>' : '') +
     (isEsim && item.balance != null ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-wallet mr-1"></i>\u4F59\u989D: '+currSym(item.currency || 'CNY')+esc(item.balance)+'</div>' : '') +
     (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
-    '<div class="flex justify-end gap-2 mt-3 pt-3 border-t border-white/5">' +
-    rechargeBtn +
-    renewBtn +
-    '<button onclick="toggleStatus('+idArg+')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'\u542F\u7528':'\u6682\u505C')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
-    '<button onclick="testNotify('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="\u6D4B\u8BD5\u901A\u77E5"><i class="fa-solid fa-bell"></i></button>' +
-    '<button onclick="editItem('+idArg+')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
-    '<button onclick="deleteItem('+idArg+')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
+    '<div class="flex justify-between items-center gap-2 mt-3 pt-3 border-t border-white/5">' +
+      '<div class="flex items-center gap-1">' + qrBtn + rechargeBtn + renewBtn + '</div>' +
+      '<div class="flex items-center gap-1">' +
+        '<button onclick="toggleStatus('+idArg+')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'\u542F\u7528':'\u6682\u505C')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
+        '<button onclick="testNotify('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="\u6D4B\u8BD5\u901A\u77E5"><i class="fa-solid fa-bell"></i></button>' +
+        '<button onclick="editItem('+idArg+')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5" title="\u7F16\u8F91"><i class="fa-solid fa-pen"></i></button>' +
+        '<button onclick="deleteItem('+idArg+')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10" title="\u5220\u9664"><i class="fa-solid fa-trash"></i></button>' +
+      '</div>' +
     '</div></div>';
 }
 
@@ -1822,14 +2063,12 @@ function cardHTML(item) {
 function renderList(items, area) {
   const isMobile = window.innerWidth < 640;
   if (isMobile) {
-    // Mobile: stacked card layout, no grid table
     let html = '<div class="space-y-2">';
     html += items.map(i => listRowMobileHTML(i)).join('');
     html += '</div>';
     area.innerHTML = html;
     return;
   }
-  // Desktop: grid table
   let html = '<div class="glass rounded-xl overflow-hidden">';
   html += '<div class="hidden sm:grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold text-slate-400 border-b border-white/10 bg-white/5">' +
     '<div class="col-span-4">\u540D\u79F0</div><div class="col-span-2">\u7C7B\u578B/\u53F7\u7801</div>' +
@@ -1845,6 +2084,7 @@ function listRowMobileHTML(item) {
   const isBalance = item.type === 'balance';
   const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
   const isEsim = item.type === 'esim';
+  const hasLPA = isEsim && (item.smDp || item.activationCode);
   const idArg = jsArg(item.id);
   let tc, ti;
   if (isBalance) { tc = 'text-amber-400'; ti = 'fa-wallet'; }
@@ -1873,6 +2113,7 @@ function listRowMobileHTML(item) {
         (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
       '</div>' +
       '<div class="flex gap-1 flex-shrink-0">' +
+        (hasLPA ? '<button onclick="showQrCode('+idArg+')" class="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded hover:bg-cyan-500/10" title="\u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '') +
         (isBalance ? '<button onclick="rechargeItem('+idArg+')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="\u5145\u503C"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
         ((isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ? '<button onclick="renewItem('+idArg+')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
         '<button onclick="toggleStatus('+idArg+')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'\u542F\u7528':'\u6682\u505C')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
@@ -1889,6 +2130,7 @@ function listRowHTML(item) {
   const isBalance = item.type === 'balance';
   const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
   const isEsim = item.type === 'esim';
+  const hasLPA = isEsim && (item.smDp || item.activationCode);
   const flag = isEsim ? getFlag(item.number) : '';
   const idArg = jsArg(item.id);
   let sub, priceStr, iconClass;
@@ -1917,6 +2159,7 @@ function listRowHTML(item) {
     '<div class="col-span-3 sm:col-span-2 text-xs text-slate-300">'+dateCol+'</div>' +
     '<div class="col-span-2 hidden sm:block text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'\u5DF2\u6682\u505C':st.text)+'</div>' +
     '<div class="col-span-3 sm:col-span-2 flex justify-end gap-1">' +
+      (hasLPA ? '<button onclick="showQrCode('+idArg+')" class="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded hover:bg-cyan-500/10" title="\u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '') +
       (isBalance ? '<button onclick="rechargeItem('+idArg+')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="\u5145\u503C"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
       ((isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ? '<button onclick="renewItem('+idArg+')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
       '<button onclick="toggleStatus('+idArg+')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'\u542F\u7528':'\u6682\u505C')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
@@ -1930,19 +2173,13 @@ function listRowHTML(item) {
 function renderCalendar(items, area) {
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDay = new Date(calYear, calMonth + 1, 0);
-  const startPad = firstDay.getDay(); // 0=Sun
+  const startPad = firstDay.getDay();
   const daysInMonth = lastDay.getDate();
   const today = new Date(); today.setHours(0,0,0,0);
 
-  // Build events map
   const events = {};
   items.forEach(i => {
-    let dateStr;
-    if (i.type === 'balance') {
-      dateStr = i.predictedSuspendDate;
-    } else {
-      dateStr = i.expireDate;
-    }
+    let dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
     if (!dateStr) return;
     const d = new Date(dateStr+'T00:00:00');
     const key = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
@@ -1950,26 +2187,39 @@ function renderCalendar(items, area) {
     events[key].push(i);
   });
 
+  // Project recurring active subscriptions onto the viewed month
+  items.forEach(i => {
+    if (i.status === 'paused') return;
+    if (i.type === 'subscription' && i.billing === 'monthly' && i.expireDate) {
+      const orig = new Date(i.expireDate + 'T00:00:00');
+      const dayOfMonth = orig.getDate();
+      const targetDay = Math.min(dayOfMonth, daysInMonth);
+      const key = calYear + '-' + (calMonth + 1) + '-' + targetDay;
+      if (!events[key]) events[key] = [];
+      if (!events[key].some(e => e.id === i.id)) {
+        events[key].push({ ...i, _isProjected: true });
+      }
+    }
+  });
+
   const monthName = calYear + '\u5E74' + (calMonth+1) + '\u6708';
   const weekDays = ['\u65E5','\u4E00','\u4E8C','\u4E09','\u56DB','\u4E94','\u516D'];
 
   let html = '<div class="glass rounded-xl p-4">';
-  // Header
   html += '<div class="flex justify-between items-center mb-4">' +
-    '<button onclick="calPrev()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-left"></i></button>' +
+    '<div class="flex items-center gap-2">' +
+      '<button onclick="calPrev()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-left"></i></button>' +
+      '<button onclick="calToday()" class="text-xs text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">\u4ECA\u5929</button>' +
+    '</div>' +
     '<h3 class="text-lg font-bold text-white">'+monthName+'</h3>' +
     '<button onclick="calNext()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-right"></i></button></div>';
 
-  // Weekday headers
   html += '<div class="grid grid-cols-7 gap-1 mb-1">';
   weekDays.forEach(d => html += '<div class="text-center text-xs font-semibold text-slate-400 py-2">'+d+'</div>');
   html += '</div>';
 
-  // Days grid
   html += '<div class="grid grid-cols-7 gap-1">';
-  // Padding
   for (let i = 0; i < startPad; i++) html += '<div class="cal-day rounded-lg"></div>';
-  // Days
   for (let d = 1; d <= daysInMonth; d++) {
     const key = calYear+'-'+(calMonth+1)+'-'+d;
     const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
@@ -1981,8 +2231,9 @@ function renderCalendar(items, area) {
       let bg;
       if (e.type === 'balance') bg = 'bg-amber-500/30 text-amber-300';
       else if (e.type === 'esim') bg = 'bg-cyan-500/30 text-cyan-300';
-      else bg = 'bg-violet-500/30 text-violet-300';
-      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem('+jsArg(e.id)+')" title="'+esc(e.name)+'\uFF08\u70B9\u51FB\u7F16\u8F91\uFF09">'+esc(e.name)+'</div>';
+      else bg = e._isProjected ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-violet-500/30 text-violet-300';
+      const prefix = e._isProjected ? '\u{1F504} ' : '';
+      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem('+jsArg(e.id)+')" title="'+esc(prefix + e.name)+'\uFF08\u70B9\u51FB\u7F16\u8F91\uFF09">'+esc(prefix + e.name)+'</div>';
     });
     html += '</div>';
   }
@@ -1995,6 +2246,7 @@ function renderCalendar(items, area) {
 
 function calPrev() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderItems(); }
 function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderItems(); }
+function calToday() { const n = new Date(); calYear = n.getFullYear(); calMonth = n.getMonth(); renderItems(); }
 
 // ==================== HELPERS ====================
 function getDiff(item) {
@@ -2069,7 +2321,60 @@ document.addEventListener('click', e => {
   const menu = document.getElementById('dropdown-menu');
   const trigger = document.getElementById('menu-trigger');
   if (menu && !menu.contains(e.target) && !trigger.contains(e.target)) hideMenu();
+  const fabMenu = document.getElementById('fab-menu');
+  const fabBtn = document.getElementById('fab-btn');
+  if (fabMenu && !fabMenu.contains(e.target) && !fabBtn.contains(e.target)) {
+    fabMenu.classList.add('hidden');
+    const icon = document.getElementById('fab-icon');
+    if (icon) icon.style.transform = 'rotate(0deg)';
+  }
 });
+
+// ==================== QR MODAL ====================
+function showQrCode(id) {
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  const smdp = (item.smDp || '').trim();
+  const act = (item.activationCode || '').trim();
+  const conf = (item.confirmationCode || '').trim();
+
+  // GSMA LPA Standard format
+  let lpa = 'LPA:1$' + smdp + '$' + act;
+  if (conf) lpa += '$' + conf;
+  currentLpaString = lpa;
+
+  document.getElementById('qr-title').textContent = (item.name || 'eSIM') + ' \u5B89\u88C5\u4E8C\u7EF4\u7801';
+  document.getElementById('qr-smdp-val').textContent = smdp || '(\u672A\u586B\u5199)';
+  document.getElementById('qr-act-val').textContent = act || '(\u672A\u586B\u5199)';
+
+  const confRow = document.getElementById('qr-conf-row');
+  if (conf) {
+    confRow.classList.remove('hidden');
+    document.getElementById('qr-conf-val').textContent = conf;
+  } else {
+    confRow.classList.add('hidden');
+  }
+
+  const svg = generateQRCodeSVG(lpa, { size: 210 });
+  document.getElementById('qr-container').innerHTML = svg || '<p class="text-slate-500 text-xs">\u65E0\u6CD5\u751F\u6210\u4E8C\u7EF4\u7801\uFF0C\u8BF7\u5148\u586B\u5199 SM-DP+ \u4E0E\u6FC0\u6D3B\u7801</p>';
+
+  const overlay = document.getElementById('qr-overlay');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+}
+
+function closeQrModal() {
+  const overlay = document.getElementById('qr-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+  }
+}
+
+function copyLpaString() {
+  if (!currentLpaString) return;
+  copyText(currentLpaString, 'LPA \u6FC0\u6D3B\u4EE3\u7801');
+}
 
 // ==================== MODAL ====================
 function openModal(type, item) {
@@ -2086,12 +2391,13 @@ function openModal(type, item) {
   document.getElementById('field-price').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-balance').classList.toggle('hidden', type !== 'balance');
-  // expireDate: hidden for balance only
-  // cycle: only shown for esim
+  
   const expireField = document.getElementById('form-expire').closest('.space-y-4 > div') || document.getElementById('form-expire').parentElement;
   const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
   if (expireField) expireField.classList.toggle('hidden', type === 'balance');
   if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim');
+  document.getElementById('field-billing-mode').classList.toggle('hidden', type !== 'subscription');
+  updateCycleDaysVisibility(type);
 
   if (item) {
     document.getElementById('form-name').value = item.name || '';
@@ -2110,6 +2416,9 @@ function openModal(type, item) {
     document.getElementById('form-price').value = item.price || '';
     document.getElementById('form-currency').value = item.currency || 'CNY';
     document.getElementById('form-billing').value = item.billing || 'monthly';
+    document.getElementById('form-billing-mode').value = item.billingMode || 'natural';
+    document.getElementById('form-cycle-days').value = item.cycleDays || '';
+    document.getElementById('form-auto-renew').checked = Boolean(item.autoRenew);
     document.getElementById('form-url').value = item.url || '';
     document.getElementById('form-remark').value = item.remark || '';
     document.getElementById('form-status').value = item.status || 'active';
@@ -2121,7 +2430,8 @@ function openModal(type, item) {
     setSelectedRemindDays(item.remindDays);
   } else {
     document.getElementById('item-form').reset();
-    setSelectedRemindDays(DEFAULT_REMIND_DAYS_CLIENT); // defaults
+    document.getElementById('form-auto-renew').checked = false;
+    setSelectedRemindDays(DEFAULT_REMIND_DAYS_CLIENT);
   }
   document.getElementById('modal-overlay').classList.remove('hidden');
   document.getElementById('modal-overlay').classList.add('flex');
@@ -2129,6 +2439,24 @@ function openModal(type, item) {
 
 function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('flex'); }
 function closeHistory() { document.getElementById('history-overlay').classList.add('hidden'); document.getElementById('history-overlay').classList.remove('flex'); }
+
+function updateCycleDaysVisibility(type) {
+  const field = document.getElementById('field-cycle-days');
+  if (!field) return;
+  const isFixed = type === 'subscription' && document.getElementById('form-billing-mode').value === 'fixed';
+  field.classList.toggle('hidden', !isFixed);
+  if (isFixed) {
+    const billing = document.getElementById('form-billing').value;
+    const input = document.getElementById('form-cycle-days');
+    input.placeholder = billing === 'yearly' ? '\u9ED8\u8BA4365\u5929' : '\u9ED8\u8BA430\u5929';
+  }
+}
+
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'form-billing-mode' || e.target.id === 'form-billing') {
+    updateCycleDaysVisibility(document.getElementById('form-type')?.value || 'subscription');
+  }
+});
 
 async function saveItem(e) {
   e.preventDefault();
@@ -2151,6 +2479,9 @@ async function saveItem(e) {
     price: document.getElementById('form-price').value || null,
     currency: document.getElementById('form-currency').value,
     billing: document.getElementById('form-billing').value,
+    billingMode: document.getElementById('form-billing-mode').value,
+    cycleDays: parseInt(document.getElementById('form-cycle-days').value) || null,
+    autoRenew: document.getElementById('form-auto-renew').checked,
     url: document.getElementById('form-url').value.trim(),
     remark: document.getElementById('form-remark').value.trim(),
     status: document.getElementById('form-status').value,
@@ -2160,11 +2491,9 @@ async function saveItem(e) {
     billingDay: document.getElementById('form-billing-day').value,
   };
 
-  // Client-side validation for non-balance types
   if (body.type !== 'balance' && !body.expireDate) {
     showToast('\u5230\u671F\u65E5\u671F\u4E0D\u80FD\u4E3A\u7A7A', 'error'); return;
   }
-  // Client-side validation for balance type
   if (body.type === 'balance') {
     if (!body.balance && body.balance !== 0) { showToast('\u8BF7\u8F93\u5165\u5F53\u524D\u4F59\u989D', 'error'); return; }
     if (!body.monthlyFee && body.monthlyFee !== 0) { showToast('\u8BF7\u8F93\u5165\u6708\u79DF', 'error'); return; }
@@ -2315,9 +2644,6 @@ async function importJSON(input) {
     const result = await res.json();
     if (result.success) {
       const skipped = result.skipped ? '\uFF0C\u8DF3\u8FC7 ' + result.skipped + ' \u6761' : '';
-      const details = result.errors && result.errors.length
-        ? '\\n\u524D\u51E0\u6761\u9519\u8BEF\uFF1A\\n' + result.errors.map(e => '#' + (e.index + 1) + ' ' + (e.name || '') + ' ' + e.message).join('\\n')
-        : '';
       showToast('\u5BFC\u5165\u5B8C\u6210\uFF01\u65B0\u589E ' + result.added + ' \u6761' + skipped, 'success');
       await loadItems();
     } else {
@@ -2402,7 +2728,10 @@ function historyHTML(entry) {
 
 function historyDetail(entry) {
   const d = entry.details || {};
-  if (entry.action === 'renew' && d.newExpireDate) return '\u65B0\u5230\u671F\u65E5\uFF1A' + esc(d.newExpireDate);
+  if (entry.action === 'renew' && d.newExpireDate) {
+    const autoBadge = d.auto ? ' (\u81EA\u52A8\u7EED\u8D39)' : '';
+    return '\u65B0\u5230\u671F\u65E5\uFF1A' + esc(d.newExpireDate) + autoBadge;
+  }
   if (entry.action === 'recharge') {
     const parts = [];
     if (d.amount != null) parts.push('\u91D1\u989D\uFF1A' + esc(d.amount));
@@ -2437,8 +2766,8 @@ function downloadDemo() {
     items: [
       { type: 'esim', name: '\u7F8E\u56FD\u4FDD\u53F7\u5361', number: '+120****1234', expireDate: '2026-12-31', cycle: 180, remark: 'Ultra Mobile \u4FDD\u53F7', status: 'active', smDp: 'rsp.ultramobile.com', activationCode: 'DEMO-ACT-CODE', confirmationCode: 'DEMO-CONF-CODE', wid: '89012345678901234567890123456789', balance: 12.5, currency: 'USD' },
       { type: 'esim', name: '\u65E5\u672C IIJmio', number: '+819****4567', expireDate: '2026-09-15', cycle: 365, remark: '', status: 'active' },
-      { type: 'subscription', name: 'ChatGPT Plus', category: 'AI \u5DE5\u5177', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
-      { type: 'subscription', name: 'YouTube Premium', category: '\u89C6\u9891\u4F1A\u5458', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '\u571F\u8033\u5176\u533A', status: 'active' },
+      { type: 'subscription', name: 'ChatGPT Plus', category: 'AI \u670D\u52A1', region: 'US', subId: '', expireDate: '2026-07-20', price: '20', billing: 'monthly', currency: 'USD', autoRenew: true, remindDays: [3, 1, 0], url: 'https://chat.openai.com', remark: '', status: 'active' },
+      { type: 'subscription', name: 'YouTube Premium', category: '\u6D41\u5A92\u4F53', region: 'TR', subId: '', expireDate: '2026-08-01', price: '99.99', billing: 'yearly', currency: 'TRY', autoRenew: false, remindDays: [7, 3, 1], url: 'https://youtube.com/premium', remark: '\u571F\u8033\u5176\u533A', status: 'active' },
     ]
   };
   const blob = new Blob([JSON.stringify(demo, null, 2)], { type: 'application/json' });
@@ -2453,15 +2782,14 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeModal();
     closeHistory();
+    closeQrModal();
     const ro = document.getElementById('recharge-overlay');
     if (ro) { ro.classList.add('hidden'); ro.classList.remove('flex'); }
     const menu = document.getElementById('dropdown-menu');
     if (menu) menu.classList.add('hidden');
     return;
   }
-  // Skip shortcuts when typing in inputs
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-  // / = focus search
   if (e.key === '/') {
     e.preventDefault();
     const search = document.getElementById('search-input');
@@ -2515,16 +2843,16 @@ function getStyles() {
     .btn-primary:hover { filter:brightness(1.1); transform:translateY(-1px); }
     .status-active { color:#4ade80; } .status-warning { color:#fbbf24; }
     .status-danger { color:#f87171; } .status-expired { color:#ef4444; }
-    .modal-overlay { background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); }
+    .modal-overlay { background:rgba(0,0,0,0.65); backdrop-filter:blur(6px); }
     .toast-container { position:fixed; top:1rem; left:50%; transform:translateX(-50%); z-index:99999; display:flex; flex-direction:column; gap:0.5rem; pointer-events:none; }
-    .toast { pointer-events:auto; padding:0.75rem 1.25rem; border-radius:0.75rem; font-size:0.875rem; font-weight:500; color:#fff; backdrop-filter:blur(12px); animation:toastIn 0.3s ease; max-width:24rem; text-align:center; }
-    .toast-success { background:rgba(16,185,129,0.9); }
-    .toast-error { background:rgba(239,68,68,0.9); }
-    .toast-info { background:rgba(56,189,248,0.9); }
+    .toast { pointer-events:auto; padding:0.75rem 1.25rem; border-radius:0.75rem; font-size:0.875rem; font-weight:500; color:#fff; backdrop-filter:blur(12px); animation:toastIn 0.3s ease; max-width:24rem; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,0.3); }
+    .toast-success { background:rgba(16,185,129,0.92); }
+    .toast-error { background:rgba(239,68,68,0.92); }
+    .toast-info { background:rgba(56,189,248,0.92); }
     @keyframes toastIn { from{opacity:0;transform:translateY(-1rem)} to{opacity:1;transform:translateY(0)} }
     @keyframes toastOut { from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-1rem)} }
-    .fade-in { animation:fadeIn 0.3s ease; }
-    @keyframes fadeIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+    .fade-in { animation:fadeIn 0.25s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
     .tab-active { background:rgba(56,189,248,0.2); color:#38bdf8; border-color:#38bdf8; }
     ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-track { background:transparent; }
     ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:3px; }
@@ -2532,6 +2860,8 @@ function getStyles() {
     .cal-day { min-height:80px; } .cal-day:hover { background:rgba(56,189,248,0.08); }
     .cal-event { font-size:0.65rem; padding:1px 4px; border-radius:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     select.glass-input option { background:#1e293b; color:#f1f5f9; }
+    .fab-btn { box-shadow: 0 8px 20px rgba(14,165,233,0.4); }
+    .fab-btn:active { transform: scale(0.95); }
     /* Mobile responsive overrides */
     @media (max-width: 639px) {
       .cal-day { min-height:52px; padding:2px; }
@@ -2541,7 +2871,7 @@ function getStyles() {
       /* Prevent iOS zoom on input focus (font < 16px triggers zoom) */
       input, select, textarea { font-size: 16px !important; }
       /* Safe area insets for notched devices */
-      body { padding-bottom: env(safe-area-inset-bottom); }
+      body { padding-bottom: calc(env(safe-area-inset-bottom) + 1rem); }
     }
 `;
 }
@@ -2550,17 +2880,17 @@ function getStyles() {
 function getHTML() {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
-	<head>
-	  <meta charset="UTF-8">
-	    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-	    <meta name="apple-mobile-web-app-capable" content="yes">
-	  <meta name="theme-color" content="#0ea5e9">
-	    <title>Sub-Tracker | eSIM \u4FDD\u53F7 & \u8BA2\u9605\u7BA1\u7406</title>
-	  <link rel="manifest" href="/manifest.webmanifest">
-	  <link rel="icon" href="/favicon.ico" sizes="any">
-	  <link rel="icon" href="/icon.svg" type="image/svg+xml">
-	  <link rel="apple-touch-icon" href="/icon-192.png">
-	  <script src="https://cdn.tailwindcss.com"><\/script>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0ea5e9">
+  <title>Sub-Tracker | eSIM \u4FDD\u53F7 & \u8BA2\u9605\u7BA1\u7406</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <script src="https://cdn.tailwindcss.com"><\/script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
   <style>
 ${getStyles()}
@@ -2616,7 +2946,7 @@ ${getStyles()}
               <i class="fa-solid fa-wallet"></i> \u8BDD\u8D39
             </button>
             <div class="relative" id="menu-trigger">
-              <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
+              <button onclick="toggleMenu(event)" class="text-slate-400 hover:text-white px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 transition-colors" title="\u66F4\u591A\u529F\u80FD">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
               </button>
             </div>
@@ -2625,9 +2955,9 @@ ${getStyles()}
       </div>
     </div>
 
-	    <!-- Stats -->
-	    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6" id="stats-bar"></div>
-	    <div id="analytics-panel" class="mb-6"></div>
+    <!-- Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6" id="stats-bar"></div>
+    <div id="analytics-panel" class="mb-6"></div>
 
     <!-- View toggle + Filter -->
     <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -2691,6 +3021,24 @@ ${getStyles()}
         </button>
       </div>
     </div>
+
+    <!-- Mobile Floating Action Button (FAB) -->
+    <div class="fixed right-4 bottom-6 sm:hidden z-40">
+      <div id="fab-menu" class="hidden flex flex-col gap-2 mb-3 items-end fade-in">
+        <button onclick="openModal('esim');toggleFab();" class="glass bg-cyan-600/90 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-cyan-400/30">
+          <i class="fa-solid fa-sim-card"></i> eSIM \u5361
+        </button>
+        <button onclick="openModal('subscription');toggleFab();" class="glass bg-violet-600/90 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-violet-400/30">
+          <i class="fa-solid fa-credit-card"></i> \u8BA2\u9605\u670D\u52A1
+        </button>
+        <button onclick="openModal('balance');toggleFab();" class="glass bg-amber-600/90 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-amber-400/30">
+          <i class="fa-solid fa-wallet"></i> \u8BDD\u8D39\u7BA1\u7406
+        </button>
+      </div>
+      <button id="fab-btn" onclick="toggleFab()" class="fab-btn btn-primary rounded-full text-white flex items-center justify-center text-xl shadow-2xl transition-transform active:scale-95" style="width:52px;height:52px;" aria-label="\u5FEB\u6377\u6DFB\u52A0">
+        <i id="fab-icon" class="fa-solid fa-plus transition-transform duration-200"></i>
+      </button>
+    </div>
   </div>
 
   <!-- ========== MODAL ========== -->
@@ -2720,15 +3068,25 @@ ${getStyles()}
             </div>
             <div>
               <label class="text-sm text-slate-400 mb-1 block">\u6FC0\u6D3B\u7801 (Activation Code)</label>
-              <input id="form-activation-code" type="password" placeholder="\u6FC0\u6D3B\u7801" class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+              <div class="relative">
+                <input id="form-activation-code" type="password" placeholder="\u6FC0\u6D3B\u7801" class="glass-input w-full pl-4 pr-10 py-3 rounded-xl text-sm font-mono" autocomplete="off">
+                <button type="button" onclick="togglePasswordVis('form-activation-code', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                  <i class="fa-solid fa-eye-slash"></i>
+                </button>
+              </div>
             </div>
             <div>
               <label class="text-sm text-slate-400 mb-1 block">\u786E\u8BA4\u7801 (Confirmation Code)</label>
-              <input id="form-confirmation-code" type="password" placeholder="\u786E\u8BA4\u7801" class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+              <div class="relative">
+                <input id="form-confirmation-code" type="password" placeholder="\u786E\u8BA4\u7801 (\u53EF\u9009)" class="glass-input w-full pl-4 pr-10 py-3 rounded-xl text-sm font-mono" autocomplete="off">
+                <button type="button" onclick="togglePasswordVis('form-confirmation-code', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                  <i class="fa-solid fa-eye-slash"></i>
+                </button>
+              </div>
             </div>
             <div>
               <label class="text-sm text-slate-400 mb-1 block">WID / EID\uFF08eUICC \u6807\u8BC6\uFF0C\u53EF\u9009\uFF09</label>
-              <input id="form-wid" type="text" placeholder="32\u4F4D\u8BBE\u5907\u6807\u8BC6" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              <input id="form-wid" type="text" placeholder="32\u4F4D\u8BBE\u5907\u6807\u8BC6" class="glass-input w-full px-4 py-3 rounded-xl text-sm font-mono">
             </div>
           </div>
           <div id="field-esim-balance" class="hidden space-y-3">
@@ -2881,6 +3239,23 @@ ${getStyles()}
                   <option value="once">\u4E00\u6B21\u6027</option>
                 </select>
               </div>
+              <div id="field-billing-mode">
+                <label class="text-sm text-slate-400 mb-1 block">\u8BA1\u8D39\u65B9\u5F0F</label>
+                <select id="form-billing-mode" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                  <option value="natural">\u81EA\u7136\u6708/\u5E74</option>
+                  <option value="fixed">\u56FA\u5B9A\u5929\u6570</option>
+                </select>
+              </div>
+              <div id="field-cycle-days" class="hidden">
+                <label class="text-sm text-slate-400 mb-1 block">\u56FA\u5B9A\u5929\u6570</label>
+                <input id="form-cycle-days" type="number" min="1" placeholder="\u9ED8\u8BA430\u5929" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+              </div>
+              <div class="flex items-center gap-2 pt-6">
+                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input type="checkbox" id="form-auto-renew" class="rounded accent-sky-500">
+                  <span>\u81EA\u52A8\u7EED\u8D39 (\u5230\u671F\u514D\u624B\u52A8\u7EED\u671F)</span>
+                </label>
+              </div>
             </div>
           </div>
           <div id="field-url" class="hidden">
@@ -2905,85 +3280,123 @@ ${getStyles()}
         </div>
       </form>
     </div>
-	  </div>
+  </div>
 
-	  <!-- ========== HISTORY MODAL ========== -->
-	  <div id="history-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
-	    <div class="glass rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[86vh] overflow-y-auto fade-in">
-	      <div class="flex justify-between items-center mb-6 gap-3">
-	        <h3 class="text-xl font-bold text-white">\u64CD\u4F5C\u5386\u53F2</h3>
-	        <div class="flex items-center gap-2">
-	          <button onclick="clearHistory()" class="text-xs text-red-300 hover:text-red-200 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/10 transition-colors">\u6E05\u7A7A</button>
-	          <button onclick="closeHistory()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
-	        </div>
-	      </div>
-	      <div id="history-filters" class="flex flex-wrap gap-2 mb-4">
-	        <button onclick="filterHistory('all')" data-hfilter="all" class="hfilter-tab tab-active px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all">\u5168\u90E8</button>
-	        <button onclick="filterHistory('create')" data-hfilter="create" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus mr-1"></i>\u65B0\u589E</button>
-	        <button onclick="filterHistory('update')" data-hfilter="update" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-pen mr-1"></i>\u66F4\u65B0</button>
-	        <button onclick="filterHistory('delete')" data-hfilter="delete" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-trash mr-1"></i>\u5220\u9664</button>
-	        <button onclick="filterHistory('renew')" data-hfilter="renew" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-rotate mr-1"></i>\u7EED\u671F</button>
-	        <button onclick="filterHistory('recharge')" data-hfilter="recharge" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus-circle mr-1"></i>\u5145\u503C</button>
-	        <button onclick="filterHistory('deduct')" data-hfilter="deduct" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-minus-circle mr-1"></i>\u6263\u8D39</button>
-	        <button onclick="filterHistory('import')" data-hfilter="import" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-upload mr-1"></i>\u5BFC\u5165</button>
-	      </div>
-	      <div id="history-content" class="space-y-2"></div>
-	    </div>
-	  </div>
-	  <!-- ========== RECHARGE MODAL ========== -->
-	  <div id="recharge-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
-	    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
-	      <h3 class="text-lg font-bold text-white mb-4">\u5145\u503C</h3>
-	      <p id="recharge-info" class="text-sm text-slate-400 mb-4"></p>
-	      <form id="recharge-form">
-	        <div class="space-y-3">
-	          <div>
-	            <label class="text-sm text-slate-400 mb-1 block">\u5145\u503C\u91D1\u989D\uFF08\u8D1F\u6570\u4E3A\u6821\u6B63\u6263\u51CF\uFF09</label>
-	            <input id="recharge-amount" type="number" step="0.01" required placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-	          </div>
-	          <div>
-	            <label class="text-sm text-slate-400 mb-1 block">\u5907\u6CE8\uFF08\u53EF\u9009\uFF09</label>
-	            <input id="recharge-note" type="text" placeholder="\u5982\uFF1A\u5FAE\u4FE1\u5145\u503C" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-	          </div>
-	        </div>
-	        <div class="flex gap-3 mt-5">
-	          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>\u786E\u8BA4\u5145\u503C</button>
-	          <button type="button" onclick="document.getElementById('recharge-overlay').classList.add('hidden');document.getElementById('recharge-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
-	        </div>
-	      </form>
-	    </div>
-	  </div>
+  <!-- ========== QR CODE MODAL ========== -->
+  <div id="qr-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in text-center">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="qr-title" class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-qrcode text-cyan-400"></i> eSIM \u5B89\u88C5\u4E8C\u7EF4\u7801
+        </h3>
+        <button onclick="closeQrModal()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="qr-container" class="flex items-center justify-center p-4 bg-white rounded-2xl mb-4 shadow-inner">
+        <!-- SVG QR Code rendered here -->
+      </div>
+      <div class="text-left bg-white/5 rounded-xl p-3 mb-4 space-y-2 text-xs font-mono">
+        <div class="flex justify-between items-center text-slate-300">
+          <span class="text-slate-400 font-sans">SM-DP+:</span>
+          <span id="qr-smdp-val" class="truncate max-w-[180px]"></span>
+        </div>
+        <div class="flex justify-between items-center text-slate-300">
+          <span class="text-slate-400 font-sans">\u6FC0\u6D3B\u7801:</span>
+          <span id="qr-act-val" class="truncate max-w-[180px]"></span>
+        </div>
+        <div id="qr-conf-row" class="flex justify-between items-center text-slate-300 hidden">
+          <span class="text-slate-400 font-sans">\u786E\u8BA4\u7801:</span>
+          <span id="qr-conf-val" class="truncate max-w-[180px]"></span>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <button onclick="copyLpaString()" class="btn-primary w-full py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2">
+          <i class="fa-solid fa-copy"></i> \u590D\u5236\u5B8C\u6574 LPA \u6FC0\u6D3B\u4EE3\u7801
+        </button>
+        <div class="flex gap-2">
+          <button onclick="copyText(document.getElementById('qr-smdp-val').textContent, 'SM-DP+ \u5730\u5740')" class="flex-1 py-2 rounded-lg text-xs text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u590D\u5236 SM-DP+</button>
+          <button onclick="copyText(document.getElementById('qr-act-val').textContent, '\u6FC0\u6D3B\u7801')" class="flex-1 py-2 rounded-lg text-xs text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u590D\u5236\u6FC0\u6D3B\u7801</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-	  <!-- ========== RENEW MODAL ========== -->
-	  <div id="renew-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
-	    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
-	      <h3 id="renew-title" class="text-lg font-bold text-white mb-4">\u7EED\u671F</h3>
-	      <p id="renew-info" class="text-sm text-slate-400 mb-4"></p>
-	      <form id="renew-form">
-	        <div id="renew-balance-fields" class="space-y-3">
-	          <div class="bg-white/5 rounded-xl p-3">
-	            <label class="text-sm text-slate-400 mb-1 block">\u672C\u6B21\u4F59\u989D\u53D8\u52A8\uFF08\u53EF\u9009\uFF09</label>
-	            <input id="renew-balance-delta" type="number" step="0.01" placeholder="\u8D1F\u6570=\u6263\u8D39\uFF0C\u6B63\u6570=\u5145\u503C\uFF0C\u7559\u7A7A=\u4EC5\u7EED\u671F" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-	          </div>
-	          <div>
-	            <label class="text-sm text-slate-400 mb-1 block">\u5907\u6CE8\uFF08\u53EF\u9009\uFF09</label>
-	            <input id="renew-balance-note" type="text" placeholder="\u5982\uFF1A\u5E74\u8D39\u7EED\u671F\u6263\u6B3E" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-	          </div>
-	        </div>
-	        <div class="flex gap-3 mt-5">
-	          <button id="renew-submit" type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>\u786E\u8BA4\u7EED\u671F</button>
-	          <button type="button" onclick="document.getElementById('renew-overlay').classList.add('hidden');document.getElementById('renew-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
-	        </div>
-	      </form>
-	    </div>
-	  </div>
+  <!-- ========== HISTORY MODAL ========== -->
+  <div id="history-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[86vh] overflow-y-auto fade-in">
+      <div class="flex justify-between items-center mb-6 gap-3">
+        <h3 class="text-xl font-bold text-white">\u64CD\u4F5C\u5386\u53F2</h3>
+        <div class="flex items-center gap-2">
+          <button onclick="clearHistory()" class="text-xs text-red-300 hover:text-red-200 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/10 transition-colors">\u6E05\u7A7A</button>
+          <button onclick="closeHistory()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div id="history-filters" class="flex flex-wrap gap-2 mb-4">
+        <button onclick="filterHistory('all')" data-hfilter="all" class="hfilter-tab tab-active px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all">\u5168\u90E8</button>
+        <button onclick="filterHistory('create')" data-hfilter="create" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus mr-1"></i>\u65B0\u589E</button>
+        <button onclick="filterHistory('update')" data-hfilter="update" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-pen mr-1"></i>\u66F4\u65B0</button>
+        <button onclick="filterHistory('delete')" data-hfilter="delete" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-trash mr-1"></i>\u5220\u9664</button>
+        <button onclick="filterHistory('renew')" data-hfilter="renew" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-rotate mr-1"></i>\u7EED\u671F</button>
+        <button onclick="filterHistory('recharge')" data-hfilter="recharge" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-plus-circle mr-1"></i>\u5145\u503C</button>
+        <button onclick="filterHistory('deduct')" data-hfilter="deduct" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-minus-circle mr-1"></i>\u6263\u8D39</button>
+        <button onclick="filterHistory('import')" data-hfilter="import" class="hfilter-tab px-2.5 py-1 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5"><i class="fa-solid fa-upload mr-1"></i>\u5BFC\u5165</button>
+      </div>
+      <div id="history-content" class="space-y-2"></div>
+    </div>
+  </div>
 
+  <!-- ========== RECHARGE MODAL ========== -->
+  <div id="recharge-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
+      <h3 class="text-lg font-bold text-white mb-4">\u5145\u503C</h3>
+      <p id="recharge-info" class="text-sm text-slate-400 mb-4"></p>
+      <form id="recharge-form">
+        <div class="space-y-3">
+          <div>
+            <label class="text-sm text-slate-400 mb-1 block">\u5145\u503C\u91D1\u989D\uFF08\u8D1F\u6570\u4E3A\u6821\u6B63\u6263\u51CF\uFF09</label>
+            <input id="recharge-amount" type="number" step="0.01" required placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-sm text-slate-400 mb-1 block">\u5907\u6CE8\uFF08\u53EF\u9009\uFF09</label>
+            <input id="recharge-note" type="text" placeholder="\u5982\uFF1A\u5FAE\u4FE1\u5145\u503C" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>\u786E\u8BA4\u5145\u503C</button>
+          <button type="button" onclick="document.getElementById('recharge-overlay').classList.add('hidden');document.getElementById('recharge-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-	  <!-- ========== TOAST ========== -->
-	  <div id="toast-container" class="toast-container"></div>
+  <!-- ========== RENEW MODAL ========== -->
+  <div id="renew-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 max-w-sm w-full fade-in">
+      <h3 id="renew-title" class="text-lg font-bold text-white mb-4">\u7EED\u671F</h3>
+      <p id="renew-info" class="text-sm text-slate-400 mb-4"></p>
+      <form id="renew-form">
+        <div id="renew-balance-fields" class="space-y-3">
+          <div class="bg-white/5 rounded-xl p-3">
+            <label class="text-sm text-slate-400 mb-1 block">\u672C\u6B21\u4F59\u989D\u53D8\u52A8\uFF08\u53EF\u9009\uFF09</label>
+            <input id="renew-balance-delta" type="number" step="0.01" placeholder="\u8D1F\u6570=\u6263\u8D39\uFF0C\u6B63\u6570=\u5145\u503C\uFF0C\u7559\u7A7A=\u4EC5\u7EED\u671F" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-sm text-slate-400 mb-1 block">\u5907\u6CE8\uFF08\u53EF\u9009\uFF09</label>
+            <input id="renew-balance-note" type="text" placeholder="\u5982\uFF1A\u5E74\u8D39\u7EED\u671F\u6263\u6B3E" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+          </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button id="renew-submit" type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-rotate mr-1"></i>\u786E\u8BA4\u7EED\u671F</button>
+          <button type="button" onclick="document.getElementById('renew-overlay').classList.add('hidden');document.getElementById('renew-overlay').classList.remove('flex');" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-	  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
-	  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
+  <!-- ========== TOAST ========== -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
+  <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
     <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-download mr-2 text-emerald-400"></i>\u5BFC\u51FA JSON
     </button>
@@ -2993,13 +3406,13 @@ ${getStyles()}
     <button onclick="document.getElementById('import-file').click()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-upload mr-2 text-amber-400"></i>\u5BFC\u5165 JSON
     </button>
-	    <button onclick="downloadDemo()" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/10 transition-colors">
-	      <i class="fa-solid fa-download mr-2 text-slate-500"></i>\u4E0B\u8F7D\u5BFC\u5165\u793A\u4F8B
-	    </button>
-	    <button onclick="openHistory()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
-	      <i class="fa-solid fa-clock-rotate-left mr-2 text-cyan-400"></i>\u64CD\u4F5C\u5386\u53F2
-	    </button>
-	    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
+    <button onclick="downloadDemo()" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-download mr-2 text-slate-500"></i>\u4E0B\u8F7D\u5BFC\u5165\u793A\u4F8B
+    </button>
+    <button onclick="openHistory()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-clock-rotate-left mr-2 text-cyan-400"></i>\u64CD\u4F5C\u5386\u53F2
+    </button>
+    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(this)">
     <hr class="border-white/10 my-1">
     <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-right-from-bracket mr-2"></i>\u9000\u51FA\u767B\u5F55
@@ -3043,15 +3456,12 @@ function getIconSVG() {
 function bytesFromBase64(base64) {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1)
-    bytes[i] = binary.charCodeAt(i);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
 function getIconPNG(size) {
-  if (size === 192)
-    return bytesFromBase64(ICON_192_PNG_BASE64);
-  if (size === 512)
-    return bytesFromBase64(ICON_512_PNG_BASE64);
+  if (size === 192) return bytesFromBase64(ICON_192_PNG_BASE64);
+  if (size === 512) return bytesFromBase64(ICON_512_PNG_BASE64);
   return null;
 }
 function getFaviconICO() {
@@ -3186,13 +3596,11 @@ async function route(request, env) {
   }
   if (path.startsWith("/api/auth")) {
     const result = await handleAuth(request, env, path);
-    if (result)
-      return result;
+    if (result) return result;
   }
   if (path.startsWith("/api/items")) {
     const result = await handleItems(request, env, path);
-    if (result)
-      return result;
+    if (result) return result;
   }
   if (path.startsWith("/api/history")) {
     return await handleHistory(request, env, path);
@@ -3212,43 +3620,35 @@ function tg2(s) {
 }
 async function checkReminders(env) {
   const items = await getAllItems(env.DB);
-  if (!items.length)
-    return;
+  if (!items.length) return;
   const today = todayMidnight();
   const messages = [];
   for (const item of items) {
-    if (item.status !== "active")
-      continue;
+    if (item.status !== "active") continue;
     if (item.type === "balance") {
-      if (item.monthlyFee <= 0)
-        continue;
+      if (item.monthlyFee <= 0) continue;
       const suspendDate = calcSuspendDate(item.balance, item.monthlyFee, item.billingDay);
       const expDate2 = /* @__PURE__ */ new Date(suspendDate + "T00:00:00Z");
       expDate2.setUTCHours(0, 0, 0, 0);
       const diffDays2 = Math.ceil((expDate2 - today) / 864e5);
       const remindDays2 = Array.isArray(item.remindDays) && item.remindDays.length > 0 ? item.remindDays : DEFAULT_REMIND_DAYS;
-      if (!remindDays2.includes(diffDays2))
-        continue;
+      if (!remindDays2.includes(diffDays2)) continue;
       const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
       const remarkText2 = item.remark ? `
 \u{1F4DD} \u5907\u6CE8: ${tg2(item.remark)}` : "";
-      const currSym3 = CURRENCY_SYMBOLS[item.currency] || item.currency || "\xA5";
+      const currSym4 = CURRENCY_SYMBOLS[item.currency] || item.currency || "\xA5";
       let urgency2;
-      if (diffDays2 < 0)
-        urgency2 = "\u274C";
-      else if (diffDays2 === 0)
-        urgency2 = "\u{1F6A8}";
-      else if (diffDays2 <= 3)
-        urgency2 = "\u26A0\uFE0F";
-      else
-        urgency2 = "\u{1F4E2}";
+      if (diffDays2 < 0) urgency2 = "\u274C";
+      else if (diffDays2 === 0) urgency2 = "\u{1F6A8}";
+      else if (diffDays2 <= 3) urgency2 = "\u26A0\uFE0F";
+      else urgency2 = "\u{1F4E2}";
       const statusText2 = diffDays2 < 0 ? `\u5DF2\u505C\u673A ${Math.abs(diffDays2)} \u5929` : diffDays2 === 0 ? "\u4ECA\u5929\u6263\u8D39\uFF01\u4F59\u989D\u53EF\u80FD\u4E0D\u8DB3" : `\u9884\u8BA1 ${diffDays2} \u5929\u540E\u505C\u673A`;
       messages.push(
         `${urgency2} \u3010Sub-Tracker \u8BDD\u8D39\u505C\u673A\u63D0\u9192\u3011
 \u{1F4F1} \u540D\u79F0: ${tg2(item.name)}
 ` + (item.number ? `\u{1F4DE} \u53F7\u7801: ${tg2(item.number)}
-` : "") + `\u{1F4B0} \u4F59\u989D: ${currSym3}${item.balance}
-\u{1F4B8} \u6708\u79DF: ${currSym3}${item.monthlyFee}/\u6708
+` : "") + `\u{1F4B0} \u4F59\u989D: ${currSym4}${item.balance}
+\u{1F4B8} \u6708\u79DF: ${currSym4}${item.monthlyFee}/\u6708
 \u{1F4C5} \u6BCF\u6708${item.billingDay}\u65E5\u6263\u8D39
 \u23F3 ${statusText2}
 \u{1F50B} \u53EF\u6491 ${monthsLeft} \u4E2A\u6708
@@ -3257,14 +3657,12 @@ async function checkReminders(env) {
       );
       continue;
     }
-    if (!item.expireDate)
-      continue;
+    if (!item.expireDate) continue;
     const expDate = /* @__PURE__ */ new Date(item.expireDate + "T00:00:00Z");
     expDate.setUTCHours(0, 0, 0, 0);
     const diffDays = Math.ceil((expDate - today) / 864e5);
     const remindDays = Array.isArray(item.remindDays) && item.remindDays.length > 0 ? item.remindDays : DEFAULT_REMIND_DAYS;
-    if (!remindDays.includes(diffDays))
-      continue;
+    if (!remindDays.includes(diffDays)) continue;
     const cycleText = item.cycle ? `${item.cycle}\u5929` : "\u672A\u8BBE\u7F6E";
     const remarkText = item.remark ? `
 \u{1F4DD} \u5907\u6CE8: ${tg2(item.remark)}` : "";
@@ -3273,14 +3671,10 @@ async function checkReminders(env) {
     const priceText = item.price ? `
 \u{1F4B0} \u8D39\u7528: ${currSym(item.currency)}${item.price}/${item.billing === "yearly" ? "\u5E74" : item.billing === "once" ? "\u6B21" : "\u6708"}` : "";
     let urgency;
-    if (diffDays < 0)
-      urgency = "\u274C";
-    else if (diffDays === 0)
-      urgency = "\u{1F6A8}";
-    else if (diffDays <= 3)
-      urgency = "\u26A0\uFE0F";
-    else
-      urgency = "\u{1F4E2}";
+    if (diffDays < 0) urgency = "\u274C";
+    else if (diffDays === 0) urgency = "\u{1F6A8}";
+    else if (diffDays <= 3) urgency = "\u26A0\uFE0F";
+    else urgency = "\u{1F4E2}";
     const statusText = diffDays < 0 ? `\u5DF2\u8FC7\u671F ${Math.abs(diffDays)} \u5929` : diffDays === 0 ? "\u4ECA\u5929\u5230\u671F\uFF01" : `\u5269\u4F59 ${diffDays} \u5929`;
     messages.push(
       `${urgency} \u3010Sub-Tracker ${typeLabel}\u63D0\u9192\u3011
@@ -3308,23 +3702,16 @@ function currSym2(code) {
 }
 async function autoDeduct(env) {
   const items = await getAllItems(env.DB);
-  if (!items.length)
-    return;
+  if (!items.length) return;
   const today = todayString();
   const todayDay = parseInt(today.split("-")[2], 10);
   for (const item of items) {
-    if (item.type !== "balance")
-      continue;
-    if (item.status !== "active")
-      continue;
-    if (!item.monthlyFee || item.monthlyFee <= 0)
-      continue;
-    if (!item.billingDay)
-      continue;
-    if (todayDay !== item.billingDay)
-      continue;
-    if (item.lastDeductDate === today)
-      continue;
+    if (item.type !== "balance") continue;
+    if (item.status !== "active") continue;
+    if (!item.monthlyFee || item.monthlyFee <= 0) continue;
+    if (!item.billingDay) continue;
+    if (todayDay !== item.billingDay) continue;
+    if (item.lastDeductDate === today) continue;
     const fee = item.monthlyFee;
     const oldBalance = item.balance;
     const newBalance = Math.round((oldBalance - fee) * 100) / 100;
@@ -3370,8 +3757,69 @@ async function autoDeduct(env) {
   }
 }
 
+// src/services/auto-renew.js
+function tg4(s) {
+  return escapeTelegramHTML(s);
+}
+function currSym3(code) {
+  return CURRENCY_SYMBOLS[code] || code || "\xA5";
+}
+async function autoRenewSubscriptions(env, now = /* @__PURE__ */ new Date()) {
+  const items = await getAllItems(env.DB);
+  if (!items.length) return;
+  const today = todayString(now);
+  for (const item of items) {
+    if (item.type !== "subscription") continue;
+    if (item.status !== "active") continue;
+    if (!item.autoRenew) continue;
+    if (!item.expireDate) continue;
+    if (item.billing === "once") continue;
+    if (item.expireDate <= today) {
+      const mode = item.billingMode || "natural";
+      const baseDate = item.expireDate;
+      const newExpireDate = addBillingPeriod(baseDate, item.billing, mode, item.cycleDays);
+      const updated = await updateItem(env.DB, item.id, (existing) => ({
+        ...existing,
+        expireDate: newExpireDate
+      }));
+      if (updated) {
+        await addHistory(env.DB, {
+          action: "renew",
+          itemId: item.id,
+          itemName: item.name,
+          itemType: "subscription",
+          details: {
+            oldExpireDate: baseDate,
+            newExpireDate,
+            auto: true
+          }
+        }).catch(() => {
+        });
+        const sym = currSym3(item.currency);
+        const priceText = item.price ? `
+\u{1F4B0} \u7EED\u8D39\u91D1\u989D: ${sym}${item.price}` : "";
+        const msg = [
+          `\u{1F504} <b>\u3010Sub-Tracker \u8BA2\u9605\u81EA\u52A8\u7EED\u8D39\u3011</b>`,
+          "",
+          `\u{1F4E6} \u8BA2\u9605\u540D\u79F0: ${tg4(item.name)}`,
+          item.category ? `\u{1F3F7}\uFE0F \u5206\u7C7B: ${tg4(item.category)}` : "",
+          priceText,
+          `\u{1F4C5} \u4E0A\u671F\u5230\u671F: ${baseDate}`,
+          `\u{1F389} \u65B0\u5230\u671F\u65E5: <b>${newExpireDate}</b>`,
+          item.remark ? `\u{1F4DD} \u5907\u6CE8: ${tg4(item.remark)}` : "",
+          "",
+          "<i>\u7CFB\u7EDF\u5DF2\u6839\u636E\u8BBE\u7F6E\u81EA\u52A8\u987A\u5EF6\u4E0B\u4E00\u4E2A\u8BA1\u8D39\u5468\u671F\u3002</i>"
+        ].filter(Boolean).join("\n");
+        await sendNotifications(env, msg, { title: "Sub-Tracker \u81EA\u52A8\u7EED\u8D39" }).catch(() => {
+        });
+        console.log(`Auto-renewed subscription "${item.name}" (${baseDate} \u2192 ${newExpireDate})`);
+      }
+    }
+  }
+}
+
 // src/index.js
-var src_default = {
+var index_default = {
   async fetch(request, env, ctx) {
     try {
       return await route(request, env);
@@ -3386,6 +3834,7 @@ var src_default = {
   async scheduled(event, env, ctx) {
     try {
       await autoDeduct(env);
+      await autoRenewSubscriptions(env);
       await checkReminders(env);
     } catch (err) {
       console.error("Cron error:", err);
@@ -3393,5 +3842,5 @@ var src_default = {
   }
 };
 export {
-  src_default as default
+  index_default as default
 };

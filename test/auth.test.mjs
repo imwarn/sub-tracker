@@ -64,3 +64,26 @@ test('send auth OTP through Bark when it is the default notification channel', a
     fetchMock.restore();
   }
 });
+
+test('send auth OTP enforces IP-based cooldown', async () => {
+  const db = createMockKV();
+  await db.put('admin_auth_ip_cooldown_1.2.3.4', '1');
+
+  const response = await handleAuth(
+    new Request('https://example.com/api/auth/send', {
+      method: 'POST',
+      headers: { 'cf-connecting-ip': '1.2.3.4' },
+    }),
+    {
+      DB: db,
+      DEFAULT_NOTIFY_CHANNEL: 'bark',
+      BARK_URL: 'https://example.com/bark',
+    },
+    '/api/auth/send'
+  );
+
+  assert.equal(response.status, 429);
+  const result = await response.json();
+  assert.equal(result.success, false);
+  assert.match(result.message, /过于频繁/);
+});
