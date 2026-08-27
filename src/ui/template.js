@@ -170,7 +170,7 @@ ${getStyles()}
     </div>
   </div>
 
-  <!-- ========== MODAL ========== -->
+  <!-- ========== ITEM MODAL ========== -->
   <div id="modal-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto fade-in">
       <div class="flex justify-between items-center mb-6">
@@ -224,64 +224,21 @@ ${getStyles()}
                 <label class="text-sm text-slate-400 mb-1 block">余额（可选）</label>
                 <input id="form-balance-esim" type="number" step="0.01" placeholder="不填表示不追踪余额" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
               </div>
-              <div class="w-32">
+              <div class="w-40">
                 <label class="text-sm text-slate-400 mb-1 block">货币</label>
-                <select id="form-currency-esim" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-                  <option value="CNY">CNY ¥</option>
-                  <option value="USD">USD $</option>
-                  <option value="EUR">EUR €</option>
-                  <option value="GBP">GBP £</option>
-                  <option value="JPY">JPY ¥</option>
-                  <option value="HKD">HKD $</option>
-                  <option value="TWD">TWD $</option>
-                  <option value="KRW">KRW ₩</option>
-                  <option value="TRY">TRY ₺</option>
-                  <option value="THB">THB ฿</option>
-                  <option value="NGN">NGN ₦</option>
-                  <option value="INR">INR ₹</option>
-                  <option value="PHP">PHP ₱</option>
-                  <option value="MYR">MYR RM</option>
-                  <option value="SGD">SGD $</option>
-                </select>
+                <select id="form-currency-esim" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
               </div>
             </div>
           </div>
           <div id="field-category" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">分类</label>
-            <select id="form-category" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-              <option value="">未分类</option>
-              <option value="AI">AI 服务</option>
-              <option value="VPN">VPN</option>
-              <option value="Cloud">云服务</option>
-              <option value="Streaming">流媒体</option>
-              <option value="Domain">域名/SSL</option>
-              <option value="VPS">VPS/服务器</option>
-              <option value="Software">软件订阅</option>
-              <option value="Game">游戏</option>
-              <option value="Other">其他</option>
-            </select>
+            <label class="text-sm text-slate-400 mb-1 block">分类 (可选择预设或直接输入)</label>
+            <input id="form-category" type="text" list="category-datalist" placeholder="选择或输入分类，如: AI 服务 / 流媒体..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+            <datalist id="category-datalist"></datalist>
           </div>
           <div id="field-region" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">账号区域</label>
-            <select id="form-region" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-              <option value="">未设置</option>
-              <option value="CN">大陆</option>
-              <option value="HK">香港</option>
-              <option value="TW">台湾</option>
-              <option value="US">美区</option>
-              <option value="JP">日区</option>
-              <option value="KR">韩区</option>
-              <option value="TR">土耳其</option>
-              <option value="NG">尼日利亚</option>
-              <option value="IN">印度</option>
-              <option value="BR">巴西</option>
-              <option value="AR">阿根廷</option>
-              <option value="PH">菲律宾</option>
-              <option value="MY">马来西亚</option>
-              <option value="SG">新加坡</option>
-              <option value="EU">欧洲</option>
-              <option value="OTHER">其他</option>
-            </select>
+            <label class="text-sm text-slate-400 mb-1 block">账号区域 (可选择预设或直接输入)</label>
+            <input id="form-region" type="text" list="region-datalist" placeholder="选择或输入区域代码/名称，如: US / TR / 大陆..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+            <datalist id="region-datalist"></datalist>
           </div>
           <div id="field-sub-id" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">订阅 ID / 账号</label>
@@ -319,7 +276,7 @@ ${getStyles()}
             </div>
           </div>
           <div id="field-balance" class="hidden">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">当前余额 *</label>
                 <input id="form-balance" type="number" step="0.01" min="0" placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -332,6 +289,10 @@ ${getStyles()}
                 <label class="text-sm text-slate-400 mb-1 block">扣费日 *</label>
                 <input id="form-billing-day" type="number" min="1" max="28" placeholder="5" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
               </div>
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">货币</label>
+                <select id="form-currency-balance" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
+              </div>
             </div>
           </div>
           <div id="field-price" class="hidden">
@@ -342,23 +303,7 @@ ${getStyles()}
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">货币</label>
-                <select id="form-currency" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-                  <option value="CNY">CNY ¥</option>
-                  <option value="USD">USD $</option>
-                  <option value="EUR">EUR €</option>
-                  <option value="GBP">GBP £</option>
-                  <option value="JPY">JPY ¥</option>
-                  <option value="HKD">HKD $</option>
-                  <option value="TWD">TWD $</option>
-                  <option value="KRW">KRW ₩</option>
-                  <option value="TRY">TRY ₺</option>
-                  <option value="THB">THB ฿</option>
-                  <option value="NGN">NGN ₦</option>
-                  <option value="INR">INR ₹</option>
-                  <option value="PHP">PHP ₱</option>
-                  <option value="MYR">MYR RM</option>
-                  <option value="SGD">SGD $</option>
-                </select>
+                <select id="form-currency" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">计费周期</label>
@@ -408,6 +353,114 @@ ${getStyles()}
           <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">取消</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ========== SETTINGS MODAL ========== -->
+  <div id="settings-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[88vh] overflow-y-auto fade-in">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-violet-400"></i> 偏好与预设管理
+        </h3>
+        <button onclick="closeSettings()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Settings Tabs -->
+      <div class="flex flex-wrap gap-2 mb-5 border-b border-white/10 pb-3">
+        <button onclick="setSettingsTab('currency')" id="stab-btn-currency" class="settings-tab-btn tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all">
+          <i class="fa-solid fa-coins mr-1.5 text-amber-400"></i>货币与汇率
+        </button>
+        <button onclick="setSettingsTab('category')" id="stab-btn-category" class="settings-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-layer-group mr-1.5 text-sky-400"></i>预设分类
+        </button>
+        <button onclick="setSettingsTab('region')" id="stab-btn-region" class="settings-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-globe mr-1.5 text-emerald-400"></i>预设区域
+        </button>
+      </div>
+
+      <!-- Tab 1: Currency & Rates -->
+      <div id="stab-content-currency" class="space-y-4">
+        <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+          <label class="text-sm font-semibold text-white mb-1.5 block">统计基准货币 (Base Currency)</label>
+          <p class="text-xs text-slate-400 mb-3">全币种总支出折算时，所有外币均按此基准币种进行折算</p>
+          <select id="settings-base-currency" onchange="onBaseCurrencyChange()" class="glass-input w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-sky-300"></select>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 flex-wrap pt-1">
+          <div>
+            <div class="text-sm font-semibold text-white">各币种汇率管理 (1 外币 = X 基准货币)</div>
+            <div class="text-xs text-slate-400">支持一键同步最新公网实时汇率，也可针对特定渠道手动微调</div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="syncLiveRates()" id="sync-rates-btn" class="px-3 py-1.5 rounded-xl text-xs font-bold text-sky-300 border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 transition-colors flex items-center gap-1.5">
+              <i class="fa-solid fa-rotate mr-1"></i>同步实时汇率
+            </button>
+            <button type="button" onclick="resetDefaultRates()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-400 border border-white/10 hover:bg-white/5 transition-colors">
+              恢复默认
+            </button>
+          </div>
+        </div>
+
+        <div class="relative">
+          <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+          <input id="settings-rate-search" type="text" placeholder="搜索货币代码 (如 USD)、中文名 (如 美元)、符号..." oninput="filterRateList()" class="glass-input w-full pl-9 pr-3 py-2 rounded-xl text-xs">
+        </div>
+
+        <div id="settings-rate-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto pr-1"></div>
+      </div>
+
+      <!-- Tab 2: Categories -->
+      <div id="stab-content-category" class="space-y-4 hidden">
+        <div>
+          <div class="text-sm font-semibold text-white mb-1">常用分类预设</div>
+          <div class="text-xs text-slate-400 mb-3">在录入订阅服务时作为下拉建议提供。支持随时增删自定义分类。</div>
+          <div id="settings-category-tags" class="flex flex-wrap gap-2 mb-4"></div>
+        </div>
+        <div class="flex gap-2">
+          <input id="settings-new-category" type="text" placeholder="输入新分类名称 (如: 游戏内购 / 会员)..." class="glass-input flex-1 px-4 py-2.5 rounded-xl text-sm" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomCategory();}">
+          <button type="button" onclick="addCustomCategory()" class="btn-primary px-4 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-1.5 flex-shrink-0">
+            <i class="fa-solid fa-plus"></i> 添加
+          </button>
+        </div>
+        <div class="pt-2">
+          <button type="button" onclick="resetDefaultCategories()" class="text-xs text-slate-400 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
+            恢复默认预设分类
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 3: Regions -->
+      <div id="stab-content-region" class="space-y-4 hidden">
+        <div>
+          <div class="text-sm font-semibold text-white mb-1">常用区域 / 国家预设</div>
+          <div class="text-xs text-slate-400 mb-3">方便跨区订阅快速选填。支持输入代码、区域名与旗帜。</div>
+          <div id="settings-region-tags" class="flex flex-wrap gap-2 mb-4"></div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+          <input id="settings-new-region-code" type="text" placeholder="代码(如 TR)" class="glass-input sm:col-span-3 px-4 py-2.5 rounded-xl text-sm uppercase">
+          <input id="settings-new-region-name" type="text" placeholder="名称(如 土耳其)" class="glass-input sm:col-span-4 px-4 py-2.5 rounded-xl text-sm">
+          <input id="settings-new-region-flag" type="text" placeholder="旗帜(如 🇹🇷)" class="glass-input sm:col-span-2 px-4 py-2.5 rounded-xl text-sm text-center">
+          <button type="button" onclick="addCustomRegion()" class="btn-primary sm:col-span-3 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-plus"></i> 添加区域
+          </button>
+        </div>
+        <div class="pt-2">
+          <button type="button" onclick="resetDefaultRegions()" class="text-xs text-slate-400 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
+            恢复默认预设区域
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex gap-3 mt-6 pt-4 border-t border-white/10">
+        <button type="button" onclick="saveSettingsToServer()" id="save-settings-btn" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-floppy-disk"></i> 保存设置
+        </button>
+        <button type="button" onclick="closeSettings()" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">
+          取消
+        </button>
+      </div>
     </div>
   </div>
 
@@ -526,6 +579,9 @@ ${getStyles()}
 
   <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
   <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
+    <button onclick="openSettings()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-sliders mr-2 text-violet-400"></i>偏好设置
+    </button>
     <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-download mr-2 text-emerald-400"></i>导出 JSON
     </button>

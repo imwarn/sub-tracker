@@ -77,10 +77,190 @@ function corsPreFlight(request = null, env = null) {
   return new Response(null, { status: 204, headers: { ...buildCorsHeaders(request, env), ...SECURITY_HEADERS } });
 }
 
+// src/data/currencies.js
+var ISO_CURRENCIES = [
+  // Top Asian / Domestic
+  { code: "CNY", name: "\u4EBA\u6C11\u5E01", symbol: "\xA5", flag: "\u{1F1E8}\u{1F1F3}" },
+  { code: "USD", name: "\u7F8E\u5143", symbol: "$", flag: "\u{1F1FA}\u{1F1F8}" },
+  { code: "EUR", name: "\u6B27\u5143", symbol: "\u20AC", flag: "\u{1F1EA}\u{1F1FA}" },
+  { code: "GBP", name: "\u82F1\u9551", symbol: "\xA3", flag: "\u{1F1EC}\u{1F1E7}" },
+  { code: "JPY", name: "\u65E5\u5143", symbol: "\xA5", flag: "\u{1F1EF}\u{1F1F5}" },
+  { code: "HKD", name: "\u6E2F\u5E01", symbol: "HK$", flag: "\u{1F1ED}\u{1F1F0}" },
+  { code: "TWD", name: "\u65B0\u53F0\u5E01", symbol: "NT$", flag: "\u{1F1F9}\u{1F1FC}" },
+  { code: "KRW", name: "\u97E9\u5143", symbol: "\u20A9", flag: "\u{1F1F0}\u{1F1F7}" },
+  { code: "SGD", name: "\u65B0\u52A0\u5761\u5143", symbol: "S$", flag: "\u{1F1F8}\u{1F1EC}" },
+  { code: "MYR", name: "\u9A6C\u6765\u897F\u4E9A\u6797\u5409\u7279", symbol: "RM", flag: "\u{1F1F2}\u{1F1FE}" },
+  { code: "THB", name: "\u6CF0\u94E2", symbol: "\u0E3F", flag: "\u{1F1F9}\u{1F1ED}" },
+  { code: "PHP", name: "\u83F2\u5F8B\u5BBE\u6BD4\u7D22", symbol: "\u20B1", flag: "\u{1F1F5}\u{1F1ED}" },
+  { code: "IDR", name: "\u5370\u5C3C\u76FE", symbol: "Rp", flag: "\u{1F1EE}\u{1F1E9}" },
+  { code: "VND", name: "\u8D8A\u5357\u76FE", symbol: "\u20AB", flag: "\u{1F1FB}\u{1F1F3}" },
+  { code: "INR", name: "\u5370\u5EA6\u5362\u6BD4", symbol: "\u20B9", flag: "\u{1F1EE}\u{1F1F3}" },
+  { code: "PKR", name: "\u5DF4\u57FA\u65AF\u5766\u5362\u6BD4", symbol: "\u20A8", flag: "\u{1F1F5}\u{1F1F0}" },
+  { code: "BDT", name: "\u5B5F\u52A0\u62C9\u5854\u5361", symbol: "\u09F3", flag: "\u{1F1E7}\u{1F1E9}" },
+  // Popular Low-Cost / Cross-Region Subscription Currencies
+  { code: "TRY", name: "\u571F\u8033\u5176\u91CC\u62C9", symbol: "\u20BA", flag: "\u{1F1F9}\u{1F1F7}" },
+  { code: "NGN", name: "\u5C3C\u65E5\u5229\u4E9A\u5948\u62C9", symbol: "\u20A6", flag: "\u{1F1F3}\u{1F1EC}" },
+  { code: "ARS", name: "\u963F\u6839\u5EF7\u6BD4\u7D22", symbol: "$", flag: "\u{1F1E6}\u{1F1F7}" },
+  { code: "EGP", name: "\u57C3\u53CA\u9551", symbol: "E\xA3", flag: "\u{1F1EA}\u{1F1EC}" },
+  { code: "BRL", name: "\u5DF4\u897F\u96F7\u4E9A\u5C14", symbol: "R$", flag: "\u{1F1E7}\u{1F1F7}" },
+  { code: "KZT", name: "\u54C8\u8428\u514B\u65AF\u5766\u575A\u6208", symbol: "\u20B8", flag: "\u{1F1F0}\u{1F1FF}" },
+  { code: "UAH", name: "\u4E4C\u514B\u5170\u683C\u91CC\u592B\u7EB3", symbol: "\u20B4", flag: "\u{1F1FA}\u{1F1E6}" },
+  { code: "GHS", name: "\u52A0\u7EB3\u585E\u5730", symbol: "GH\u20B5", flag: "\u{1F1EC}\u{1F1ED}" },
+  { code: "KES", name: "\u80AF\u5C3C\u4E9A\u5148\u4EE4", symbol: "KSh", flag: "\u{1F1F0}\u{1F1EA}" },
+  { code: "ZAR", name: "\u5357\u975E\u5170\u7279", symbol: "R", flag: "\u{1F1FF}\u{1F1E6}" },
+  { code: "COP", name: "\u54E5\u4F26\u6BD4\u4E9A\u6BD4\u7D22", symbol: "COL$", flag: "\u{1F1E8}\u{1F1F4}" },
+  { code: "CLP", name: "\u667A\u5229\u6BD4\u7D22", symbol: "CLP$", flag: "\u{1F1E8}\u{1F1F1}" },
+  { code: "PEN", name: "\u79D8\u9C81\u7D22\u5C14", symbol: "S/.", flag: "\u{1F1F5}\u{1F1EA}" },
+  { code: "MXN", name: "\u58A8\u897F\u54E5\u6BD4\u7D22", symbol: "Mex$", flag: "\u{1F1F2}\u{1F1FD}" },
+  // Major Developed Markets
+  { code: "CAD", name: "\u52A0\u62FF\u5927\u5143", symbol: "CA$", flag: "\u{1F1E8}\u{1F1E6}" },
+  { code: "AUD", name: "\u6FB3\u5927\u5229\u4E9A\u5143", symbol: "AU$", flag: "\u{1F1E6}\u{1F1FA}" },
+  { code: "NZD", name: "\u65B0\u897F\u5170\u5143", symbol: "NZ$", flag: "\u{1F1F3}\u{1F1FF}" },
+  { code: "CHF", name: "\u745E\u58EB\u6CD5\u90CE", symbol: "CHF", flag: "\u{1F1E8}\u{1F1ED}" },
+  { code: "SEK", name: "\u745E\u5178\u514B\u6717", symbol: "kr", flag: "\u{1F1F8}\u{1F1EA}" },
+  { code: "NOK", name: "\u632A\u5A01\u514B\u6717", symbol: "kr", flag: "\u{1F1F3}\u{1F1F4}" },
+  { code: "DKK", name: "\u4E39\u9EA6\u514B\u6717", symbol: "kr", flag: "\u{1F1E9}\u{1F1F0}" },
+  { code: "PLN", name: "\u6CE2\u5170\u5179\u7F57\u63D0", symbol: "z\u0142", flag: "\u{1F1F5}\u{1F1F1}" },
+  { code: "CZK", name: "\u6377\u514B\u514B\u6717", symbol: "K\u010D", flag: "\u{1F1E8}\u{1F1FF}" },
+  { code: "HUF", name: "\u5308\u7259\u5229\u798F\u6797", symbol: "Ft", flag: "\u{1F1ED}\u{1F1FA}" },
+  { code: "RON", name: "\u7F57\u9A6C\u5C3C\u4E9A\u5217\u4F0A", symbol: "lei", flag: "\u{1F1F7}\u{1F1F4}" },
+  { code: "BGN", name: "\u4FDD\u52A0\u5229\u4E9A\u5217\u5F17", symbol: "\u043B\u0432", flag: "\u{1F1E7}\u{1F1EC}" },
+  { code: "RUB", name: "\u4FC4\u7F57\u65AF\u5362\u5E03", symbol: "\u20BD", flag: "\u{1F1F7}\u{1F1FA}" },
+  { code: "ILS", name: "\u4EE5\u8272\u5217\u65B0\u8C22\u514B\u5C14", symbol: "\u20AA", flag: "\u{1F1EE}\u{1F1F1}" },
+  // Middle East & Others
+  { code: "AED", name: "\u963F\u8054\u914B\u8FEA\u62C9\u59C6", symbol: "AED", flag: "\u{1F1E6}\u{1F1EA}" },
+  { code: "SAR", name: "\u6C99\u7279\u91CC\u4E9A\u5C14", symbol: "SAR", flag: "\u{1F1F8}\u{1F1E6}" },
+  { code: "QAR", name: "\u5361\u5854\u5C14\u91CC\u4E9A\u5C14", symbol: "QR", flag: "\u{1F1F6}\u{1F1E6}" },
+  { code: "KWD", name: "\u79D1\u5A01\u7279\u7B2C\u7EB3\u5C14", symbol: "KD", flag: "\u{1F1F0}\u{1F1FC}" },
+  { code: "BHD", name: "\u5DF4\u6797\u7B2C\u7EB3\u5C14", symbol: "BD", flag: "\u{1F1E7}\u{1F1ED}" },
+  { code: "OMR", name: "\u963F\u66FC\u91CC\u4E9A\u5C14", symbol: "OMR", flag: "\u{1F1F4}\u{1F1F2}" },
+  { code: "MAD", name: "\u6469\u6D1B\u54E5\u8FEA\u62C9\u59C6", symbol: "MAD", flag: "\u{1F1F2}\u{1F1E6}" },
+  { code: "GEL", name: "\u683C\u9C81\u5409\u4E9A\u62C9\u91CC", symbol: "\u20BE", flag: "\u{1F1EC}\u{1F1EA}" },
+  { code: "LKR", name: "\u65AF\u91CC\u5170\u5361\u5362\u6BD4", symbol: "Rs", flag: "\u{1F1F1}\u{1F1F0}" },
+  { code: "NPR", name: "\u5C3C\u6CCA\u5C14\u5362\u6BD4", symbol: "Rs", flag: "\u{1F1F3}\u{1F1F5}" },
+  { code: "UYU", name: "\u4E4C\u62C9\u572D\u6BD4\u7D22", symbol: "$U", flag: "\u{1F1FA}\u{1F1FE}" },
+  { code: "CRC", name: "\u54E5\u65AF\u8FBE\u9ECE\u52A0\u79D1\u6717", symbol: "\u20A1", flag: "\u{1F1E8}\u{1F1F7}" }
+];
+var CURRENCY_SYMBOLS = Object.fromEntries(
+  ISO_CURRENCIES.map((c) => [c.code, c.symbol])
+);
+var CURRENCY_CODES = ISO_CURRENCIES.map((c) => c.code);
+var DEFAULT_EXCHANGE_RATES = {
+  CNY: 1,
+  USD: 7.25,
+  EUR: 7.85,
+  GBP: 9.2,
+  JPY: 0.048,
+  HKD: 0.93,
+  TWD: 0.23,
+  KRW: 54e-4,
+  TRY: 0.22,
+  THB: 0.2,
+  NGN: 48e-4,
+  INR: 0.087,
+  PHP: 0.13,
+  MYR: 1.62,
+  SGD: 5.4,
+  ARS: 73e-4,
+  BRL: 1.28,
+  EGP: 0.15,
+  KZT: 0.015,
+  VND: 29e-5,
+  IDR: 45e-5,
+  CAD: 5.35,
+  AUD: 4.75,
+  NZD: 4.35,
+  CHF: 8.2,
+  RUB: 0.078,
+  ZAR: 0.39,
+  AED: 1.97,
+  SAR: 1.93,
+  PLN: 1.85,
+  SEK: 0.7,
+  NOK: 0.68,
+  DKK: 1.05,
+  MXN: 0.36,
+  CLP: 76e-4,
+  COP: 18e-4,
+  PEN: 1.95,
+  PKR: 0.026,
+  BDT: 0.06,
+  CZK: 0.31,
+  HUF: 0.02,
+  ILS: 1.98,
+  RON: 1.58,
+  BGN: 4.01,
+  GHS: 0.48,
+  KES: 0.056,
+  UAH: 0.18,
+  GEL: 2.65,
+  QAR: 1.99,
+  KWD: 23.6,
+  BHD: 19.2,
+  OMR: 18.8,
+  MAD: 0.72,
+  LKR: 0.024,
+  NPR: 0.054,
+  UYU: 0.18,
+  CRC: 0.014
+};
+
+// src/data/constants.js
+var ITEM_TYPES = ["esim", "subscription", "balance"];
+var STATUSES = ["active", "paused"];
+var BILLING_TYPES = ["monthly", "yearly", "once"];
+var BILLING_MODES = ["natural", "fixed"];
+var DEFAULT_REMIND_DAYS = [3, 1, 0];
+var REMIND_DAY_OPTIONS = [30, 15, 7, 3, 1, 0];
+var DEFAULT_CATEGORIES = [
+  "AI \u670D\u52A1",
+  "\u6D41\u5A92\u4F53",
+  "VPN / \u8282\u70B9",
+  "\u4E91\u670D\u52A1",
+  "\u57DF\u540D / SSL",
+  "VPS / \u670D\u52A1\u5668",
+  "\u8F6F\u4EF6\u8BA2\u9605",
+  "\u6E38\u620F / \u5A31\u4E50",
+  "\u6548\u7387 / \u5DE5\u5177",
+  "\u751F\u6D3B / \u8D2D\u7269",
+  "\u5176\u4ED6"
+];
+var DEFAULT_REGIONS = [
+  { code: "CN", name: "\u4E2D\u56FD\u5927\u9646", flag: "\u{1F1E8}\u{1F1F3}" },
+  { code: "US", name: "\u7F8E\u533A", flag: "\u{1F1FA}\u{1F1F8}" },
+  { code: "HK", name: "\u9999\u6E2F", flag: "\u{1F1ED}\u{1F1F0}" },
+  { code: "TW", name: "\u53F0\u6E7E", flag: "\u{1F1F9}\u{1F1FC}" },
+  { code: "JP", name: "\u65E5\u672C", flag: "\u{1F1EF}\u{1F1F5}" },
+  { code: "KR", name: "\u97E9\u56FD", flag: "\u{1F1F0}\u{1F1F7}" },
+  { code: "TR", name: "\u571F\u8033\u5176", flag: "\u{1F1F9}\u{1F1F7}" },
+  { code: "NG", name: "\u5C3C\u65E5\u5229\u4E9A", flag: "\u{1F1F3}\u{1F1EC}" },
+  { code: "AR", name: "\u963F\u6839\u5EF7", flag: "\u{1F1E6}\u{1F1F7}" },
+  { code: "EG", name: "\u57C3\u53CA", flag: "\u{1F1EA}\u{1F1EC}" },
+  { code: "IN", name: "\u5370\u5EA6", flag: "\u{1F1EE}\u{1F1F3}" },
+  { code: "BR", name: "\u5DF4\u897F", flag: "\u{1F1E7}\u{1F1F7}" },
+  { code: "PK", name: "\u5DF4\u57FA\u65AF\u5766", flag: "\u{1F1F5}\u{1F1F0}" },
+  { code: "PH", name: "\u83F2\u5F8B\u5BBE", flag: "\u{1F1F5}\u{1F1ED}" },
+  { code: "MY", name: "\u9A6C\u6765\u897F\u4E9A", flag: "\u{1F1F2}\u{1F1FE}" },
+  { code: "SG", name: "\u65B0\u52A0\u5761", flag: "\u{1F1F8}\u{1F1EC}" },
+  { code: "GB", name: "\u82F1\u56FD", flag: "\u{1F1EC}\u{1F1E7}" },
+  { code: "EU", name: "\u6B27\u6D32", flag: "\u{1F1EA}\u{1F1FA}" },
+  { code: "OTHER", name: "\u5176\u4ED6", flag: "\u{1F310}" }
+];
+
 // src/data/store.js
 var ITEMS_KEY = "items";
+var SETTINGS_KEY = "settings";
 var HISTORY_KEY = "history";
 var HISTORY_LIMIT = 100;
+function getDefaultSettings() {
+  return {
+    baseCurrency: "CNY",
+    exchangeRates: { ...DEFAULT_EXCHANGE_RATES },
+    categories: [...DEFAULT_CATEGORIES],
+    regions: [...DEFAULT_REGIONS],
+    defaultRemindDays: [3, 1, 0]
+  };
+}
 async function getAllItems(db) {
   try {
     const items = await db.get(ITEMS_KEY, { type: "json" });
@@ -117,6 +297,26 @@ async function deleteItem(db, id) {
   if (filtered.length === items.length) return false;
   await saveAllItems(db, filtered);
   return deleted;
+}
+async function getSettings(db) {
+  const defaults = getDefaultSettings();
+  try {
+    const custom = await db.get(SETTINGS_KEY, { type: "json" });
+    if (!custom || typeof custom !== "object") return defaults;
+    return {
+      baseCurrency: custom.baseCurrency || defaults.baseCurrency,
+      exchangeRates: { ...defaults.exchangeRates, ...custom.exchangeRates || {} },
+      categories: Array.isArray(custom.categories) && custom.categories.length > 0 ? custom.categories : defaults.categories,
+      regions: Array.isArray(custom.regions) && custom.regions.length > 0 ? custom.regions : defaults.regions,
+      defaultRemindDays: Array.isArray(custom.defaultRemindDays) ? custom.defaultRemindDays : defaults.defaultRemindDays
+    };
+  } catch {
+    return defaults;
+  }
+}
+async function saveSettings(db, settings) {
+  await db.put(SETTINGS_KEY, JSON.stringify(settings));
+  return settings;
 }
 async function getConfig(db, key) {
   return await db.get(key);
@@ -474,49 +674,6 @@ async function handleHistory(request, env, path) {
   return errorResponse("Not Found", 404, request, env);
 }
 
-// src/data/constants.js
-var ITEM_TYPES = ["esim", "subscription", "balance"];
-var STATUSES = ["active", "paused"];
-var BILLING_TYPES = ["monthly", "yearly", "once"];
-var BILLING_MODES = ["natural", "fixed"];
-var DEFAULT_REMIND_DAYS = [3, 1, 0];
-var REMIND_DAY_OPTIONS = [30, 15, 7, 3, 1, 0];
-var CURRENCY_SYMBOLS = {
-  CNY: "\xA5",
-  USD: "$",
-  EUR: "\u20AC",
-  GBP: "\xA3",
-  JPY: "\xA5",
-  HKD: "$",
-  TWD: "$",
-  KRW: "\u20A9",
-  TRY: "\u20BA",
-  THB: "\u0E3F",
-  NGN: "\u20A6",
-  INR: "\u20B9",
-  PHP: "\u20B1",
-  MYR: "RM",
-  SGD: "$"
-};
-var CURRENCY_CODES = Object.keys(CURRENCY_SYMBOLS);
-var DEFAULT_EXCHANGE_RATES = {
-  CNY: 1,
-  USD: 7.25,
-  EUR: 7.85,
-  GBP: 9.2,
-  JPY: 0.048,
-  HKD: 0.93,
-  TWD: 0.23,
-  KRW: 54e-4,
-  TRY: 0.22,
-  THB: 0.2,
-  NGN: 48e-4,
-  INR: 0.087,
-  PHP: 0.13,
-  MYR: 1.62,
-  SGD: 5.4
-};
-
 // src/utils/date.js
 var TZ_OFFSET = 8;
 function todayString(now = /* @__PURE__ */ new Date()) {
@@ -585,8 +742,14 @@ function calcSuspendDate(balance, monthlyFee, billingDay, now = /* @__PURE__ */ 
 
 // src/data/schema.js
 var DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+var CURRENCY_RE = /^[A-Z]{3}$/;
 function asString(value, fallback = "") {
   return value == null ? fallback : String(value).trim();
+}
+function asCurrency(value, fallback = "CNY") {
+  if (!value) return fallback;
+  const upper = String(value).toUpperCase().trim();
+  return CURRENCY_RE.test(upper) ? upper : fallback;
 }
 function asNumber(value, fallback = null) {
   if (value == null || value === "") return fallback;
@@ -635,7 +798,7 @@ function createItem(type, data) {
       number: asString(data.number),
       // eSIM 余额与货币（可选，与续期联动; 缺省无余额）
       balance: data.balance == null || data.balance === "" ? null : asNumber(data.balance, null),
-      currency: CURRENCY_CODES.includes(data.currency) ? data.currency : "CNY",
+      currency: asCurrency(data.currency, "CNY"),
       // eSIM 激活信息（敏感，LPA = 1$sm-dp+$activationCode$confirmationCode）
       smDp: asString(data.smDp),
       activationCode: asString(data.activationCode),
@@ -654,7 +817,7 @@ function createItem(type, data) {
       balance,
       monthlyFee,
       billingDay,
-      currency: CURRENCY_CODES.includes(data.currency) ? data.currency : "CNY",
+      currency: asCurrency(data.currency, "CNY"),
       remindDays: normalizeRemindDays(data.remindDays),
       predictedSuspendDate: calcSuspendDate(balance, monthlyFee, billingDay)
     };
@@ -668,7 +831,7 @@ function createItem(type, data) {
     billing: BILLING_TYPES.includes(data.billing) ? data.billing : "monthly",
     billingMode: BILLING_MODES.includes(data.billingMode) ? data.billingMode : "natural",
     cycleDays: asInteger(data.cycleDays),
-    currency: CURRENCY_CODES.includes(data.currency) ? data.currency : "CNY",
+    currency: asCurrency(data.currency, "CNY"),
     autoRenew: Boolean(data.autoRenew),
     remindDays: normalizeRemindDays(data.remindDays),
     url: asString(data.url)
@@ -710,7 +873,10 @@ function validateItem(type, data) {
     if (data.billingMode && !BILLING_MODES.includes(data.billingMode)) return "\u8BA1\u8D39\u6A21\u5F0F\u4E0D\u6B63\u786E";
     if (!isValidHttpUrl(asString(data.url))) return "\u94FE\u63A5\u5FC5\u987B\u4EE5 http:// \u6216 https:// \u5F00\u5934";
   }
-  if (data.currency && !CURRENCY_CODES.includes(data.currency)) return "\u8D27\u5E01\u7C7B\u578B\u4E0D\u652F\u6301";
+  if (data.currency) {
+    const cur = String(data.currency).toUpperCase().trim();
+    if (!CURRENCY_RE.test(cur)) return "\u8D27\u5E01\u7C7B\u578B\u683C\u5F0F\u4E0D\u6B63\u786E (\u987B\u4E3A 3 \u4F4D ISO \u5B57\u6BCD\u4EE3\u7801)";
+  }
   const remindDays = normalizeRemindDays(data.remindDays);
   if (remindDays.length === 0) return "\u63D0\u9192\u65F6\u95F4\u4E0D\u80FD\u4E3A\u7A7A";
   return null;
@@ -732,7 +898,7 @@ function mergeUpdate(existing, data) {
       updated.balance = data.balance === "" || data.balance == null ? null : asNumber(data.balance, null);
     }
     if (data.currency !== void 0) {
-      updated.currency = CURRENCY_CODES.includes(data.currency) ? data.currency : "CNY";
+      updated.currency = asCurrency(data.currency, "CNY");
     }
   }
   if (existing.type === "subscription") {
@@ -744,6 +910,7 @@ function mergeUpdate(existing, data) {
         else if (key === "remindDays") updated[key] = normalizeRemindDays(data[key]);
         else if (key === "billingMode") updated[key] = BILLING_MODES.includes(data[key]) ? data[key] : "natural";
         else if (key === "cycleDays") updated[key] = asInteger(data[key]);
+        else if (key === "currency") updated[key] = asCurrency(data[key], "CNY");
         else updated[key] = data[key];
       }
     }
@@ -754,6 +921,7 @@ function mergeUpdate(existing, data) {
         if (key === "balance" || key === "monthlyFee") updated[key] = asNumber(data[key], 0);
         else if (key === "billingDay") updated[key] = asInteger(data[key], 1);
         else if (key === "number") updated[key] = asString(data[key]);
+        else if (key === "currency") updated[key] = asCurrency(data[key], "CNY");
         else if (key === "remindDays") updated[key] = normalizeRemindDays(data[key]);
         else updated[key] = data[key];
       }
@@ -1147,6 +1315,79 @@ async function testNotify(env, id) {
   const results = await sendNotifications(env, msg, { title: "Sub-Tracker \u6D4B\u8BD5\u901A\u77E5" });
   if (results.some((r) => r.ok)) return successResponse({ channels: results }, null, env);
   return errorResponse("\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u901A\u77E5\u914D\u7F6E", 400, null, env);
+}
+
+// src/handlers/settings.js
+async function handleSettings(request, env, path) {
+  if (request.method === "OPTIONS") return corsPreFlight(request, env);
+  const authErr = await requireAuth(request, env);
+  if (authErr) return authErr;
+  if (path === "/api/settings" && request.method === "GET") {
+    const settings = await getSettings(env.DB);
+    return successResponse(settings, request, env);
+  }
+  if (path === "/api/settings" && (request.method === "PUT" || request.method === "POST")) {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return errorResponse("\u65E0\u6548\u7684 JSON \u6570\u636E", 400, request, env);
+    }
+    if (!body || typeof body !== "object") {
+      return errorResponse("\u8BF7\u6C42\u53C2\u6570\u683C\u5F0F\u4E0D\u6B63\u786E", 400, request, env);
+    }
+    const current = await getSettings(env.DB);
+    const updated = { ...current };
+    if (body.baseCurrency) {
+      const cur = String(body.baseCurrency).toUpperCase().trim();
+      if (!/^[A-Z]{3}$/.test(cur)) {
+        return errorResponse("\u57FA\u51C6\u8D27\u5E01\u683C\u5F0F\u4E0D\u6B63\u786E (\u987B\u4E3A 3 \u4F4D\u5B57\u6BCD\u4EE3\u7801)", 400, request, env);
+      }
+      updated.baseCurrency = cur;
+    }
+    if (body.exchangeRates && typeof body.exchangeRates === "object") {
+      const cleanRates = {};
+      for (const [key, val] of Object.entries(body.exchangeRates)) {
+        const k = String(key).toUpperCase().trim();
+        const v = Number(val);
+        if (/^[A-Z]{3}$/.test(k) && Number.isFinite(v) && v > 0) {
+          cleanRates[k] = v;
+        }
+      }
+      updated.exchangeRates = { ...updated.exchangeRates, ...cleanRates };
+    }
+    if (Array.isArray(body.categories)) {
+      const cats = body.categories.map((c) => String(c).trim()).filter((c) => c.length > 0 && c.length <= 40);
+      updated.categories = [...new Set(cats)];
+    }
+    if (Array.isArray(body.regions)) {
+      updated.regions = body.regions.filter((r) => r && (typeof r === "string" || typeof r === "object")).map((r) => {
+        if (typeof r === "string") return { code: r.toUpperCase().trim(), name: r.trim(), flag: "\u{1F310}" };
+        return {
+          code: String(r.code || "").toUpperCase().trim(),
+          name: String(r.name || r.code || "").trim(),
+          flag: String(r.flag || "\u{1F310}").trim()
+        };
+      }).filter((r) => r.code.length > 0);
+    }
+    if (Array.isArray(body.defaultRemindDays)) {
+      const days = body.defaultRemindDays.map((d) => Number(d)).filter((d) => Number.isInteger(d) && d >= 0 && d <= 365);
+      if (days.length > 0) {
+        updated.defaultRemindDays = [...new Set(days)].sort((a, b) => b - a);
+      }
+    }
+    await saveSettings(env.DB, updated);
+    try {
+      await addHistory(env.DB, {
+        action: "update_settings",
+        details: { baseCurrency: updated.baseCurrency }
+      });
+    } catch (err) {
+      console.error("History write failed for settings:", err);
+    }
+    return successResponse(updated, request, env);
+  }
+  return errorResponse("Not Found", 404, request, env);
 }
 
 // src/utils/country.js
@@ -1615,6 +1856,10 @@ ${qrScript}
 
 let TOKEN = localStorage.getItem('token') || '';
 let allItems = [];
+let appSettings = null;
+let editingRates = {};
+let editingCategories = [];
+let editingRegions = [];
 let currentFilter = 'all';
 let currentView = 'grid';
 let calYear, calMonth;
@@ -1681,8 +1926,22 @@ function toggleFab() {
 }
 
 const API = '';
-const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
+const ISO_CURRENCIES = ${JSON.stringify(ISO_CURRENCIES)};
+const CURRENCY_SYMBOLS = ${JSON.stringify(CURRENCY_SYMBOLS)};
+const DEFAULT_CATEGORIES = ${JSON.stringify(DEFAULT_CATEGORIES)};
+const DEFAULT_REGIONS = ${JSON.stringify(DEFAULT_REGIONS)};
 const DEFAULT_EXCHANGE_RATES = ${JSON.stringify(DEFAULT_EXCHANGE_RATES)};
+const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
+const FLAG_MAP = ${JSON.stringify(flagMap)};
+
+function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '\xA5'; }
+
+function getRateToBase(cur, baseCur, rates) {
+  if (!cur || cur === baseCur) return 1.0;
+  if (rates && rates[cur] != null && Number(rates[cur]) > 0) return Number(rates[cur]);
+  if (baseCur === 'CNY') return DEFAULT_EXCHANGE_RATES[cur] || 1.0;
+  return 1.0;
+}
 
 // ==================== API ====================
 async function api(method, path, body) {
@@ -1744,7 +2003,40 @@ async function enterDashboard() {
   const now = new Date();
   document.getElementById('today-display').textContent = now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
   calYear = now.getFullYear(); calMonth = now.getMonth();
+  await loadSettings();
   await loadItems();
+}
+
+async function loadSettings() {
+  try {
+    const res = await api('GET', '/api/settings');
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.success) {
+        appSettings = {
+          baseCurrency: json.baseCurrency || 'CNY',
+          exchangeRates: json.exchangeRates || { ...DEFAULT_EXCHANGE_RATES },
+          categories: json.categories || [...DEFAULT_CATEGORIES],
+          regions: json.regions || [...DEFAULT_REGIONS],
+          defaultRemindDays: json.defaultRemindDays || [...DEFAULT_REMIND_DAYS_CLIENT],
+        };
+      }
+    }
+  } catch (err) {
+    console.error('loadSettings error:', err);
+  }
+  if (!appSettings) {
+    appSettings = {
+      baseCurrency: 'CNY',
+      exchangeRates: { ...DEFAULT_EXCHANGE_RATES },
+      categories: [...DEFAULT_CATEGORIES],
+      regions: [...DEFAULT_REGIONS],
+      defaultRemindDays: [...DEFAULT_REMIND_DAYS_CLIENT],
+    };
+  }
+  populateCurrencySelects();
+  populateCategoryDatalist();
+  populateRegionDatalist();
 }
 
 async function loadItems() {
@@ -1755,7 +2047,48 @@ async function loadItems() {
   } catch (e) {
     console.error('loadItems error:', e);
   }
-  renderStats(); renderAnalytics(); renderItems();
+  populateCategoryDatalist();
+  populateRegionDatalist();
+  renderStats();
+  renderAnalytics();
+  renderItems();
+}
+
+function populateCurrencySelects() {
+  const selects = document.querySelectorAll('.currency-select-target');
+  const optionsHTML = ISO_CURRENCIES.map(c =>
+    '<option value="'+c.code+'">'+c.flag+' '+c.code+' \xB7 '+c.name+' ('+c.symbol+')</option>'
+  ).join('');
+
+  selects.forEach(sel => {
+    const currentVal = sel.value;
+    sel.innerHTML = optionsHTML;
+    if (currentVal) sel.value = currentVal;
+  });
+
+  const baseSelect = document.getElementById('settings-base-currency');
+  if (baseSelect) {
+    baseSelect.innerHTML = optionsHTML;
+    baseSelect.value = appSettings?.baseCurrency || 'CNY';
+  }
+}
+
+function populateCategoryDatalist() {
+  const dl = document.getElementById('category-datalist');
+  if (!dl) return;
+  const set = new Set(appSettings?.categories || DEFAULT_CATEGORIES);
+  allItems.forEach(item => { if (item.category) set.add(item.category); });
+  dl.innerHTML = Array.from(set).map(cat => '<option value="'+esc(cat)+'"></option>').join('');
+}
+
+function populateRegionDatalist() {
+  const dl = document.getElementById('region-datalist');
+  if (!dl) return;
+  const list = appSettings?.regions || DEFAULT_REGIONS;
+  const options = list.map(r =>
+    '<option value="'+r.code+'">'+(r.flag ? r.flag+' ' : '')+r.code+' - '+(r.name||'')+'</option>'
+  );
+  dl.innerHTML = options.join('');
 }
 
 // ==================== STATS ====================
@@ -1796,8 +2129,9 @@ function renderStats() {
 
   const allCurs = [...new Set([...Object.keys(monthlyByCur), ...Object.keys(balanceByCur)])].sort();
 
-  // Multi-currency converted estimate to CNY
-  const convertedMonthlyCNY = Object.entries(monthlyByCur).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
+  const baseCur = appSettings?.baseCurrency || 'CNY';
+  const rates = appSettings?.exchangeRates || DEFAULT_EXCHANGE_RATES;
+  const convertedMonthly = Object.entries(monthlyByCur).reduce((acc, [cur, val]) => acc + val * getRateToBase(cur, baseCur, rates), 0);
 
   function fmtBalance() {
     if (!allCurs.length) return '0';
@@ -1810,7 +2144,7 @@ function renderStats() {
     { label:'\u8BA2\u9605', value:subs.length, icon:'fa-credit-card', color:'text-violet-400', bg:'bg-violet-500/10', filter:'subscription' },
     { label:'\u8BDD\u8D39', value:balances.length ? fmtBalance() : '0', icon:'fa-wallet', color:'text-amber-400', bg:'bg-amber-500/10', filter:'balance' },
     { label:'\u5373\u5C06\u5230\u671F', value:urgentCount, icon:'fa-clock', color:'text-rose-400', bg:'bg-rose-500/10', filter:'urgent' },
-    { label:'\u6708\u5EA6\u603B\u652F\u51FA (\u6298\u7B97)', value:'\xA5' + Math.round(convertedMonthlyCNY), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
+    { label:'\u6708\u5EA6\u603B\u652F\u51FA (\u6298\u7B97)', value:currSym(baseCur) + Math.round(convertedMonthly), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
   ];
 
   document.getElementById('stats-bar').innerHTML = stats.map(s =>
@@ -1868,8 +2202,10 @@ function renderAnalytics() {
   const currencies = Object.keys(monthly).sort();
   if (!currencies.length) { panel.innerHTML = ''; return; }
 
-  const totalMonthlyCNY = Object.entries(monthly).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
-  const totalYearlyCNY = Object.entries(yearly).reduce((acc, [cur, val]) => acc + val * (DEFAULT_EXCHANGE_RATES[cur] || 1), 0);
+  const baseCur = appSettings?.baseCurrency || 'CNY';
+  const rates = appSettings?.exchangeRates || DEFAULT_EXCHANGE_RATES;
+  const totalMonthly = Object.entries(monthly).reduce((acc, [cur, val]) => acc + val * getRateToBase(cur, baseCur, rates), 0);
+  const totalYearly = Object.entries(yearly).reduce((acc, [cur, val]) => acc + val * getRateToBase(cur, baseCur, rates), 0);
 
   const currencyHTML = currencies.map(cur =>
     '<div class="glass-card rounded-xl p-4">' +
@@ -1892,12 +2228,12 @@ function renderAnalytics() {
   panel.innerHTML =
     '<div class="glass rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-sky-950/40 to-slate-900/40 border border-sky-500/20">' +
       '<div>' +
-        '<div class="text-xs text-sky-400 font-semibold mb-0.5"><i class="fa-solid fa-calculator mr-1"></i>\u5168\u5E01\u79CD\u6C47\u7387\u6298\u7B97\u603B\u652F\u51FA (\u57FA\u51C6: CNY)</div>' +
-        '<div class="text-xl sm:text-2xl font-bold text-white">\xA5' + totalMonthlyCNY.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u6708</span></div>' +
+        '<div class="text-xs text-sky-400 font-semibold mb-0.5"><i class="fa-solid fa-calculator mr-1"></i>\u5168\u5E01\u79CD\u6C47\u7387\u6298\u7B97\u603B\u652F\u51FA (\u57FA\u51C6: '+baseCur+')</div>' +
+        '<div class="text-xl sm:text-2xl font-bold text-white">'+currSym(baseCur) + totalMonthly.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u6708</span></div>' +
       '</div>' +
       '<div class="sm:text-right sm:border-l sm:border-white/10 sm:pl-6">' +
         '<div class="text-xs text-slate-400 mb-0.5">\u6298\u7B97\u5E74\u5EA6\u603B\u9884\u7B97</div>' +
-        '<div class="text-base sm:text-lg font-bold text-emerald-400">\xA5' + totalYearlyCNY.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u5E74</span></div>' +
+        '<div class="text-base sm:text-lg font-bold text-emerald-400">'+currSym(baseCur) + totalYearly.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u5E74</span></div>' +
       '</div>' +
     '</div>' +
     '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
@@ -1941,363 +2277,317 @@ function getFilteredItems() {
         if (i.status === 'paused') return false;
         const dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
         if (!dateStr) return false;
-        const diff = Math.ceil((new Date(dateStr+'T00:00:00') - today) / 86400000);
+        const diff = Math.ceil((new Date(dateStr + 'T00:00:00') - today) / 86400000);
         return diff <= 15;
       });
     } else {
       items = items.filter(i => i.type === currentFilter);
     }
   }
-  if (search) items = items.filter(i =>
-    (i.name||'').toLowerCase().includes(search) || (i.number||'').toLowerCase().includes(search) ||
-    (i.remark||'').toLowerCase().includes(search) || (i.category||'').toLowerCase().includes(search) ||
-    (i.region||'').toLowerCase().includes(search) || (i.subId||'').toLowerCase().includes(search) ||
-    (i.url||'').toLowerCase().includes(search)
-  );
+  if (search) {
+    items = items.filter(i =>
+      (i.name||'').toLowerCase().includes(search) ||
+      (i.number||'').toLowerCase().includes(search) ||
+      (i.remark||'').toLowerCase().includes(search) ||
+      (i.category||'').toLowerCase().includes(search) ||
+      (i.region||'').toLowerCase().includes(search) ||
+      (i.subId||'').toLowerCase().includes(search) ||
+      (i.currency||'').toLowerCase().includes(search)
+    );
+  }
   const sortBy = document.getElementById('sort-select')?.value || 'expire';
-  return sortItemsByPaused(items, sortBy);
+  return sortItemsByPaused([...items], sortBy);
 }
 
 function renderItems() {
   const items = getFilteredItems();
-  const area = document.getElementById('content-area');
+  const container = document.getElementById('content-area');
   const empty = document.getElementById('empty-state');
-  if (!items.length) {
-    area.innerHTML = '';
-    const search = (document.getElementById('search-input').value || '').trim();
-    if (search || currentFilter !== 'all') {
-      empty.querySelector('p.text-lg').textContent = '\u6CA1\u6709\u5339\u914D\u7684\u8BB0\u5F55';
-      empty.querySelector('p.text-sm').textContent = '\u5C1D\u8BD5\u8C03\u6574\u641C\u7D22\u5173\u952E\u8BCD\u6216\u7B5B\u9009\u6761\u4EF6';
-      empty.querySelector('.flex.gap-3')?.classList.add('hidden');
-    } else {
-      empty.querySelector('p.text-lg').textContent = '\u6682\u65E0\u6570\u636E';
-      empty.querySelector('p.text-sm').textContent = '\u6DFB\u52A0\u4F60\u7684\u7B2C\u4E00\u4E2A eSIM \u5361\u3001\u8BA2\u9605\u670D\u52A1\u6216\u8BDD\u8D39\u7BA1\u7406';
-      empty.querySelector('.flex.gap-3')?.classList.remove('hidden');
-    }
+
+  if (allItems.length === 0) {
+    container.innerHTML = '';
     empty.classList.remove('hidden');
     return;
   }
   empty.classList.add('hidden');
 
-  if (currentView === 'grid') renderGrid(items, area);
-  else if (currentView === 'list') renderList(items, area);
-  else if (currentView === 'calendar') renderCalendar(items, area);
-}
-
-// -- Grid view --
-function renderGrid(items, area) {
-  area.innerHTML = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">' +
-    items.map(i => cardHTML(i)).join('') + '</div>';
-}
-
-function cardHTML(item) {
-  const diff = getDiff(item);
-  const isBalance = item.type === 'balance';
-  const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
-  const isEsim = item.type === 'esim';
-  let tc, tb, ti, tl;
-  if (isBalance) { tc = 'text-amber-400'; tb = 'bg-amber-500/10'; ti = 'fa-wallet'; tl = '\u8BDD\u8D39'; }
-  else if (isEsim) { tc = 'text-cyan-400'; tb = 'bg-cyan-500/10'; ti = 'fa-sim-card'; tl = 'eSIM'; }
-  else { tc = 'text-violet-400'; tb = 'bg-violet-500/10'; ti = 'fa-credit-card'; tl = (item.category||'\u8BA2\u9605'); }
-
-  let body = '';
-  if (isBalance) {
-    const sym = currSym(item.currency);
-    const monthsLeft = item.monthlyFee > 0 ? Math.max(0, Math.floor(item.balance / item.monthlyFee)) : 0;
-    body = (item.number ? '<div class="text-sm text-slate-300 font-mono mb-1">'+esc(item.number)+'</div>' : '') +
-      '<div class="text-lg text-emerald-400 font-bold">'+sym+esc(item.balance)+'</div>' +
-      '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-receipt mr-1"></i>\u6708\u79DF '+sym+esc(item.monthlyFee)+'/\u6708 \xB7 \u6BCF\u6708'+esc(item.billingDay)+'\u65E5\u6263</div>' +
-      '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-battery-half mr-1"></i>\u53EF\u6491 '+monthsLeft+' \u4E2A\u6708</div>' +
-      (item.lastRecharge ? '<div class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-plus-circle mr-1"></i>\u4E0A\u6B21 '+((item.lastRecharge.amount>0)?'+':'')+esc(item.lastRecharge.amount)+' ('+esc(item.lastRecharge.date)+')</div>' : '');
-  } else if (isEsim) {
-    const iso = getFlag(item.number);
-    const hasLPA = item.smDp || item.activationCode;
-    body = (iso ? '<div class="text-xs font-mono text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded mb-2 inline-block">'+esc(iso)+'</div>' : '') +
-      (item.number ? '<div class="text-sm text-slate-300 font-mono">'+esc(item.number)+'</div>' : '') +
-      (hasLPA ? '<div class="text-xs text-cyan-400/90 mt-1 cursor-pointer hover:text-cyan-300 flex items-center gap-1.5" onclick="showQrCode('+jsArg(item.id)+')"><i class="fa-solid fa-qrcode text-cyan-400"></i><span>\u70B9\u51FB\u5C55\u793A\u5B89\u88C5\u4E8C\u7EF4\u7801</span></div>' : '');
-  } else {
-    const ps = item.price ? (item.billing==='yearly' ? currSym(item.currency)+item.price+'/\u5E74' : item.billing==='once' ? currSym(item.currency)+item.price+'(\u4E00\u6B21\u6027)' : currSym(item.currency)+item.price+'/\u6708') : '';
-    const regionStr = item.region ? esc(item.region) : '';
-    const catStr = item.category ? esc(item.category) : '';
-    const metaLine = [catStr, regionStr].filter(Boolean).join(' \xB7 ');
-    const autoBadge = item.autoRenew ? '<span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded ml-2" title="\u5230\u671F\u81EA\u52A8\u987A\u5EF6"><i class="fa-solid fa-arrows-rotate mr-1"></i>\u81EA\u52A8\u7EED\u8D39</span>' : '';
-    body = (metaLine ? '<div class="text-xs text-slate-400 mb-1">'+metaLine+'</div>' : '') +
-      (ps ? '<div class="text-sm text-emerald-400 font-semibold flex items-center">'+esc(ps)+autoBadge+'</div>' : '') +
-      (item.subId ? '<div class="text-xs text-slate-500 mt-1 truncate"><i class="fa-solid fa-id-card mr-1"></i>'+esc(item.subId)+'</div>' : '');
-    if (item.url) body += '<a href="'+safeHref(item.url)+'" target="_blank" rel="noopener noreferrer" class="text-xs text-sky-400 hover:underline mt-1 inline-block"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>\u8BBF\u95EE</a>';
-  }
-
-  const idArg = jsArg(item.id);
-  const hasLPA = isEsim && (item.smDp || item.activationCode);
-  const qrBtn = hasLPA ?
-    '<button onclick="showQrCode('+idArg+')" class="text-xs btn-touch text-cyan-400 hover:text-cyan-300 px-2 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors" title="\u67E5\u770B eSIM \u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '';
-  const renewBtn = (isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ?
-    '<button onclick="renewItem('+idArg+')" class="text-xs btn-touch text-sky-400 hover:text-sky-300 px-2.5 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors font-medium"><i class="fa-solid fa-rotate mr-1"></i>\u7EED\u671F</button>' : '';
-  const rechargeBtn = isBalance ?
-    '<button onclick="rechargeItem('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors font-medium"><i class="fa-solid fa-plus-circle mr-1"></i>\u5145\u503C</button>' : '';
-
-  return '<div class="glass-card rounded-xl p-5">' +
-    '<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2">' +
-    '<div class="'+tb+' w-8 h-8 rounded-lg flex items-center justify-center"><i class="fa-solid '+ti+' '+tc+' text-sm"></i></div>' +
-    '<span class="text-xs '+tc+' opacity-70">'+esc(tl)+'</span></div>' +
-    '<span class="text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'\u5DF2\u6682\u505C':st.text)+'</span></div>' +
-    '<h3 class="text-lg font-bold text-white mb-1 truncate">'+esc(item.name)+'</h3>' +
-    body +
-    (isBalance && item.predictedSuspendDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>\u9884\u8BA1\u505C\u673A: '+esc(item.predictedSuspendDate)+'</div>' : '') +
-    (item.expireDate ? '<div class="text-xs text-slate-400 mt-2"><i class="fa-regular fa-calendar mr-1"></i>\u5230\u671F: '+esc(item.expireDate)+'</div>' : '') +
-    (item.cycle ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-arrows-rotate mr-1"></i>\u5468\u671F: '+esc(item.cycle)+'\u5929</div>' : '') +
-    (isEsim && item.balance != null ? '<div class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-wallet mr-1"></i>\u4F59\u989D: '+currSym(item.currency || 'CNY')+esc(item.balance)+'</div>' : '') +
-    (item.remark ? '<div class="text-xs text-slate-500 mt-2 truncate"><i class="fa-regular fa-note-sticky mr-1"></i>'+esc(item.remark)+'</div>' : '') +
-    '<div class="flex justify-between items-center gap-2 mt-3 pt-3 border-t border-white/5">' +
-      '<div class="flex items-center gap-1">' + qrBtn + rechargeBtn + renewBtn + '</div>' +
-      '<div class="flex items-center gap-1">' +
-        '<button onclick="toggleStatus('+idArg+')" class="text-xs btn-touch px-2 py-1.5 rounded-lg transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'\u542F\u7528':'\u6682\u505C')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
-        '<button onclick="testNotify('+idArg+')" class="text-xs btn-touch text-amber-400 hover:text-amber-300 px-2 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors" title="\u6D4B\u8BD5\u901A\u77E5"><i class="fa-solid fa-bell"></i></button>' +
-        '<button onclick="editItem('+idArg+')" class="text-xs btn-touch text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/5" title="\u7F16\u8F91"><i class="fa-solid fa-pen"></i></button>' +
-        '<button onclick="deleteItem('+idArg+')" class="text-xs btn-touch text-red-400 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10" title="\u5220\u9664"><i class="fa-solid fa-trash"></i></button>' +
-      '</div>' +
-    '</div></div>';
-}
-
-// -- List view --
-function renderList(items, area) {
-  const isMobile = window.innerWidth < 640;
-  if (isMobile) {
-    let html = '<div class="space-y-2">';
-    html += items.map(i => listRowMobileHTML(i)).join('');
-    html += '</div>';
-    area.innerHTML = html;
+  if (items.length === 0) {
+    container.innerHTML = '<div class="text-center py-16 text-slate-500"><i class="fa-solid fa-filter text-4xl mb-3 opacity-30"></i><p>\u6CA1\u6709\u5339\u914D\u7684\u8BB0\u5F55</p></div>';
     return;
   }
-  let html = '<div class="glass rounded-xl overflow-hidden">';
-  html += '<div class="hidden sm:grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold text-slate-400 border-b border-white/10 bg-white/5">' +
-    '<div class="col-span-4">\u540D\u79F0</div><div class="col-span-2">\u7C7B\u578B/\u53F7\u7801</div>' +
-    '<div class="col-span-2">\u5230\u671F</div><div class="col-span-2">\u72B6\u6001</div>' +
-    '<div class="col-span-2 text-right">\u64CD\u4F5C</div></div>';
-  html += items.map(i => listRowHTML(i)).join('');
-  html += '</div>';
-  area.innerHTML = html;
+
+  if (currentView === 'grid') container.innerHTML = renderGrid(items);
+  else if (currentView === 'list') container.innerHTML = renderList(items);
+  else if (currentView === 'calendar') container.innerHTML = renderCalendar(items);
 }
 
-function listRowMobileHTML(item) {
-  const diff = getDiff(item);
-  const isBalance = item.type === 'balance';
-  const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
-  const isEsim = item.type === 'esim';
-  const hasLPA = isEsim && (item.smDp || item.activationCode);
-  const idArg = jsArg(item.id);
-  let tc, ti;
-  if (isBalance) { tc = 'text-amber-400'; ti = 'fa-wallet'; }
-  else if (isEsim) { tc = 'text-cyan-400'; ti = 'fa-sim-card'; }
-  else { tc = 'text-violet-400'; ti = 'fa-credit-card'; }
-  const statusText = item.status==='paused' ? '\u5DF2\u6682\u505C' : (st.text || '\u672A\u8BBE\u7F6E');
-  const statusCls = item.status==='paused' ? 'text-slate-500' : st.cls;
+function getDaysRemaining(item) {
+  const targetDate = item.type === 'balance' ? item.predictedSuspendDate : item.expireDate;
+  if (!targetDate) return 999;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const exp = new Date(targetDate + 'T00:00:00');
+  return Math.ceil((exp - today) / 86400000);
+}
 
-  const sym = currSym(item.currency);
-  const balanceInfo = isBalance ? sym+esc(item.balance)+' \xB7 \u6708\u79DF'+sym+esc(item.monthlyFee) : '';
+function getStatusBadge(item) {
+  if (item.status === 'paused') {
+    return { text: '\u5DF2\u6682\u505C', cls: 'status-paused bg-slate-500/10 text-slate-400 border border-slate-500/20' };
+  }
+  const days = getDaysRemaining(item);
+  if (days < 0) return { text: '\u5DF2\u8FC7\u671F ' + Math.abs(days) + ' \u5929', cls: 'status-expired bg-red-500/10 text-red-400 border border-red-500/20' };
+  if (days === 0) return { text: '\u4ECA\u5929\u5230\u671F', cls: 'status-danger bg-red-500/10 text-red-400 border border-red-500/20' };
+  if (days <= 3) return { text: days + ' \u5929\u540E\u5230\u671F', cls: 'status-danger bg-red-500/10 text-red-400 border border-red-500/20' };
+  if (days <= 7) return { text: days + ' \u5929\u540E\u5230\u671F', cls: 'status-warning bg-amber-500/10 text-amber-400 border border-amber-500/20' };
+  if (days <= 15) return { text: days + ' \u5929\u540E\u5230\u671F', cls: 'status-warning bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' };
+  return { text: days + ' \u5929\u540E\u5230\u671F', cls: 'status-active bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' };
+}
 
-  return '<div class="glass-card rounded-xl p-4">' +
-    '<div class="flex items-center justify-between mb-2">' +
-      '<div class="flex items-center gap-2 min-w-0">' +
-        '<i class="fa-solid '+ti+' '+tc+' text-sm flex-shrink-0"></i>' +
-        '<span class="text-sm font-semibold text-white truncate">'+esc(item.name)+'</span>' +
+function renderGrid(items) {
+  return '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">' +
+    items.map(item => {
+      const badge = getStatusBadge(item);
+      const isPaused = item.status === 'paused';
+      const flag = getFlag(item.number);
+      const sym = currSym(item.currency || 'CNY');
+      const isEsim = item.type === 'esim';
+      const isSub = item.type === 'subscription';
+      const isBal = item.type === 'balance';
+
+      let tc, tb, ti, tl;
+      if (isEsim) { tc = 'text-cyan-400'; tb = 'bg-cyan-500/10'; ti = 'fa-sim-card'; tl = 'eSIM'; }
+      else if (isBal) { tc = 'text-amber-400'; tb = 'bg-amber-500/10'; ti = 'fa-wallet'; tl = '\u8BDD\u8D39'; }
+      else { tc = 'text-violet-400'; tb = 'bg-violet-500/10'; ti = 'fa-credit-card'; tl = (item.category||'\u8BA2\u9605'); }
+
+      const priceStr = (isSub && item.price)
+        ? sym + item.price + (item.billing === 'yearly' ? '/\u5E74' : item.billing === 'once' ? '' : '/\u6708')
+        : '';
+      const autoStr = (isSub && item.autoRenew)
+        ? '<span class="text-xs text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20"><i class="fa-solid fa-rotate mr-1"></i>\u81EA\u52A8\u7EED\u8D39</span>'
+        : '';
+      const cycleModeStr = (isSub && item.billingMode === 'fixed')
+        ? '<span class="text-xs text-slate-400 bg-white/5 px-2 py-0.5 rounded-full">\u56FA\u5B9A'+(item.cycleDays||(item.billing==='yearly'?365:30))+'\u5929</span>'
+        : '';
+
+      const regionStr = item.region ? esc(item.region) : '';
+      const catStr = item.category ? esc(item.category) : '';
+      const metaLine = [catStr, regionStr].filter(Boolean).join(' \xB7 ');
+
+      let balanceStr = '';
+      if (isBal) {
+        balanceStr = '<div class="text-lg font-bold text-amber-300">' + sym + (item.balance != null ? item.balance : 0) +
+          ' <span class="text-xs font-normal text-slate-400">(\u6708\u79DF ' + sym + (item.monthlyFee || 0) + ' \xB7 \u6BCF\u6708' + (item.billingDay || 1) + '\u65E5\u6263)</span></div>';
+      } else if (isEsim && item.balance != null) {
+        balanceStr = '<div class="text-xs text-slate-300"><i class="fa-solid fa-wallet text-amber-400 mr-1"></i>\u4F59\u989D: <span class="font-bold text-amber-300">' + sym + item.balance + '</span></div>';
+      }
+
+      return '<div class="glass-card rounded-2xl p-5 fade-in relative flex flex-col justify-between ' + (isPaused ? 'opacity-60' : '') + '">' +
+        '<div>' +
+          '<div class="flex items-start justify-between gap-2 mb-3">' +
+            '<div class="flex items-center gap-2.5 min-w-0">' +
+              '<div class="' + tb + ' w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0">' +
+                '<i class="fa-solid ' + ti + ' ' + tc + '"></i>' +
+              '</div>' +
+              '<div class="min-w-0">' +
+                '<div class="font-bold text-white text-base truncate flex items-center gap-1.5">' +
+                  (flag ? '<span class="text-base flex-shrink-0">' + flag + '</span>' : '') +
+                  '<span class="truncate">' + esc(item.name) + '</span>' +
+                '</div>' +
+                (metaLine ? '<div class="text-xs text-slate-400 truncate mt-0.5">' + metaLine + '</div>' : '') +
+              '</div>' +
+            '</div>' +
+            '<span class="px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 ' + badge.cls + '">' + badge.text + '</span>' +
+          '</div>' +
+
+          (item.number ? '<div class="text-xs text-slate-400 mb-2 font-mono"><i class="fa-solid fa-phone text-slate-500 mr-1.5"></i>' + esc(item.number) + '</div>' : '') +
+          (balanceStr ? '<div class="mb-2">' + balanceStr + '</div>' : '') +
+
+          '<div class="space-y-1.5 text-xs text-slate-300 mb-3">' +
+            (isBal
+              ? '<div class="flex justify-between"><span>\u9884\u8BA1\u505C\u673A\uFF1A</span><span class="font-mono text-slate-200 font-bold">' + (item.predictedSuspendDate || '-') + '</span></div>'
+              : '<div class="flex justify-between"><span>\u5230\u671F\u65E5\u671F\uFF1A</span><span class="font-mono text-slate-200 font-bold">' + (item.expireDate || '-') + '</span></div>') +
+            (item.cycle ? '<div class="flex justify-between"><span>\u7EED\u8D39\u5468\u671F\uFF1A</span><span>' + item.cycle + ' \u5929</span></div>' : '') +
+            (priceStr ? '<div class="flex justify-between items-center"><span>\u8D39\u7528\uFF1A</span><span class="font-bold text-emerald-400">' + priceStr + '</span></div>' : '') +
+            ((autoStr || cycleModeStr) ? '<div class="flex gap-1.5 pt-1 flex-wrap">' + autoStr + cycleModeStr + '</div>' : '') +
+            (item.url ? '<div class="pt-1 truncate"><a href="' + safeHref(item.url) + '" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline inline-flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>' + esc(item.url.replace(/^https?:\\/\\//,'')) + '</a></div>' : '') +
+            (item.remark ? '<div class="text-slate-400 text-xs italic bg-white/5 rounded-lg p-2 mt-2 break-all">' + esc(item.remark) + '</div>' : '') +
+          '</div>' +
+        '</div>' +
+
+        '<div class="pt-3 border-t border-white/10 flex items-center justify-between gap-1 flex-wrap mt-2">' +
+          '<div class="flex items-center gap-1 flex-wrap">' +
+            (!isBal ? '<button onclick="renewItem(\\'' + item.id + '\\')" class="btn-touch px-2.5 py-1 rounded-lg text-xs font-semibold text-sky-400 hover:bg-sky-500/10 border border-sky-500/20 transition-colors" title="\u7EED\u671F"><i class="fa-solid fa-rotate mr-1"></i>\u7EED\u671F</button>' : '') +
+            (isBal ? '<button onclick="openRechargeModal(\\'' + item.id + '\\')" class="btn-touch px-2.5 py-1 rounded-lg text-xs font-semibold text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 transition-colors" title="\u5145\u503C"><i class="fa-solid fa-plus-circle mr-1"></i>\u5145\u503C</button>' : '') +
+            (isEsim && (item.smDp || item.activationCode) ? '<button onclick="showQrCode(\\'' + item.id + '\\')" class="btn-touch px-2.5 py-1 rounded-lg text-xs font-semibold text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 transition-colors" title="\u5B89\u88C5\u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode mr-1"></i>\u4E8C\u7EF4\u7801</button>' : '') +
+            '<button onclick="toggleStatus(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors" title="' + (isPaused ? '\u6062\u590D\u542F\u7528' : '\u6682\u505C') + '"><i class="fa-solid ' + (isPaused ? 'fa-play text-emerald-400' : 'fa-pause') + '"></i></button>' +
+          '</div>' +
+          '<div class="flex items-center gap-1">' +
+            '<button onclick="editItem(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors" title="\u7F16\u8F91"><i class="fa-solid fa-pen"></i></button>' +
+            '<button onclick="deleteItem(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded-lg text-xs text-red-400 hover:bg-red-500/10 transition-colors" title="\u5220\u9664"><i class="fa-solid fa-trash"></i></button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+
+function renderList(items) {
+  return '<div class="glass rounded-2xl overflow-hidden">' +
+    '<div class="overflow-x-auto"><table class="w-full text-left text-sm">' +
+      '<thead class="text-xs text-slate-400 uppercase bg-white/5 border-b border-white/10">' +
+        '<tr>' +
+          '<th class="px-4 py-3">\u540D\u79F0 / \u7C7B\u578B</th>' +
+          '<th class="px-4 py-3">\u53F7\u7801 / \u8D26\u53F7</th>' +
+          '<th class="px-4 py-3">\u5206\u7C7B / \u533A\u57DF</th>' +
+          '<th class="px-4 py-3">\u5230\u671F/\u505C\u673A\u65E5</th>' +
+          '<th class="px-4 py-3">\u8D39\u7528 / \u4F59\u989D</th>' +
+          '<th class="px-4 py-3">\u72B6\u6001</th>' +
+          '<th class="px-4 py-3 text-right">\u64CD\u4F5C</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody class="divide-y divide-white/5">' +
+        items.map(item => {
+          const badge = getStatusBadge(item);
+          const flag = getFlag(item.number);
+          const sym = currSym(item.currency || 'CNY');
+          const isEsim = item.type === 'esim';
+          const isSub = item.type === 'subscription';
+          const isBal = item.type === 'balance';
+
+          let typeBadge;
+          if (isEsim) typeBadge = '<span class="text-[11px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20">eSIM</span>';
+          else if (isBal) typeBadge = '<span class="text-[11px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/20">\u8BDD\u8D39</span>';
+          else typeBadge = '<span class="text-[11px] bg-violet-500/10 text-violet-400 px-1.5 py-0.5 rounded border border-violet-500/20">\u8BA2\u9605</span>';
+
+          let priceOrBal = '-';
+          if (isSub && item.price) priceOrBal = '<span class="font-bold text-emerald-400">' + sym + item.price + (item.billing==='yearly'?'/\u5E74':'/\u6708') + '</span>';
+          else if (isBal) priceOrBal = '<span class="font-bold text-amber-300">' + sym + (item.balance ?? 0) + '</span> (\u6708\u79DF ' + sym + (item.monthlyFee||0) + ')';
+          else if (isEsim && item.balance != null) priceOrBal = sym + item.balance;
+
+          return '<tr class="list-row ' + (item.status === 'paused' ? 'opacity-50' : '') + '">' +
+            '<td class="px-4 py-3">' +
+              '<div class="font-bold text-white flex items-center gap-1.5">' +
+                (flag ? '<span>' + flag + '</span>' : '') +
+                '<span>' + esc(item.name) + '</span>' +
+                typeBadge +
+              '</div>' +
+            '</td>' +
+            '<td class="px-4 py-3 font-mono text-xs text-slate-300">' + esc(item.number || item.subId || '-') + '</td>' +
+            '<td class="px-4 py-3 text-xs text-slate-300">' + esc(item.category || '-') + (item.region ? ' ('+esc(item.region)+')' : '') + '</td>' +
+            '<td class="px-4 py-3 font-mono text-xs text-slate-200">' + (isBal ? item.predictedSuspendDate || '-' : item.expireDate || '-') + '</td>' +
+            '<td class="px-4 py-3 text-xs">' + priceOrBal + '</td>' +
+            '<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ' + badge.cls + '">' + badge.text + '</span></td>' +
+            '<td class="px-4 py-3 text-right">' +
+              '<div class="flex items-center justify-end gap-1">' +
+                (!isBal ? '<button onclick="renewItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-sky-400 hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
+                (isBal ? '<button onclick="openRechargeModal(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-amber-400 hover:bg-amber-500/10" title="\u5145\u503C"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
+                (isEsim && (item.smDp || item.activationCode) ? '<button onclick="showQrCode(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-cyan-400 hover:bg-cyan-500/10" title="\u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '') +
+                '<button onclick="editItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-slate-400 hover:text-white" title="\u7F16\u8F91"><i class="fa-solid fa-pen"></i></button>' +
+                '<button onclick="deleteItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-red-400 hover:bg-red-500/10" title="\u5220\u9664"><i class="fa-solid fa-trash"></i></button>' +
+              '</div>' +
+            '</td>' +
+          '</tr>';
+        }).join('') +
+      '</tbody>' +
+    '</table></div>' +
+  '</div>';
+}
+
+function renderCalendar(items) {
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth + 1, 0);
+  const startDay = firstDay.getDay(); // 0 = Sunday
+  const totalDays = lastDay.getDate();
+  const monthName = new Date(calYear, calMonth, 1).toLocaleDateString('zh-CN', { year:'numeric', month:'long' });
+
+  const eventsByDay = {};
+  items.forEach(item => {
+    const dStr = item.type === 'balance' ? item.predictedSuspendDate : item.expireDate;
+    if (!dStr) return;
+    const [y, m, d] = dStr.split('-').map(Number);
+    if (y === calYear && m === (calMonth + 1)) {
+      if (!eventsByDay[d]) eventsByDay[d] = [];
+      eventsByDay[d].push(item);
+    }
+  });
+
+  const weekHeaders = ['\u65E5','\u4E00','\u4E8C','\u4E09','\u56DB','\u4E94','\u516D'].map(w =>
+    '<div class="py-2 text-center text-xs font-semibold text-slate-400 bg-white/5">' + w + '</div>'
+  ).join('');
+
+  let dayCells = '';
+  for (let i = 0; i < startDay; i++) {
+    dayCells += '<div class="cal-day p-1.5 border border-white/5 bg-white/[0.01]"></div>';
+  }
+
+  const today = new Date();
+  const isCurMonth = today.getFullYear() === calYear && today.getMonth() === calMonth;
+  const todayDate = today.getDate();
+
+  for (let d = 1; d <= totalDays; d++) {
+    const isToday = isCurMonth && d === todayDate;
+    const dayEvents = eventsByDay[d] || [];
+
+    const eventsHTML = dayEvents.map(e => {
+      const isBal = e.type === 'balance';
+      const isEsim = e.type === 'esim';
+      const bg = isEsim ? 'bg-cyan-500/20 text-cyan-300' : isBal ? 'bg-amber-500/20 text-amber-300' : 'bg-violet-500/20 text-violet-300';
+      return '<div class="cal-event ' + bg + ' mb-1 cursor-pointer" onclick="editItem(\\'' + e.id + '\\')" title="' + esc(e.name) + '">' +
+        esc(e.name) +
+      '</div>';
+    }).join('');
+
+    dayCells += '<div class="cal-day p-1.5 border border-white/5 transition-colors relative ' + (isToday ? 'bg-sky-500/10 border-sky-500/40' : '') + '">' +
+      '<div class="text-xs font-bold ' + (isToday ? 'text-sky-400' : 'text-slate-400') + ' mb-1">' + d + '</div>' +
+      '<div class="overflow-y-auto max-h-16">' + eventsHTML + '</div>' +
+    '</div>';
+  }
+
+  return '<div class="glass rounded-2xl p-4 md:p-6">' +
+    '<div class="flex items-center justify-between mb-4">' +
+      '<h2 class="text-lg font-bold text-white">' + monthName + '</h2>' +
+      '<div class="flex gap-2">' +
+        '<button onclick="changeCalMonth(-1)" class="px-3 py-1.5 rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 text-xs"><i class="fa-solid fa-chevron-left"></i></button>' +
+        '<button onclick="calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderItems();" class="px-3 py-1.5 rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 text-xs">\u4ECA\u5929</button>' +
+        '<button onclick="changeCalMonth(1)" class="px-3 py-1.5 rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 text-xs"><i class="fa-solid fa-chevron-right"></i></button>' +
       '</div>' +
-      '<span class="text-xs font-semibold '+statusCls+' flex-shrink-0 ml-2">'+statusText+'</span>' +
     '</div>' +
-    '<div class="flex items-center justify-between">' +
-      '<div class="text-xs text-slate-400">' +
-        (isBalance ? '<span>'+balanceInfo+'</span>' : '') +
-        (isEsim && item.balance != null ? '<span>'+sym+esc(item.balance)+'</span>' : '') +
-        (!isBalance && item.expireDate ? '<i class="fa-regular fa-calendar mr-1"></i>'+esc(item.expireDate) : '') +
-        (item.number ? '<span class="ml-2 font-mono">'+esc(item.number)+'</span>' : '') +
-        (item.category ? '<span class="ml-1">'+esc(item.category)+'</span>' : '') +
-      '</div>' +
-      '<div class="flex gap-1 flex-shrink-0">' +
-        (hasLPA ? '<button onclick="showQrCode('+idArg+')" class="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded hover:bg-cyan-500/10" title="\u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '') +
-        (isBalance ? '<button onclick="rechargeItem('+idArg+')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="\u5145\u503C"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
-        ((isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ? '<button onclick="renewItem('+idArg+')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
-        '<button onclick="toggleStatus('+idArg+')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'\u542F\u7528':'\u6682\u505C')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
-        '<button onclick="testNotify('+idArg+')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="\u6D4B\u8BD5\u901A\u77E5"><i class="fa-solid fa-bell"></i></button>' +
-        '<button onclick="editItem('+idArg+')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
-        '<button onclick="deleteItem('+idArg+')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
-      '</div>' +
+    '<div class="grid grid-cols-7 gap-px rounded-xl overflow-hidden bg-white/5">' +
+      weekHeaders +
+      dayCells +
     '</div>' +
   '</div>';
 }
 
-function listRowHTML(item) {
-  const diff = getDiff(item);
-  const isBalance = item.type === 'balance';
-  const st = isBalance ? statusInfoBalance(diff) : statusInfo(diff);
-  const isEsim = item.type === 'esim';
-  const hasLPA = isEsim && (item.smDp || item.activationCode);
-  const flag = isEsim ? getFlag(item.number) : '';
-  const idArg = jsArg(item.id);
-  let sub, priceStr, iconClass;
-  if (isBalance) {
-    sub = item.number || '-';
-    const sym = currSym(item.currency);
-    priceStr = ' \xB7 '+sym+esc(item.balance)+' (\u6708\u79DF'+sym+esc(item.monthlyFee)+')';
-    iconClass = 'fa-wallet text-amber-400';
-  } else if (isEsim) {
-    sub = item.number || '-';
-    priceStr = item.balance != null ? ' \xB7 '+currSym(item.currency || 'CNY')+esc(item.balance) : '';
-    iconClass = 'fa-sim-card text-cyan-400';
-  } else {
-    sub = item.category || '-';
-    priceStr = item.price ? ' \xB7 '+currSym(item.currency)+esc(item.price) : '';
-    iconClass = 'fa-credit-card text-violet-400';
-  }
-
-  const dateCol = isBalance ? esc(item.predictedSuspendDate || '-') : esc(item.expireDate || '-');
-
-  return '<div class="list-row grid grid-cols-12 gap-2 px-4 py-3 items-center border-b border-white/5">' +
-    '<div class="col-span-4 sm:col-span-4 flex items-center gap-2 min-w-0">' +
-      '<i class="fa-solid '+iconClass+' text-sm flex-shrink-0"></i>' +
-      '<span class="truncate text-sm font-medium text-white">'+esc(item.name)+priceStr+'</span></div>' +
-    '<div class="col-span-2 hidden sm:block text-xs text-slate-400 truncate">'+flag+esc(sub)+'</div>' +
-    '<div class="col-span-3 sm:col-span-2 text-xs text-slate-300">'+dateCol+'</div>' +
-    '<div class="col-span-2 hidden sm:block text-xs font-semibold '+(item.status==='paused'?'text-slate-500':st.cls)+'">'+(item.status==='paused'?'\u5DF2\u6682\u505C':st.text)+'</div>' +
-    '<div class="col-span-3 sm:col-span-2 flex justify-end gap-1">' +
-      (hasLPA ? '<button onclick="showQrCode('+idArg+')" class="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded hover:bg-cyan-500/10" title="\u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '') +
-      (isBalance ? '<button onclick="rechargeItem('+idArg+')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="\u5145\u503C"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
-      ((isEsim && item.cycle) || (item.type === 'subscription' && item.billing !== 'once') ? '<button onclick="renewItem('+idArg+')" class="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
-      '<button onclick="toggleStatus('+idArg+')" class="text-xs px-2 py-1 rounded transition-colors '+(item.status==='paused'?'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10':'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10')+'" title="'+(item.status==='paused'?'\u542F\u7528':'\u6682\u505C')+'"><i class="fa-solid '+(item.status==='paused'?'fa-play':'fa-pause')+'"></i></button>' +
-      '<button onclick="testNotify('+idArg+')" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-500/10" title="\u6D4B\u8BD5\u901A\u77E5"><i class="fa-solid fa-bell"></i></button>' +
-      '<button onclick="editItem('+idArg+')" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-white/5"><i class="fa-solid fa-pen"></i></button>' +
-      '<button onclick="deleteItem('+idArg+')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"><i class="fa-solid fa-trash"></i></button>' +
-    '</div></div>';
+function changeCalMonth(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  else if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderItems();
 }
 
-// -- Calendar view --
-function renderCalendar(items, area) {
-  const firstDay = new Date(calYear, calMonth, 1);
-  const lastDay = new Date(calYear, calMonth + 1, 0);
-  const startPad = firstDay.getDay();
-  const daysInMonth = lastDay.getDate();
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  const events = {};
-  items.forEach(i => {
-    let dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
-    if (!dateStr) return;
-    const d = new Date(dateStr+'T00:00:00');
-    const key = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
-    if (!events[key]) events[key] = [];
-    events[key].push(i);
-  });
-
-  // Project recurring active subscriptions onto the viewed month
-  items.forEach(i => {
-    if (i.status === 'paused') return;
-    if (i.type === 'subscription' && i.billing === 'monthly' && i.expireDate) {
-      const orig = new Date(i.expireDate + 'T00:00:00');
-      const dayOfMonth = orig.getDate();
-      const targetDay = Math.min(dayOfMonth, daysInMonth);
-      const key = calYear + '-' + (calMonth + 1) + '-' + targetDay;
-      if (!events[key]) events[key] = [];
-      if (!events[key].some(e => e.id === i.id)) {
-        events[key].push({ ...i, _isProjected: true });
-      }
-    }
-  });
-
-  const monthName = calYear + '\u5E74' + (calMonth+1) + '\u6708';
-  const weekDays = ['\u65E5','\u4E00','\u4E8C','\u4E09','\u56DB','\u4E94','\u516D'];
-
-  let html = '<div class="glass rounded-xl p-4">';
-  html += '<div class="flex justify-between items-center mb-4">' +
-    '<div class="flex items-center gap-2">' +
-      '<button onclick="calPrev()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-left"></i></button>' +
-      '<button onclick="calToday()" class="text-xs text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">\u4ECA\u5929</button>' +
-    '</div>' +
-    '<h3 class="text-lg font-bold text-white">'+monthName+'</h3>' +
-    '<button onclick="calNext()" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-white/5"><i class="fa-solid fa-chevron-right"></i></button></div>';
-
-  html += '<div class="grid grid-cols-7 gap-1 mb-1">';
-  weekDays.forEach(d => html += '<div class="text-center text-xs font-semibold text-slate-400 py-2">'+d+'</div>');
-  html += '</div>';
-
-  html += '<div class="grid grid-cols-7 gap-1">';
-  for (let i = 0; i < startPad; i++) html += '<div class="cal-day rounded-lg"></div>';
-  for (let d = 1; d <= daysInMonth; d++) {
-    const key = calYear+'-'+(calMonth+1)+'-'+d;
-    const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
-    const dayEvents = events[key] || [];
-
-    html += '<div class="cal-day rounded-lg p-1.5 '+(isToday ? 'bg-sky-500/20 border border-sky-500/30' : 'border border-white/5')+'">' +
-      '<div class="text-xs font-semibold '+(isToday ? 'text-sky-400' : 'text-slate-400')+' mb-1">'+d+'</div>';
-    dayEvents.forEach(e => {
-      let bg;
-      if (e.type === 'balance') bg = 'bg-amber-500/30 text-amber-300';
-      else if (e.type === 'esim') bg = 'bg-cyan-500/30 text-cyan-300';
-      else bg = e._isProjected ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-violet-500/30 text-violet-300';
-      const prefix = e._isProjected ? '\u{1F504} ' : '';
-      html += '<div class="cal-event '+bg+' mb-0.5 cursor-pointer" onclick="editItem('+jsArg(e.id)+')" title="'+esc(prefix + e.name)+'\uFF08\u70B9\u51FB\u7F16\u8F91\uFF09">'+esc(prefix + e.name)+'</div>';
-    });
-    html += '</div>';
-  }
-  if (!Object.keys(events).length) {
-    html += '<div class="text-center text-slate-500 py-6 text-sm col-span-7">\u672C\u6708\u65E0\u5230\u671F\u4E8B\u4EF6</div>';
-  }
-  html += '</div></div>';
-  area.innerHTML = html;
-}
-
-function calPrev() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderItems(); }
-function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderItems(); }
-function calToday() { const n = new Date(); calYear = n.getFullYear(); calMonth = n.getMonth(); renderItems(); }
-
-// ==================== HELPERS ====================
-function getDiff(item) {
-  if (item.type === 'balance') {
-    if (!item.predictedSuspendDate) return null;
-    const today = new Date(); today.setHours(0,0,0,0);
-    const exp = new Date(item.predictedSuspendDate+'T00:00:00');
-    return Math.ceil((exp - today) / 86400000);
-  }
-  if (!item.expireDate) return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const exp = new Date(item.expireDate+'T00:00:00');
-  return Math.ceil((exp - today) / 86400000);
-}
-
-function statusInfo(diff) {
-  if (diff === null) return { cls:'text-slate-400', text:'\u672A\u8BBE\u7F6E' };
-  if (diff < 0) return { cls:'status-expired', text:'\u5DF2\u8FC7\u671F '+Math.abs(diff)+'\u5929' };
-  if (diff === 0) return { cls:'status-danger', text:'\u4ECA\u5929\u5230\u671F' };
-  if (diff <= 15) return { cls:'status-warning', text:'\u5269\u4F59 '+diff+'\u5929' };
-  return { cls:'status-active', text:'\u5269\u4F59 '+diff+'\u5929' };
-}
-
-function statusInfoBalance(diff) {
-  if (diff === null) return { cls:'text-slate-400', text:'\u672A\u8BBE\u7F6E' };
-  if (diff < 0) return { cls:'status-expired', text:'\u5DF2\u505C\u673A '+Math.abs(diff)+'\u5929' };
-  if (diff === 0) return { cls:'status-danger', text:'\u5373\u5C06\u505C\u673A' };
-  if (diff <= 15) return { cls:'status-warning', text:diff+'\u5929\u540E\u505C\u673A' };
-  return { cls:'status-active', text:diff+'\u5929\u540E\u505C\u673A' };
-}
-
-const FLAG_MAP = ${JSON.stringify(flagMap)};
-function getFlag(num) {
-  if (!num) return '';
-  let digits = num.replace(/[^0-9]/g, '');
-  if (digits.startsWith('00')) digits = digits.substring(2);
-  for (const len of [3, 2, 1]) {
-    if (digits.length >= len) {
-      const prefix = digits.substring(0, len);
-      if (FLAG_MAP[prefix]) return FLAG_MAP[prefix];
+function getFlag(number) {
+  if (!number) return '';
+  const digits = String(number).replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  const clean = digits.startsWith('00') ? digits.substring(2) : digits;
+  for (let len of [3, 2, 1]) {
+    if (clean.length >= len) {
+      const p = clean.substring(0, len);
+      if (FLAG_MAP[p]) return isoToFlag(FLAG_MAP[p]);
     }
   }
   return '';
 }
 
+function isoToFlag(iso) {
+  if (!iso || iso.length !== 2) return '';
+  const codePoints = iso.toUpperCase().split('').map(c => 127397 + c.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
 function jsArg(s) { return esc(JSON.stringify(String(s || ''))); }
 function safeHref(url) { if (!url) return ''; const u = String(url).trim().toLowerCase(); if (u.startsWith('javascript:') || u.startsWith('data:') || u.startsWith('vbscript:')) return '#'; return esc(url); }
-
-const CURRENCY_SYMBOLS = ${JSON.stringify(CURRENCY_SYMBOLS)};
-function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '\xA5'; }
 
 function hideMenu() {
   const menu = document.getElementById('dropdown-menu');
@@ -2376,8 +2666,282 @@ function copyLpaString() {
   copyText(currentLpaString, 'LPA \u6FC0\u6D3B\u4EE3\u7801');
 }
 
-// ==================== MODAL ====================
+// ==================== SETTINGS MODAL ====================
+function openSettings() {
+  hideMenu();
+  const base = appSettings?.baseCurrency || 'CNY';
+  editingRates = { ...(appSettings?.exchangeRates || DEFAULT_EXCHANGE_RATES) };
+  editingCategories = [ ...(appSettings?.categories || DEFAULT_CATEGORIES) ];
+  editingRegions = [ ...(appSettings?.regions || DEFAULT_REGIONS) ];
+
+  const baseSelect = document.getElementById('settings-base-currency');
+  if (baseSelect) baseSelect.value = base;
+
+  setSettingsTab('currency');
+  renderRateList();
+  renderCategoryTags();
+  renderRegionTags();
+
+  const overlay = document.getElementById('settings-overlay');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+}
+
+function closeSettings() {
+  const overlay = document.getElementById('settings-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+  }
+}
+
+function setSettingsTab(tab) {
+  const tabs = ['currency', 'category', 'region'];
+  tabs.forEach(t => {
+    const btn = document.getElementById('stab-btn-' + t);
+    const content = document.getElementById('stab-content-' + t);
+    const active = t === tab;
+    if (btn) {
+      btn.classList.toggle('tab-active', active);
+      btn.classList.toggle('text-slate-400', !active);
+    }
+    if (content) content.classList.toggle('hidden', !active);
+  });
+}
+
+function onBaseCurrencyChange() {
+  const baseSelect = document.getElementById('settings-base-currency');
+  const newBase = baseSelect?.value || 'CNY';
+  editingRates[newBase] = 1.0;
+  renderRateList();
+}
+
+function updateEditingRate(code, val) {
+  const n = parseFloat(val);
+  if (Number.isFinite(n) && n >= 0) {
+    editingRates[code] = n;
+  }
+}
+
+function renderRateList() {
+  const listEl = document.getElementById('settings-rate-list');
+  if (!listEl) return;
+  const search = (document.getElementById('settings-rate-search')?.value || '').toLowerCase().trim();
+  const baseCur = document.getElementById('settings-base-currency')?.value || appSettings?.baseCurrency || 'CNY';
+
+  let list = ISO_CURRENCIES;
+  if (search) {
+    list = list.filter(c =>
+      c.code.toLowerCase().includes(search) ||
+      c.name.toLowerCase().includes(search) ||
+      c.symbol.toLowerCase().includes(search)
+    );
+  }
+
+  listEl.innerHTML = list.map(c => {
+    const isBase = c.code === baseCur;
+    const rateVal = isBase ? 1.0 : (editingRates[c.code] != null ? editingRates[c.code] : (DEFAULT_EXCHANGE_RATES[c.code] || 1.0));
+    return '<div class="glass-card rounded-xl p-2.5 flex items-center justify-between gap-2 border border-white/10">' +
+      '<div class="flex items-center gap-2 min-w-0">' +
+        '<span class="text-lg flex-shrink-0">'+c.flag+'</span>' +
+        '<div class="min-w-0">' +
+          '<div class="text-xs font-bold text-white truncate">'+c.code+' <span class="text-[11px] font-normal text-slate-400">('+c.symbol+')</span></div>' +
+          '<div class="text-[11px] text-slate-400 truncate">'+c.name+'</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="flex items-center gap-1.5 flex-shrink-0">' +
+        (isBase
+          ? '<span class="text-xs text-sky-400 font-bold px-2 py-1 bg-sky-500/10 rounded-lg border border-sky-500/20">\u57FA\u51C6 (1.0)</span>'
+          : '<input type="number" step="0.0001" min="0" value="'+rateVal+'" onchange="updateEditingRate(\\''+c.code+'\\', this.value)" class="glass-input w-24 px-2 py-1 rounded-lg text-xs font-mono text-right text-emerald-300">') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function filterRateList() { renderRateList(); }
+
+async function syncLiveRates() {
+  const baseSelect = document.getElementById('settings-base-currency');
+  const base = baseSelect?.value || 'CNY';
+  const btn = document.getElementById('sync-rates-btn');
+  const origHTML = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>\u540C\u6B65\u4E2D...'; }
+
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/' + base);
+    if (!res.ok) throw new Error('API \u54CD\u5E94\u5931\u8D25');
+    const data = await res.json();
+    if (data && data.rates) {
+      ISO_CURRENCIES.forEach(c => {
+        if (c.code === base) {
+          editingRates[c.code] = 1.0;
+        } else if (data.rates[c.code] != null && data.rates[c.code] > 0) {
+          const rate = 1 / data.rates[c.code];
+          editingRates[c.code] = rate >= 10 ? Number(rate.toFixed(2)) : Number(rate.toFixed(4));
+        }
+      });
+      renderRateList();
+      showToast('\u5DF2\u6210\u529F\u83B7\u53D6\u5E76\u540C\u6B65\u6700\u65B0\u5B9E\u65F6\u6C47\u7387 (\u57FA\u51C6: ' + base + ')', 'success');
+    } else {
+      throw new Error('\u672A\u83B7\u53D6\u5230\u6709\u6548\u6C47\u7387');
+    }
+  } catch (err) {
+    console.error('syncLiveRates error:', err);
+    showToast('\u6C47\u7387\u63A5\u53E3\u540C\u6B65\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u6216\u7A0D\u540E\u91CD\u8BD5', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
+  }
+}
+
+function resetDefaultRates() {
+  editingRates = { ...DEFAULT_EXCHANGE_RATES };
+  renderRateList();
+  showToast('\u5DF2\u91CD\u7F6E\u6C47\u7387\u8868\u4E3A\u53C2\u8003\u9ED8\u8BA4\u503C', 'info');
+}
+
+function renderCategoryTags() {
+  const container = document.getElementById('settings-category-tags');
+  if (!container) return;
+  container.innerHTML = editingCategories.map((cat, idx) =>
+    '<span class="tag-badge text-slate-200">' +
+      '<span>' + esc(cat) + '</span>' +
+      '<button type="button" onclick="removeCustomCategory(' + idx + ')" class="text-slate-400 hover:text-red-400 text-xs ml-1"><i class="fa-solid fa-xmark"></i></button>' +
+    '</span>'
+  ).join('');
+}
+
+function addCustomCategory() {
+  const input = document.getElementById('settings-new-category');
+  const val = input ? input.value.trim() : '';
+  if (!val) return;
+  if (!editingCategories.includes(val)) {
+    editingCategories.push(val);
+    renderCategoryTags();
+  }
+  input.value = '';
+}
+
+function removeCustomCategory(idx) {
+  editingCategories.splice(idx, 1);
+  renderCategoryTags();
+}
+
+function resetDefaultCategories() {
+  editingCategories = [ ...DEFAULT_CATEGORIES ];
+  renderCategoryTags();
+  showToast('\u5DF2\u6062\u590D\u9ED8\u8BA4\u9884\u8BBE\u5206\u7C7B', 'info');
+}
+
+function renderRegionTags() {
+  const container = document.getElementById('settings-region-tags');
+  if (!container) return;
+  container.innerHTML = editingRegions.map((r, idx) =>
+    '<span class="tag-badge text-slate-200">' +
+      (r.flag ? '<span>' + r.flag + '</span>' : '') +
+      '<span class="font-bold text-xs">' + esc(r.code) + '</span>' +
+      '<span class="text-slate-400 text-xs">' + esc(r.name || '') + '</span>' +
+      '<button type="button" onclick="removeCustomRegion(' + idx + ')" class="text-slate-400 hover:text-red-400 text-xs ml-1"><i class="fa-solid fa-xmark"></i></button>' +
+    '</span>'
+  ).join('');
+}
+
+function addCustomRegion() {
+  const codeIn = document.getElementById('settings-new-region-code');
+  const nameIn = document.getElementById('settings-new-region-name');
+  const flagIn = document.getElementById('settings-new-region-flag');
+  const code = codeIn ? codeIn.value.trim().toUpperCase() : '';
+  const name = nameIn ? nameIn.value.trim() : '';
+  const flag = flagIn ? flagIn.value.trim() : '\u{1F310}';
+  if (!code) { showToast('\u8BF7\u8F93\u5165\u533A\u57DF\u4EE3\u7801 (\u5982 TR, US)', 'error'); return; }
+
+  const existingIdx = editingRegions.findIndex(r => r.code === code);
+  const entry = { code, name: name || code, flag: flag || isoToFlag(code) || '\u{1F310}' };
+  if (existingIdx >= 0) editingRegions[existingIdx] = entry;
+  else editingRegions.push(entry);
+
+  if (codeIn) codeIn.value = '';
+  if (nameIn) nameIn.value = '';
+  if (flagIn) flagIn.value = '';
+  renderRegionTags();
+}
+
+function removeCustomRegion(idx) {
+  editingRegions.splice(idx, 1);
+  renderRegionTags();
+}
+
+function resetDefaultRegions() {
+  editingRegions = [ ...DEFAULT_REGIONS ];
+  renderRegionTags();
+  showToast('\u5DF2\u6062\u590D\u9ED8\u8BA4\u9884\u8BBE\u533A\u57DF', 'info');
+}
+
+async function saveSettingsToServer() {
+  const baseSelect = document.getElementById('settings-base-currency');
+  const baseCurrency = baseSelect?.value || 'CNY';
+
+  const btn = document.getElementById('save-settings-btn');
+  const origHTML = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>\u4FDD\u5B58\u4E2D...'; }
+
+  const payload = {
+    baseCurrency,
+    exchangeRates: editingRates,
+    categories: editingCategories,
+    regions: editingRegions,
+    defaultRemindDays: appSettings?.defaultRemindDays || DEFAULT_REMIND_DAYS_CLIENT,
+  };
+
+  try {
+    const res = await api('PUT', '/api/settings', payload);
+    const data = await res.json();
+    if (data.success) {
+      appSettings = {
+        baseCurrency: data.baseCurrency || baseCurrency,
+        exchangeRates: data.exchangeRates || editingRates,
+        categories: data.categories || editingCategories,
+        regions: data.regions || editingRegions,
+        defaultRemindDays: data.defaultRemindDays || (appSettings?.defaultRemindDays || DEFAULT_REMIND_DAYS_CLIENT),
+      };
+      populateCurrencySelects();
+      populateCategoryDatalist();
+      populateRegionDatalist();
+      renderStats();
+      renderAnalytics();
+      closeSettings();
+      showToast('\u8BBE\u7F6E\u4E0E\u9884\u8BBE\u5DF2\u4FDD\u5B58', 'success');
+    } else {
+      showToast(data.message || '\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25', 'error');
+    }
+  } catch (err) {
+    console.error('saveSettings error:', err);
+    showToast('\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
+  }
+}
+
+// ==================== ITEM MODAL ====================
+function setSelectedRemindDays(days) {
+  const arr = Array.isArray(days) ? days : DEFAULT_REMIND_DAYS_CLIENT;
+  document.querySelectorAll('.remind-day').forEach(cb => {
+    cb.checked = arr.includes(Number(cb.value));
+  });
+}
+
+function getSelectedRemindDays() {
+  const checked = [];
+  document.querySelectorAll('.remind-day:checked').forEach(cb => {
+    checked.push(Number(cb.value));
+  });
+  return checked.length ? checked : DEFAULT_REMIND_DAYS_CLIENT;
+}
+
 function openModal(type, item) {
+  populateCurrencySelects();
+  populateCategoryDatalist();
+  populateRegionDatalist();
+
   document.getElementById('form-type').value = type;
   document.getElementById('form-id').value = item ? item.id : '';
   const typeLabel = type === 'esim' ? ' eSIM' : type === 'balance' ? ' \u8BDD\u8D39' : ' \u8BA2\u9605';
@@ -2399,6 +2963,8 @@ function openModal(type, item) {
   document.getElementById('field-billing-mode').classList.toggle('hidden', type !== 'subscription');
   updateCycleDaysVisibility(type);
 
+  const baseCur = appSettings?.baseCurrency || 'CNY';
+
   if (item) {
     document.getElementById('form-name').value = item.name || '';
     document.getElementById('form-number').value = item.number || '';
@@ -2407,14 +2973,15 @@ function openModal(type, item) {
     document.getElementById('form-confirmation-code').value = item.confirmationCode || '';
     document.getElementById('form-wid').value = item.wid || '';
     document.getElementById('form-balance-esim').value = item.balance == null ? '' : item.balance;
-    document.getElementById('form-currency-esim').value = item.currency || 'CNY';
+    document.getElementById('form-currency-esim').value = item.currency || baseCur;
     document.getElementById('form-category').value = item.category || '';
     document.getElementById('form-region').value = item.region || '';
     document.getElementById('form-sub-id').value = item.subId || '';
     document.getElementById('form-expire').value = item.expireDate || '';
     document.getElementById('form-cycle').value = item.cycle || '';
     document.getElementById('form-price').value = item.price || '';
-    document.getElementById('form-currency').value = item.currency || 'CNY';
+    document.getElementById('form-currency').value = item.currency || baseCur;
+    document.getElementById('form-currency-balance').value = item.currency || baseCur;
     document.getElementById('form-billing').value = item.billing || 'monthly';
     document.getElementById('form-billing-mode').value = item.billingMode || 'natural';
     document.getElementById('form-cycle-days').value = item.cycleDays || '';
@@ -2430,8 +2997,11 @@ function openModal(type, item) {
     setSelectedRemindDays(item.remindDays);
   } else {
     document.getElementById('item-form').reset();
+    document.getElementById('form-currency').value = baseCur;
+    document.getElementById('form-currency-esim').value = baseCur;
+    document.getElementById('form-currency-balance').value = baseCur;
     document.getElementById('form-auto-renew').checked = false;
-    setSelectedRemindDays(DEFAULT_REMIND_DAYS_CLIENT);
+    setSelectedRemindDays(appSettings?.defaultRemindDays || DEFAULT_REMIND_DAYS_CLIENT);
   }
   document.getElementById('modal-overlay').classList.remove('hidden');
   document.getElementById('modal-overlay').classList.add('flex');
@@ -2461,23 +3031,29 @@ document.addEventListener('change', (e) => {
 async function saveItem(e) {
   e.preventDefault();
   const id = document.getElementById('form-id').value;
+  const type = document.getElementById('form-type').value;
+
+  let currency = 'CNY';
+  if (type === 'esim') currency = document.getElementById('form-currency-esim').value;
+  else if (type === 'balance') currency = document.getElementById('form-currency-balance').value;
+  else currency = document.getElementById('form-currency').value;
+
   const body = {
-    type: document.getElementById('form-type').value,
+    type,
     name: document.getElementById('form-name').value.trim(),
     number: document.getElementById('form-number').value.trim(),
     smDp: document.getElementById('form-smdp').value.trim(),
     activationCode: document.getElementById('form-activation-code').value.trim(),
     confirmationCode: document.getElementById('form-confirmation-code').value.trim(),
     wid: document.getElementById('form-wid').value.trim(),
-    balance: document.getElementById('form-balance-esim').value.trim(),
-    currency: document.getElementById('form-currency-esim').value,
-    category: document.getElementById('form-category').value,
-    region: document.getElementById('form-region').value,
+    balance: type === 'esim' ? document.getElementById('form-balance-esim').value.trim() : document.getElementById('form-balance').value,
+    currency: (currency || 'CNY').toUpperCase().trim(),
+    category: document.getElementById('form-category').value.trim(),
+    region: document.getElementById('form-region').value.trim(),
     subId: document.getElementById('form-sub-id').value.trim(),
     expireDate: document.getElementById('form-expire').value,
     cycle: parseInt(document.getElementById('form-cycle').value) || null,
     price: document.getElementById('form-price').value || null,
-    currency: document.getElementById('form-currency').value,
     billing: document.getElementById('form-billing').value,
     billingMode: document.getElementById('form-billing-mode').value,
     cycleDays: parseInt(document.getElementById('form-cycle-days').value) || null,
@@ -2486,7 +3062,6 @@ async function saveItem(e) {
     remark: document.getElementById('form-remark').value.trim(),
     status: document.getElementById('form-status').value,
     remindDays: getSelectedRemindDays(),
-    balance: document.getElementById('form-balance').value,
     monthlyFee: document.getElementById('form-monthly-fee').value,
     billingDay: document.getElementById('form-billing-day').value,
   };
@@ -2540,155 +3115,191 @@ async function renewItem(id) {
   document.getElementById('renew-balance-fields').classList.toggle('hidden', !isEsim);
   document.getElementById('renew-balance-delta').value = '';
   document.getElementById('renew-balance-note').value = '';
-  document.getElementById('renew-form').onsubmit = async function(e) {
+
+  const form = document.getElementById('renew-form');
+  form.onsubmit = async (e) => {
     e.preventDefault();
+    const btn = document.getElementById('renew-submit');
+    const origHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>\u7EED\u671F\u4E2D...';
+
     const deltaRaw = document.getElementById('renew-balance-delta').value;
-    const note = document.getElementById('renew-balance-note').value.trim();
     const body = {};
     if (isEsim && deltaRaw !== '') {
-      const n = Number(deltaRaw);
-      if (!Number.isFinite(n)) { showToast('\u4F59\u989D\u53D8\u52A8\u5FC5\u987B\u662F\u6570\u5B57', 'error'); return; }
-      body.balanceDelta = n;
-      if (note) body.balanceNote = note;
+      body.balanceDelta = parseFloat(deltaRaw);
+      body.note = document.getElementById('renew-balance-note').value.trim();
     }
-    overlay.classList.add('hidden'); overlay.classList.remove('flex');
+
     try {
-      const res = await api('POST', '/api/items/'+id+'/renew', body);
+      const res = await api('POST', '/api/items/' + id + '/renew', body);
       const data = await res.json();
       if (data.success) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        showToast('\u7EED\u671F\u6210\u529F', 'success');
         await loadItems();
-        const extra = data.newBalance != null ? '\uFF0C\u65B0\u4F59\u989D: '+sym+data.newBalance : '';
-        showToast('\u7EED\u671F\u6210\u529F'+extra, 'success');
+      } else {
+        showToast(data.message || '\u7EED\u671F\u5931\u8D25', 'error');
       }
-      else showToast(data.message || '\u7EED\u671F\u5931\u8D25', 'error');
-    } catch { showToast('\u7EED\u671F\u5931\u8D25', 'error'); }
+    } catch {
+      showToast('\u7EED\u671F\u5931\u8D25', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+    }
   };
-  overlay.classList.remove('hidden'); overlay.classList.add('flex');
-  document.getElementById(isEsim ? 'renew-balance-delta' : 'renew-submit').focus();
+
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
 }
 
-async function testNotify(id) {
-  const res = await api('POST', '/api/items/'+id+'/test-notify');
-  const data = await res.json();
-  if (data.success) showToast('\u2705 \u6D4B\u8BD5\u901A\u77E5\u5DF2\u53D1\u9001', 'success');
-  else showToast(data.message || '\u53D1\u9001\u5931\u8D25', 'error');
-}
-
-function rechargeItem(id) {
+function openRechargeModal(id) {
   const item = allItems.find(i => i.id === id);
   if (!item) return;
-  const sym = currSym(item.currency);
+  const sym = currSym(item.currency || 'CNY');
   const overlay = document.getElementById('recharge-overlay');
+  document.getElementById('recharge-info').textContent = esc(item.name) + ' \u5F53\u524D\u4F59\u989D: ' + sym + (item.balance != null ? item.balance : 0);
   document.getElementById('recharge-amount').value = '';
   document.getElementById('recharge-note').value = '';
-  document.getElementById('recharge-info').textContent = '\u5F53\u524D\u4F59\u989D: ' + sym + item.balance;
-  document.getElementById('recharge-form').onsubmit = async function(e) {
+
+  const form = document.getElementById('recharge-form');
+  form.onsubmit = async (e) => {
     e.preventDefault();
-    const amount = document.getElementById('recharge-amount').value;
-    const note = document.getElementById('recharge-note').value || '';
-    if (!amount) return;
-    overlay.classList.add('hidden'); overlay.classList.remove('flex');
+    const amount = parseFloat(document.getElementById('recharge-amount').value);
+    const note = document.getElementById('recharge-note').value.trim();
+    if (!Number.isFinite(amount)) return showToast('\u8BF7\u8F93\u5165\u6709\u6548\u91D1\u989D', 'error');
+
+    const btn = form.querySelector('[type="submit"]');
+    const origHTML = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>\u63D0\u4EA4\u4E2D...';
+
     try {
-      const res = await api('POST', '/api/items/'+id+'/recharge', { amount: parseFloat(amount), note });
+      const newBal = (item.balance || 0) + amount;
+      const res = await api('PUT', '/api/items/' + id, { balance: newBal });
       const data = await res.json();
-      if (data.success) { await loadItems(); showToast('\u5145\u503C\u6210\u529F\uFF01\u65B0\u4F59\u989D: '+sym+data.newBalance, 'success'); }
-      else showToast(data.message || '\u5145\u503C\u5931\u8D25', 'error');
-    } catch { showToast('\u5145\u503C\u5931\u8D25', 'error'); }
+      if (data.success) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        showToast((amount >= 0 ? '\u5145\u503C\u6210\u529F' : '\u6263\u51CF\u6210\u529F') + '\uFF0C\u5F53\u524D\u4F59\u989D: ' + sym + newBal.toFixed(2), 'success');
+        await loadItems();
+      } else {
+        showToast(data.message || '\u5145\u503C\u5931\u8D25', 'error');
+      }
+    } catch {
+      showToast('\u5145\u503C\u5931\u8D25', 'error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = origHTML;
+    }
   };
-  overlay.classList.remove('hidden'); overlay.classList.add('flex');
-  document.getElementById('recharge-amount').focus();
+
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
 }
 
-function getSelectedRemindDays() {
-  return Array.from(document.querySelectorAll('.remind-day:checked')).map(cb => parseInt(cb.value)).sort((a,b) => b-a);
-}
-
-function setSelectedRemindDays(days) {
-  if (!days || !Array.isArray(days)) days = DEFAULT_REMIND_DAYS_CLIENT;
-  document.querySelectorAll('.remind-day').forEach(cb => {
-    cb.checked = days.includes(parseInt(cb.value));
-  });
-}
-
-// ==================== IMPORT / EXPORT ====================
+// ==================== EXPORT / IMPORT ====================
 async function exportJSON() {
   toggleMenu();
-  const res = await api('GET', '/api/items/export/json');
-  const blob = await res.blob();
-  downloadBlob(blob, 'sub-tracker-' + new Date().toISOString().split('T')[0] + '.json');
+  try {
+    const res = await api('GET', '/api/items/export/json');
+    if (!res.ok) { showToast('\u5BFC\u51FA\u5931\u8D25', 'error'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sub-tracker-export-' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('JSON \u5BFC\u51FA\u6210\u529F', 'success');
+  } catch { showToast('\u5BFC\u51FA\u5931\u8D25', 'error'); }
 }
 
 async function exportCSV() {
   toggleMenu();
-  const res = await api('GET', '/api/items/export/csv');
-  const blob = await res.blob();
-  downloadBlob(blob, 'sub-tracker-' + new Date().toISOString().split('T')[0] + '.csv');
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  try {
+    const res = await api('GET', '/api/items/export/csv');
+    if (!res.ok) { showToast('\u5BFC\u51FA\u5931\u8D25', 'error'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sub-tracker-export-' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV \u5BFC\u51FA\u6210\u529F', 'success');
+  } catch { showToast('\u5BFC\u51FA\u5931\u8D25', 'error'); }
 }
 
 async function importJSON(input) {
   toggleMenu();
   const file = input.files[0];
   if (!file) return;
+  input.value = '';
   try {
     const text = await file.text();
-    const data = JSON.parse(text);
-    const res = await api('POST', '/api/items/import/json', data);
-    const result = await res.json();
-    if (result.success) {
-      const skipped = result.skipped ? '\uFF0C\u8DF3\u8FC7 ' + result.skipped + ' \u6761' : '';
-      showToast('\u5BFC\u5165\u5B8C\u6210\uFF01\u65B0\u589E ' + result.added + ' \u6761' + skipped, 'success');
+    const json = JSON.parse(text);
+    const payload = Array.isArray(json) ? json : json.items || [];
+    if (!Array.isArray(payload) || payload.length === 0) { showToast('\u65E0\u6548\u7684\u5BFC\u5165\u6587\u4EF6\u683C\u5F0F', 'error'); return; }
+    showToast('\u5BFC\u5165\u4E2D...', 'info');
+    const res = await api('POST', '/api/items/import/json', payload);
+    const data = await res.json();
+    if (data.success) {
+      const d = data.data;
+      showToast('\u5BFC\u5165\u5B8C\u6210\uFF1A\u65B0\u589E ' + d.added + ' \u6761\uFF0C\u8DF3\u8FC7 ' + d.skipped + ' \u6761', 'success');
       await loadItems();
     } else {
-      showToast(result.message || '\u5BFC\u5165\u5931\u8D25', 'error');
+      showToast(data.message || '\u5BFC\u5165\u5931\u8D25', 'error');
     }
   } catch (e) {
-    showToast('JSON \u89E3\u6790\u5931\u8D25: ' + e.message, 'error');
+    showToast('\u5BFC\u5165\u89E3\u6790\u5931\u8D25\uFF1A' + (e.message || '\u683C\u5F0F\u9519\u8BEF'), 'error');
   }
-  input.value = '';
 }
 
-let historyData = [];
+// ==================== HISTORY ====================
 let historyFilter = 'all';
+let rawHistoryData = [];
 
 async function openHistory() {
-  hideMenu();
+  toggleMenu();
   const overlay = document.getElementById('history-overlay');
-  const content = document.getElementById('history-content');
-  content.innerHTML = '<div class="text-sm text-slate-400 py-8 text-center"><i class="fa-solid fa-spinner fa-spin mr-2"></i>\u52A0\u8F7D\u4E2D...</div>';
   overlay.classList.remove('hidden');
   overlay.classList.add('flex');
   historyFilter = 'all';
-  document.querySelectorAll('.hfilter-tab').forEach(b => {
-    b.classList.toggle('tab-active', b.dataset.hfilter === 'all');
-    b.classList.toggle('text-slate-400', b.dataset.hfilter !== 'all');
-  });
-  const res = await api('GET', '/api/history');
-  historyData = await res.json();
-  renderHistory();
+  updateHistoryTabs();
+  await loadHistory();
 }
 
-function filterHistory(action) {
-  historyFilter = action;
+function updateHistoryTabs() {
   document.querySelectorAll('.hfilter-tab').forEach(b => {
-    b.classList.toggle('tab-active', b.dataset.hfilter === action);
-    b.classList.toggle('text-slate-400', b.dataset.hfilter !== action);
+    const active = b.dataset.hfilter === historyFilter;
+    b.classList.toggle('tab-active', active);
+    b.classList.toggle('text-slate-400', !active);
   });
-  renderHistory();
 }
 
-function renderHistory() {
+function filterHistory(f) {
+  historyFilter = f;
+  updateHistoryTabs();
+  renderHistory(rawHistoryData);
+}
+
+async function loadHistory() {
   const content = document.getElementById('history-content');
-  let data = historyData;
-  if (historyFilter !== 'all') data = data.filter(e => e.action === historyFilter);
-  if (!Array.isArray(data) || !data.length) {
+  content.innerHTML = '<div class="text-sm text-slate-500 py-10 text-center"><i class="fa-solid fa-spinner fa-spin mr-2"></i>\u52A0\u8F7D\u4E2D...</div>';
+  try {
+    const res = await api('GET', '/api/history?limit=100');
+    if (!res.ok) { content.innerHTML = '<div class="text-sm text-red-400 py-6 text-center">\u52A0\u8F7D\u5386\u53F2\u5931\u8D25</div>'; return; }
+    rawHistoryData = await res.json();
+    renderHistory(rawHistoryData);
+  } catch {
+    content.innerHTML = '<div class="text-sm text-red-400 py-6 text-center">\u52A0\u8F7D\u5386\u53F2\u5931\u8D25</div>';
+  }
+}
+
+function renderHistory(allEntries) {
+  const content = document.getElementById('history-content');
+  const data = historyFilter === 'all' ? allEntries : allEntries.filter(e => e.action === historyFilter);
+  if (!data || data.length === 0) {
     content.innerHTML = '<div class="text-sm text-slate-500 py-10 text-center">' + (historyFilter !== 'all' ? '\u8BE5\u7C7B\u578B\u6682\u65E0\u8BB0\u5F55' : '\u6682\u65E0\u64CD\u4F5C\u5386\u53F2') + '</div>';
     return;
   }
@@ -2704,10 +3315,11 @@ function historyHTML(entry) {
     recharge: ['\u5145\u503C', 'fa-plus-circle', 'text-amber-400'],
     deduct: ['\u6263\u8D39', 'fa-minus-circle', 'text-orange-400'],
     import: ['\u5BFC\u5165', 'fa-upload', 'text-violet-400'],
+    update_settings: ['\u66F4\u65B0\u504F\u597D', 'fa-sliders', 'text-violet-400'],
   };
   const cfg = actionMap[entry.action] || [entry.action || '\u64CD\u4F5C', 'fa-circle-info', 'text-slate-400'];
   const time = entry.timestamp ? new Date(entry.timestamp).toLocaleString('zh-CN', { hour12:false }) : '';
-  const itemName = entry.itemName ? esc(entry.itemName) : '\u6279\u91CF\u64CD\u4F5C';
+  const itemName = entry.itemName ? esc(entry.itemName) : '\u7CFB\u7EDF\u504F\u597D\u8BBE\u7F6E';
   const typeLabel = entry.itemType === 'esim' ? 'eSIM' : entry.itemType === 'balance' ? '\u8BDD\u8D39' : entry.itemType === 'subscription' ? '\u8BA2\u9605' : '';
   const detail = historyDetail(entry);
   return '<div class="glass-card rounded-xl p-4">' +
@@ -2746,6 +3358,9 @@ function historyDetail(entry) {
     if (d.oldBalance != null && d.newBalance != null) parts.push('\u4F59\u989D\uFF1A' + esc(d.oldBalance) + ' \u2192 ' + esc(d.newBalance));
     return parts.join(' \xB7 ');
   }
+  if (entry.action === 'update_settings') {
+    return '\u57FA\u51C6\u8D27\u5E01\uFF1A' + (d.baseCurrency || '\u672A\u53D8\u66F4');
+  }
   return '';
 }
 
@@ -2783,6 +3398,7 @@ document.addEventListener('keydown', e => {
     closeModal();
     closeHistory();
     closeQrModal();
+    closeSettings();
     const ro = document.getElementById('recharge-overlay');
     if (ro) { ro.classList.add('hidden'); ro.classList.remove('flex'); }
     const menu = document.getElementById('dropdown-menu');
@@ -2887,6 +3503,11 @@ function getStyles() {
     select.glass-input option { background:#1e293b; color:#f1f5f9; }
     .fab-btn { box-shadow: 0 8px 20px rgba(14,165,233,0.4); }
     .fab-btn:active { transform: scale(0.95); }
+    .tag-badge { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:0.75rem; padding:0.35rem 0.75rem; display:inline-flex; align-items:center; gap:0.5rem; font-size:0.8125rem; }
+    .tag-badge:hover { border-color:rgba(56,189,248,0.4); }
+    .custom-dropdown-list { max-height:220px; overflow-y:auto; z-index:60; background:#0f172a; border:1px solid rgba(255,255,255,0.15); box-shadow:0 12px 32px rgba(0,0,0,0.5); }
+    .custom-dropdown-item { padding:0.6rem 0.85rem; cursor:pointer; transition:background 0.15s; display:flex; align-items:center; justify-content:space-between; }
+    .custom-dropdown-item:hover, .custom-dropdown-item.active { background:rgba(56,189,248,0.18); color:#38bdf8; }
     /* Mobile responsive overrides */
     @media (max-width: 639px) {
       .cal-day { min-height:52px; padding:2px; }
@@ -3067,7 +3688,7 @@ ${getStyles()}
     </div>
   </div>
 
-  <!-- ========== MODAL ========== -->
+  <!-- ========== ITEM MODAL ========== -->
   <div id="modal-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto fade-in">
       <div class="flex justify-between items-center mb-6">
@@ -3121,64 +3742,21 @@ ${getStyles()}
                 <label class="text-sm text-slate-400 mb-1 block">\u4F59\u989D\uFF08\u53EF\u9009\uFF09</label>
                 <input id="form-balance-esim" type="number" step="0.01" placeholder="\u4E0D\u586B\u8868\u793A\u4E0D\u8FFD\u8E2A\u4F59\u989D" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
               </div>
-              <div class="w-32">
+              <div class="w-40">
                 <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-                <select id="form-currency-esim" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-                  <option value="CNY">CNY \xA5</option>
-                  <option value="USD">USD $</option>
-                  <option value="EUR">EUR \u20AC</option>
-                  <option value="GBP">GBP \xA3</option>
-                  <option value="JPY">JPY \xA5</option>
-                  <option value="HKD">HKD $</option>
-                  <option value="TWD">TWD $</option>
-                  <option value="KRW">KRW \u20A9</option>
-                  <option value="TRY">TRY \u20BA</option>
-                  <option value="THB">THB \u0E3F</option>
-                  <option value="NGN">NGN \u20A6</option>
-                  <option value="INR">INR \u20B9</option>
-                  <option value="PHP">PHP \u20B1</option>
-                  <option value="MYR">MYR RM</option>
-                  <option value="SGD">SGD $</option>
-                </select>
+                <select id="form-currency-esim" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
               </div>
             </div>
           </div>
           <div id="field-category" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">\u5206\u7C7B</label>
-            <select id="form-category" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-              <option value="">\u672A\u5206\u7C7B</option>
-              <option value="AI">AI \u670D\u52A1</option>
-              <option value="VPN">VPN</option>
-              <option value="Cloud">\u4E91\u670D\u52A1</option>
-              <option value="Streaming">\u6D41\u5A92\u4F53</option>
-              <option value="Domain">\u57DF\u540D/SSL</option>
-              <option value="VPS">VPS/\u670D\u52A1\u5668</option>
-              <option value="Software">\u8F6F\u4EF6\u8BA2\u9605</option>
-              <option value="Game">\u6E38\u620F</option>
-              <option value="Other">\u5176\u4ED6</option>
-            </select>
+            <label class="text-sm text-slate-400 mb-1 block">\u5206\u7C7B (\u53EF\u9009\u62E9\u9884\u8BBE\u6216\u76F4\u63A5\u8F93\u5165)</label>
+            <input id="form-category" type="text" list="category-datalist" placeholder="\u9009\u62E9\u6216\u8F93\u5165\u5206\u7C7B\uFF0C\u5982: AI \u670D\u52A1 / \u6D41\u5A92\u4F53..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+            <datalist id="category-datalist"></datalist>
           </div>
           <div id="field-region" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">\u8D26\u53F7\u533A\u57DF</label>
-            <select id="form-region" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-              <option value="">\u672A\u8BBE\u7F6E</option>
-              <option value="CN">\u5927\u9646</option>
-              <option value="HK">\u9999\u6E2F</option>
-              <option value="TW">\u53F0\u6E7E</option>
-              <option value="US">\u7F8E\u533A</option>
-              <option value="JP">\u65E5\u533A</option>
-              <option value="KR">\u97E9\u533A</option>
-              <option value="TR">\u571F\u8033\u5176</option>
-              <option value="NG">\u5C3C\u65E5\u5229\u4E9A</option>
-              <option value="IN">\u5370\u5EA6</option>
-              <option value="BR">\u5DF4\u897F</option>
-              <option value="AR">\u963F\u6839\u5EF7</option>
-              <option value="PH">\u83F2\u5F8B\u5BBE</option>
-              <option value="MY">\u9A6C\u6765\u897F\u4E9A</option>
-              <option value="SG">\u65B0\u52A0\u5761</option>
-              <option value="EU">\u6B27\u6D32</option>
-              <option value="OTHER">\u5176\u4ED6</option>
-            </select>
+            <label class="text-sm text-slate-400 mb-1 block">\u8D26\u53F7\u533A\u57DF (\u53EF\u9009\u62E9\u9884\u8BBE\u6216\u76F4\u63A5\u8F93\u5165)</label>
+            <input id="form-region" type="text" list="region-datalist" placeholder="\u9009\u62E9\u6216\u8F93\u5165\u533A\u57DF\u4EE3\u7801/\u540D\u79F0\uFF0C\u5982: US / TR / \u5927\u9646..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+            <datalist id="region-datalist"></datalist>
           </div>
           <div id="field-sub-id" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">\u8BA2\u9605 ID / \u8D26\u53F7</label>
@@ -3216,7 +3794,7 @@ ${getStyles()}
             </div>
           </div>
           <div id="field-balance" class="hidden">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">\u5F53\u524D\u4F59\u989D *</label>
                 <input id="form-balance" type="number" step="0.01" min="0" placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -3229,6 +3807,10 @@ ${getStyles()}
                 <label class="text-sm text-slate-400 mb-1 block">\u6263\u8D39\u65E5 *</label>
                 <input id="form-billing-day" type="number" min="1" max="28" placeholder="5" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
               </div>
+              <div>
+                <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
+                <select id="form-currency-balance" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
+              </div>
             </div>
           </div>
           <div id="field-price" class="hidden">
@@ -3239,23 +3821,7 @@ ${getStyles()}
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-                <select id="form-currency" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-                  <option value="CNY">CNY \xA5</option>
-                  <option value="USD">USD $</option>
-                  <option value="EUR">EUR \u20AC</option>
-                  <option value="GBP">GBP \xA3</option>
-                  <option value="JPY">JPY \xA5</option>
-                  <option value="HKD">HKD $</option>
-                  <option value="TWD">TWD $</option>
-                  <option value="KRW">KRW \u20A9</option>
-                  <option value="TRY">TRY \u20BA</option>
-                  <option value="THB">THB \u0E3F</option>
-                  <option value="NGN">NGN \u20A6</option>
-                  <option value="INR">INR \u20B9</option>
-                  <option value="PHP">PHP \u20B1</option>
-                  <option value="MYR">MYR RM</option>
-                  <option value="SGD">SGD $</option>
-                </select>
+                <select id="form-currency" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">\u8BA1\u8D39\u5468\u671F</label>
@@ -3305,6 +3871,114 @@ ${getStyles()}
           <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ========== SETTINGS MODAL ========== -->
+  <div id="settings-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[88vh] overflow-y-auto fade-in">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-violet-400"></i> \u504F\u597D\u4E0E\u9884\u8BBE\u7BA1\u7406
+        </h3>
+        <button onclick="closeSettings()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Settings Tabs -->
+      <div class="flex flex-wrap gap-2 mb-5 border-b border-white/10 pb-3">
+        <button onclick="setSettingsTab('currency')" id="stab-btn-currency" class="settings-tab-btn tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all">
+          <i class="fa-solid fa-coins mr-1.5 text-amber-400"></i>\u8D27\u5E01\u4E0E\u6C47\u7387
+        </button>
+        <button onclick="setSettingsTab('category')" id="stab-btn-category" class="settings-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-layer-group mr-1.5 text-sky-400"></i>\u9884\u8BBE\u5206\u7C7B
+        </button>
+        <button onclick="setSettingsTab('region')" id="stab-btn-region" class="settings-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-globe mr-1.5 text-emerald-400"></i>\u9884\u8BBE\u533A\u57DF
+        </button>
+      </div>
+
+      <!-- Tab 1: Currency & Rates -->
+      <div id="stab-content-currency" class="space-y-4">
+        <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+          <label class="text-sm font-semibold text-white mb-1.5 block">\u7EDF\u8BA1\u57FA\u51C6\u8D27\u5E01 (Base Currency)</label>
+          <p class="text-xs text-slate-400 mb-3">\u5168\u5E01\u79CD\u603B\u652F\u51FA\u6298\u7B97\u65F6\uFF0C\u6240\u6709\u5916\u5E01\u5747\u6309\u6B64\u57FA\u51C6\u5E01\u79CD\u8FDB\u884C\u6298\u7B97</p>
+          <select id="settings-base-currency" onchange="onBaseCurrencyChange()" class="glass-input w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-sky-300"></select>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 flex-wrap pt-1">
+          <div>
+            <div class="text-sm font-semibold text-white">\u5404\u5E01\u79CD\u6C47\u7387\u7BA1\u7406 (1 \u5916\u5E01 = X \u57FA\u51C6\u8D27\u5E01)</div>
+            <div class="text-xs text-slate-400">\u652F\u6301\u4E00\u952E\u540C\u6B65\u6700\u65B0\u516C\u7F51\u5B9E\u65F6\u6C47\u7387\uFF0C\u4E5F\u53EF\u9488\u5BF9\u7279\u5B9A\u6E20\u9053\u624B\u52A8\u5FAE\u8C03</div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="syncLiveRates()" id="sync-rates-btn" class="px-3 py-1.5 rounded-xl text-xs font-bold text-sky-300 border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 transition-colors flex items-center gap-1.5">
+              <i class="fa-solid fa-rotate mr-1"></i>\u540C\u6B65\u5B9E\u65F6\u6C47\u7387
+            </button>
+            <button type="button" onclick="resetDefaultRates()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-400 border border-white/10 hover:bg-white/5 transition-colors">
+              \u6062\u590D\u9ED8\u8BA4
+            </button>
+          </div>
+        </div>
+
+        <div class="relative">
+          <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+          <input id="settings-rate-search" type="text" placeholder="\u641C\u7D22\u8D27\u5E01\u4EE3\u7801 (\u5982 USD)\u3001\u4E2D\u6587\u540D (\u5982 \u7F8E\u5143)\u3001\u7B26\u53F7..." oninput="filterRateList()" class="glass-input w-full pl-9 pr-3 py-2 rounded-xl text-xs">
+        </div>
+
+        <div id="settings-rate-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto pr-1"></div>
+      </div>
+
+      <!-- Tab 2: Categories -->
+      <div id="stab-content-category" class="space-y-4 hidden">
+        <div>
+          <div class="text-sm font-semibold text-white mb-1">\u5E38\u7528\u5206\u7C7B\u9884\u8BBE</div>
+          <div class="text-xs text-slate-400 mb-3">\u5728\u5F55\u5165\u8BA2\u9605\u670D\u52A1\u65F6\u4F5C\u4E3A\u4E0B\u62C9\u5EFA\u8BAE\u63D0\u4F9B\u3002\u652F\u6301\u968F\u65F6\u589E\u5220\u81EA\u5B9A\u4E49\u5206\u7C7B\u3002</div>
+          <div id="settings-category-tags" class="flex flex-wrap gap-2 mb-4"></div>
+        </div>
+        <div class="flex gap-2">
+          <input id="settings-new-category" type="text" placeholder="\u8F93\u5165\u65B0\u5206\u7C7B\u540D\u79F0 (\u5982: \u6E38\u620F\u5185\u8D2D / \u4F1A\u5458)..." class="glass-input flex-1 px-4 py-2.5 rounded-xl text-sm" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomCategory();}">
+          <button type="button" onclick="addCustomCategory()" class="btn-primary px-4 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-1.5 flex-shrink-0">
+            <i class="fa-solid fa-plus"></i> \u6DFB\u52A0
+          </button>
+        </div>
+        <div class="pt-2">
+          <button type="button" onclick="resetDefaultCategories()" class="text-xs text-slate-400 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
+            \u6062\u590D\u9ED8\u8BA4\u9884\u8BBE\u5206\u7C7B
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 3: Regions -->
+      <div id="stab-content-region" class="space-y-4 hidden">
+        <div>
+          <div class="text-sm font-semibold text-white mb-1">\u5E38\u7528\u533A\u57DF / \u56FD\u5BB6\u9884\u8BBE</div>
+          <div class="text-xs text-slate-400 mb-3">\u65B9\u4FBF\u8DE8\u533A\u8BA2\u9605\u5FEB\u901F\u9009\u586B\u3002\u652F\u6301\u8F93\u5165\u4EE3\u7801\u3001\u533A\u57DF\u540D\u4E0E\u65D7\u5E1C\u3002</div>
+          <div id="settings-region-tags" class="flex flex-wrap gap-2 mb-4"></div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+          <input id="settings-new-region-code" type="text" placeholder="\u4EE3\u7801(\u5982 TR)" class="glass-input sm:col-span-3 px-4 py-2.5 rounded-xl text-sm uppercase">
+          <input id="settings-new-region-name" type="text" placeholder="\u540D\u79F0(\u5982 \u571F\u8033\u5176)" class="glass-input sm:col-span-4 px-4 py-2.5 rounded-xl text-sm">
+          <input id="settings-new-region-flag" type="text" placeholder="\u65D7\u5E1C(\u5982 \u{1F1F9}\u{1F1F7})" class="glass-input sm:col-span-2 px-4 py-2.5 rounded-xl text-sm text-center">
+          <button type="button" onclick="addCustomRegion()" class="btn-primary sm:col-span-3 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-plus"></i> \u6DFB\u52A0\u533A\u57DF
+          </button>
+        </div>
+        <div class="pt-2">
+          <button type="button" onclick="resetDefaultRegions()" class="text-xs text-slate-400 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
+            \u6062\u590D\u9ED8\u8BA4\u9884\u8BBE\u533A\u57DF
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex gap-3 mt-6 pt-4 border-t border-white/10">
+        <button type="button" onclick="saveSettingsToServer()" id="save-settings-btn" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-floppy-disk"></i> \u4FDD\u5B58\u8BBE\u7F6E
+        </button>
+        <button type="button" onclick="closeSettings()" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">
+          \u53D6\u6D88
+        </button>
+      </div>
     </div>
   </div>
 
@@ -3423,6 +4097,9 @@ ${getStyles()}
 
   <!-- ========== DROPDOWN (body level, escapes all stacking contexts) ========== -->
   <div id="dropdown-menu" class="hidden fixed glass rounded-xl p-2 min-w-[160px]" style="z-index:99999">
+    <button onclick="openSettings()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
+      <i class="fa-solid fa-sliders mr-2 text-violet-400"></i>\u504F\u597D\u8BBE\u7F6E
+    </button>
     <button onclick="exportJSON()" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/10 transition-colors">
       <i class="fa-solid fa-download mr-2 text-emerald-400"></i>\u5BFC\u51FA JSON
     </button>
@@ -3626,6 +4303,10 @@ async function route(request, env) {
   }
   if (path.startsWith("/api/items")) {
     const result = await handleItems(request, env, path);
+    if (result) return result;
+  }
+  if (path.startsWith("/api/settings")) {
+    const result = await handleSettings(request, env, path);
     if (result) return result;
   }
   if (path.startsWith("/api/history")) {

@@ -7,6 +7,7 @@ import { binaryResponse, corsPreFlight, errorResponse, htmlResponse, svgResponse
 import { handleAuth } from './handlers/auth.js';
 import { handleHistory } from './handlers/history.js';
 import { handleItems } from './handlers/items.js';
+import { handleSettings } from './handlers/settings.js';
 import { getHTML } from './ui/template.js';
 import { getFaviconICO, getIconPNG, getIconSVG, getManifest, getServiceWorker } from './ui/pwa.js';
 
@@ -58,6 +59,13 @@ export async function route(request, env) {
     if (result) return result;
   }
 
+  // Settings routes
+  if (path.startsWith('/api/settings')) {
+    const result = await handleSettings(request, env, path);
+    if (result) return result;
+  }
+
+  // History routes
   if (path.startsWith('/api/history')) {
     return await handleHistory(request, env, path);
   }

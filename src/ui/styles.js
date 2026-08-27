@@ -41,6 +41,11 @@ export function getStyles() {
     select.glass-input option { background:#1e293b; color:#f1f5f9; }
     .fab-btn { box-shadow: 0 8px 20px rgba(14,165,233,0.4); }
     .fab-btn:active { transform: scale(0.95); }
+    .tag-badge { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:0.75rem; padding:0.35rem 0.75rem; display:inline-flex; align-items:center; gap:0.5rem; font-size:0.8125rem; }
+    .tag-badge:hover { border-color:rgba(56,189,248,0.4); }
+    .custom-dropdown-list { max-height:220px; overflow-y:auto; z-index:60; background:#0f172a; border:1px solid rgba(255,255,255,0.15); box-shadow:0 12px 32px rgba(0,0,0,0.5); }
+    .custom-dropdown-item { padding:0.6rem 0.85rem; cursor:pointer; transition:background 0.15s; display:flex; align-items:center; justify-content:space-between; }
+    .custom-dropdown-item:hover, .custom-dropdown-item.active { background:rgba(56,189,248,0.18); color:#38bdf8; }
     /* Mobile responsive overrides */
     @media (max-width: 639px) {
       .cal-day { min-height:52px; padding:2px; }

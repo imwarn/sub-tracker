@@ -5,7 +5,6 @@
 import {
   BILLING_TYPES,
   BILLING_MODES,
-  CURRENCY_CODES,
   DEFAULT_REMIND_DAYS,
   ITEM_TYPES,
   REMIND_DAY_OPTIONS,
@@ -14,9 +13,16 @@ import {
 import { calcSuspendDate } from '../utils/date.js';
 
 const DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+const CURRENCY_RE = /^[A-Z]{3}$/;
 
 function asString(value, fallback = '') {
   return value == null ? fallback : String(value).trim();
+}
+
+function asCurrency(value, fallback = 'CNY') {
+  if (!value) return fallback;
+  const upper = String(value).toUpperCase().trim();
+  return CURRENCY_RE.test(upper) ? upper : fallback;
 }
 
 function asNumber(value, fallback = null) {
@@ -80,7 +86,7 @@ export function createItem(type, data) {
       number: asString(data.number),
       // eSIM 余额与货币（可选，与续期联动; 缺省无余额）
       balance: data.balance == null || data.balance === '' ? null : asNumber(data.balance, null),
-      currency: CURRENCY_CODES.includes(data.currency) ? data.currency : 'CNY',
+      currency: asCurrency(data.currency, 'CNY'),
       // eSIM 激活信息（敏感，LPA = 1$sm-dp+$activationCode$confirmationCode）
       smDp: asString(data.smDp),
       activationCode: asString(data.activationCode),
@@ -100,7 +106,7 @@ export function createItem(type, data) {
       balance,
       monthlyFee,
       billingDay,
-      currency: CURRENCY_CODES.includes(data.currency) ? data.currency : 'CNY',
+      currency: asCurrency(data.currency, 'CNY'),
       remindDays: normalizeRemindDays(data.remindDays),
       predictedSuspendDate: calcSuspendDate(balance, monthlyFee, billingDay),
     };
@@ -116,7 +122,7 @@ export function createItem(type, data) {
     billing: BILLING_TYPES.includes(data.billing) ? data.billing : 'monthly',
     billingMode: BILLING_MODES.includes(data.billingMode) ? data.billingMode : 'natural',
     cycleDays: asInteger(data.cycleDays),
-    currency: CURRENCY_CODES.includes(data.currency) ? data.currency : 'CNY',
+    currency: asCurrency(data.currency, 'CNY'),
     autoRenew: Boolean(data.autoRenew),
     remindDays: normalizeRemindDays(data.remindDays),
     url: asString(data.url),
@@ -169,7 +175,10 @@ export function validateItem(type, data) {
     if (!isValidHttpUrl(asString(data.url))) return '链接必须以 http:// 或 https:// 开头';
   }
 
-  if (data.currency && !CURRENCY_CODES.includes(data.currency)) return '货币类型不支持';
+  if (data.currency) {
+    const cur = String(data.currency).toUpperCase().trim();
+    if (!CURRENCY_RE.test(cur)) return '货币类型格式不正确 (须为 3 位 ISO 字母代码)';
+  }
 
   const remindDays = normalizeRemindDays(data.remindDays);
   if (remindDays.length === 0) return '提醒时间不能为空';
@@ -199,7 +208,7 @@ export function mergeUpdate(existing, data) {
       updated.balance = data.balance === '' || data.balance == null ? null : asNumber(data.balance, null);
     }
     if (data.currency !== undefined) {
-      updated.currency = CURRENCY_CODES.includes(data.currency) ? data.currency : 'CNY';
+      updated.currency = asCurrency(data.currency, 'CNY');
     }
   }
   // Subscription fields
@@ -212,6 +221,7 @@ export function mergeUpdate(existing, data) {
         else if (key === 'remindDays') updated[key] = normalizeRemindDays(data[key]);
         else if (key === 'billingMode') updated[key] = BILLING_MODES.includes(data[key]) ? data[key] : 'natural';
         else if (key === 'cycleDays') updated[key] = asInteger(data[key]);
+        else if (key === 'currency') updated[key] = asCurrency(data[key], 'CNY');
         else updated[key] = data[key];
       }
     }
@@ -223,6 +233,7 @@ export function mergeUpdate(existing, data) {
         if (key === 'balance' || key === 'monthlyFee') updated[key] = asNumber(data[key], 0);
         else if (key === 'billingDay') updated[key] = asInteger(data[key], 1);
         else if (key === 'number') updated[key] = asString(data[key]);
+        else if (key === 'currency') updated[key] = asCurrency(data[key], 'CNY');
         else if (key === 'remindDays') updated[key] = normalizeRemindDays(data[key]);
         else updated[key] = data[key];
       }

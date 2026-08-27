@@ -10,6 +10,7 @@
  *
  * KV Key Layout:
  *   items               → JSON array of all items
+ *   settings            → JSON object of app preferences & exchange rates
  *   TG_BOT_TOKEN        → Telegram bot token
  *   TG_CHAT_ID          → Telegram chat ID
  *   DEFAULT_NOTIFY_CHANNEL → Default notification channel
@@ -20,9 +21,26 @@
  *   history             → JSON array of recent activity entries
  */
 
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_EXCHANGE_RATES,
+  DEFAULT_REGIONS,
+} from './constants.js';
+
 const ITEMS_KEY = 'items';
+const SETTINGS_KEY = 'settings';
 const HISTORY_KEY = 'history';
 const HISTORY_LIMIT = 100;
+
+export function getDefaultSettings() {
+  return {
+    baseCurrency: 'CNY',
+    exchangeRates: { ...DEFAULT_EXCHANGE_RATES },
+    categories: [...DEFAULT_CATEGORIES],
+    regions: [...DEFAULT_REGIONS],
+    defaultRemindDays: [3, 1, 0],
+  };
+}
 
 /**
  * Get all items from KV
@@ -95,6 +113,34 @@ export async function deleteItem(db, id) {
 export async function getItemsByType(db, type) {
   const items = await getAllItems(db);
   return items.filter(item => item.type === type);
+}
+
+/**
+ * Get user settings merged with defaults
+ */
+export async function getSettings(db) {
+  const defaults = getDefaultSettings();
+  try {
+    const custom = await db.get(SETTINGS_KEY, { type: 'json' });
+    if (!custom || typeof custom !== 'object') return defaults;
+    return {
+      baseCurrency: custom.baseCurrency || defaults.baseCurrency,
+      exchangeRates: { ...defaults.exchangeRates, ...(custom.exchangeRates || {}) },
+      categories: Array.isArray(custom.categories) && custom.categories.length > 0 ? custom.categories : defaults.categories,
+      regions: Array.isArray(custom.regions) && custom.regions.length > 0 ? custom.regions : defaults.regions,
+      defaultRemindDays: Array.isArray(custom.defaultRemindDays) ? custom.defaultRemindDays : defaults.defaultRemindDays,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+/**
+ * Save user settings to KV
+ */
+export async function saveSettings(db, settings) {
+  await db.put(SETTINGS_KEY, JSON.stringify(settings));
+  return settings;
 }
 
 /**
