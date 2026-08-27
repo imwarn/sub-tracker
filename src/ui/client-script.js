@@ -9,8 +9,9 @@ import {
   DEFAULT_REGIONS,
   DEFAULT_REMIND_DAYS,
   DEFAULT_EXCHANGE_RATES,
+  CATEGORY_ALIASES,
 } from '../data/constants.js';
-import { getCountryMap } from '../utils/country.js';
+import { getCountryMap, getAllCountries } from '../utils/country.js';
 import { countUrgent, sortItemsByPaused } from '../utils/stats.js';
 import { getQRCodeClientScript } from '../utils/qrcode.js';
 
@@ -22,6 +23,7 @@ function getFrontendFlagMap() {
 
 export function getClientScript() {
   const flagMap = getFrontendFlagMap();
+  const allCountries = getAllCountries();
   const statsSrc = countUrgent.toString() + '\n' + sortItemsByPaused.toString();
   const qrScript = getQRCodeClientScript();
 
@@ -107,6 +109,36 @@ const DEFAULT_REGIONS = ${JSON.stringify(DEFAULT_REGIONS)};
 const DEFAULT_EXCHANGE_RATES = ${JSON.stringify(DEFAULT_EXCHANGE_RATES)};
 const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
 const FLAG_MAP = ${JSON.stringify(flagMap)};
+const ALL_COUNTRIES = ${JSON.stringify(allCountries)};
+const CATEGORY_ALIASES = ${JSON.stringify(CATEGORY_ALIASES)};
+
+function normalizeCategory(cat) {
+  if (!cat) return '';
+  const trimmed = String(cat).trim();
+  return CATEGORY_ALIASES[trimmed] || trimmed;
+}
+
+function parseCurrencyCode(val, fallback = 'CNY') {
+  if (!val) return fallback;
+  const s = String(val).trim().toUpperCase();
+  if (/^[A-Z]{3}$/.test(s)) return s;
+
+  const match = s.match(/([A-Z]{3})/);
+  if (match && match[1]) {
+    const found = ISO_CURRENCIES.find(c => c.code === match[1]);
+    if (found) return found.code;
+  }
+
+  const lower = String(val).toLowerCase().trim();
+  const foundByName = ISO_CURRENCIES.find(c =>
+    c.name.toLowerCase() === lower ||
+    c.code.toLowerCase() === lower ||
+    (lower.length >= 2 && c.name.toLowerCase().includes(lower))
+  );
+  if (foundByName) return foundByName.code;
+
+  return fallback;
+}
 
 function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '¥'; }
 
@@ -211,18 +243,31 @@ async function loadSettings() {
   populateCurrencySelects();
   populateCategoryDatalist();
   populateRegionDatalist();
+  populateCurrencyDatalist();
+  populateSettingsCountryDatalist();
 }
 
 async function loadItems() {
   try {
     const res = await api('GET', '/api/items');
-    if (res.ok) { const data = await res.json(); if (Array.isArray(data)) allItems = data; }
-    else { console.error('loadItems failed:', res.status); }
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        allItems = data.map(item => {
+          if (item.category) item.category = normalizeCategory(item.category);
+          return item;
+        });
+      }
+    } else {
+      console.error('loadItems failed:', res.status);
+    }
   } catch (e) {
     console.error('loadItems error:', e);
   }
   populateCategoryDatalist();
   populateRegionDatalist();
+  populateCurrencyDatalist();
+  populateSettingsCountryDatalist();
   renderStats();
   renderAnalytics();
   renderItems();
@@ -245,13 +290,24 @@ function populateCurrencySelects() {
     baseSelect.innerHTML = optionsHTML;
     baseSelect.value = appSettings?.baseCurrency || 'CNY';
   }
+  populateCurrencyDatalist();
+}
+
+function populateCurrencyDatalist() {
+  const dl = document.getElementById('currency-datalist');
+  if (!dl) return;
+  dl.innerHTML = ISO_CURRENCIES.map(c =>
+    '<option value="'+c.code+'">'+c.flag+' '+c.code+' · '+c.name+' ('+c.symbol+')</option>'
+  ).join('');
 }
 
 function populateCategoryDatalist() {
   const dl = document.getElementById('category-datalist');
   if (!dl) return;
-  const set = new Set(appSettings?.categories || DEFAULT_CATEGORIES);
-  allItems.forEach(item => { if (item.category) set.add(item.category); });
+  const set = new Set((appSettings?.categories || DEFAULT_CATEGORIES).map(c => normalizeCategory(c)).filter(Boolean));
+  allItems.forEach(item => {
+    if (item.category) set.add(normalizeCategory(item.category));
+  });
   dl.innerHTML = Array.from(set).map(cat => '<option value="'+esc(cat)+'"></option>').join('');
 }
 
@@ -260,9 +316,35 @@ function populateRegionDatalist() {
   if (!dl) return;
   const list = appSettings?.regions || DEFAULT_REGIONS;
   const options = list.map(r =>
-    '<option value="'+r.code+'">'+(r.flag ? r.flag+' ' : '')+r.code+' - '+(r.name||'')+'</option>'
+    '<option value="'+r.code+'">'+(r.flag ? r.flag+' ' : '')+r.code+' · '+(r.name||'')+'</option>'
   );
   dl.innerHTML = options.join('');
+}
+
+function populateSettingsCountryDatalist() {
+  const dl = document.getElementById('settings-country-datalist');
+  if (!dl) return;
+  dl.innerHTML = ALL_COUNTRIES.map(c =>
+    '<option value="'+c.flag+' '+c.code+' · '+c.name+'">'+c.name+' ('+c.code+')</option>'
+  ).join('');
+}
+
+function onSelectCountryPreset(val) {
+  if (!val) return;
+  const trimmed = val.trim();
+  const found = ALL_COUNTRIES.find(c =>
+    val.includes(c.code) ||
+    c.name === trimmed ||
+    (trimmed.length >= 2 && c.name.includes(trimmed))
+  );
+  if (found) {
+    const codeEl = document.getElementById('settings-new-region-code');
+    const nameEl = document.getElementById('settings-new-region-name');
+    const flagEl = document.getElementById('settings-new-region-flag');
+    if (codeEl) codeEl.value = found.code;
+    if (nameEl) nameEl.value = found.name;
+    if (flagEl) flagEl.value = found.flag;
+  }
 }
 
 // ==================== STATS ====================
@@ -459,15 +541,22 @@ function getFilteredItems() {
     }
   }
   if (search) {
-    items = items.filter(i =>
-      (i.name||'').toLowerCase().includes(search) ||
-      (i.number||'').toLowerCase().includes(search) ||
-      (i.remark||'').toLowerCase().includes(search) ||
-      (i.category||'').toLowerCase().includes(search) ||
-      (i.region||'').toLowerCase().includes(search) ||
-      (i.subId||'').toLowerCase().includes(search) ||
-      (i.currency||'').toLowerCase().includes(search)
-    );
+    items = items.filter(i => {
+      const catNorm = normalizeCategory(i.category || '');
+      const catMatches = (i.category||'').toLowerCase().includes(search) ||
+                         catNorm.toLowerCase().includes(search) ||
+                         Object.entries(CATEGORY_ALIASES).some(([alias, name]) =>
+                           (alias.toLowerCase().includes(search) || name.toLowerCase().includes(search)) &&
+                           (catNorm === name || (i.category||'').toLowerCase() === alias.toLowerCase())
+                         );
+      return (i.name||'').toLowerCase().includes(search) ||
+        (i.number||'').toLowerCase().includes(search) ||
+        (i.remark||'').toLowerCase().includes(search) ||
+        catMatches ||
+        (i.region||'').toLowerCase().includes(search) ||
+        (i.subId||'').toLowerCase().includes(search) ||
+        (i.currency||'').toLowerCase().includes(search);
+    });
   }
   const sortBy = document.getElementById('sort-select')?.value || 'expire';
   return sortItemsByPaused([...items], sortBy);
@@ -1023,10 +1112,11 @@ function addCustomRegion() {
   const codeIn = document.getElementById('settings-new-region-code');
   const nameIn = document.getElementById('settings-new-region-name');
   const flagIn = document.getElementById('settings-new-region-flag');
+  const searchIn = document.getElementById('settings-country-search');
   const code = codeIn ? codeIn.value.trim().toUpperCase() : '';
   const name = nameIn ? nameIn.value.trim() : '';
-  const flag = flagIn ? flagIn.value.trim() : '🌐';
-  if (!code) { showToast('请输入区域代码 (如 TR, US)', 'error'); return; }
+  const flag = flagIn ? flagIn.value.trim() : '';
+  if (!code) { showToast('请输入区域代码 (如 TR, US) 或从上方搜索选择', 'error'); return; }
 
   const existingIdx = editingRegions.findIndex(r => r.code === code);
   const entry = { code, name: name || code, flag: flag || isoToFlag(code) || '🌐' };
@@ -1036,6 +1126,7 @@ function addCustomRegion() {
   if (codeIn) codeIn.value = '';
   if (nameIn) nameIn.value = '';
   if (flagIn) flagIn.value = '';
+  if (searchIn) searchIn.value = '';
   renderRegionTags();
 }
 
@@ -1148,7 +1239,7 @@ function openModal(type, item) {
     document.getElementById('form-wid').value = item.wid || '';
     document.getElementById('form-balance-esim').value = item.balance == null ? '' : item.balance;
     document.getElementById('form-currency-esim').value = item.currency || baseCur;
-    document.getElementById('form-category').value = item.category || '';
+    document.getElementById('form-category').value = normalizeCategory(item.category || '');
     document.getElementById('form-region').value = item.region || '';
     document.getElementById('form-sub-id').value = item.subId || '';
     document.getElementById('form-expire').value = item.expireDate || '';
@@ -1207,10 +1298,13 @@ async function saveItem(e) {
   const id = document.getElementById('form-id').value;
   const type = document.getElementById('form-type').value;
 
-  let currency = 'CNY';
-  if (type === 'esim') currency = document.getElementById('form-currency-esim').value;
-  else if (type === 'balance') currency = document.getElementById('form-currency-balance').value;
-  else currency = document.getElementById('form-currency').value;
+  let rawCurrency = 'CNY';
+  if (type === 'esim') rawCurrency = document.getElementById('form-currency-esim').value;
+  else if (type === 'balance') rawCurrency = document.getElementById('form-currency-balance').value;
+  else rawCurrency = document.getElementById('form-currency').value;
+
+  const currency = parseCurrencyCode(rawCurrency, type === 'balance' ? 'CNY' : 'USD');
+  const category = normalizeCategory(document.getElementById('form-category').value.trim());
 
   const body = {
     type,
@@ -1221,8 +1315,8 @@ async function saveItem(e) {
     confirmationCode: document.getElementById('form-confirmation-code').value.trim(),
     wid: document.getElementById('form-wid').value.trim(),
     balance: type === 'esim' ? document.getElementById('form-balance-esim').value.trim() : document.getElementById('form-balance').value,
-    currency: (currency || 'CNY').toUpperCase().trim(),
-    category: document.getElementById('form-category').value.trim(),
+    currency,
+    category,
     region: document.getElementById('form-region').value.trim(),
     subId: document.getElementById('form-sub-id').value.trim(),
     expireDate: document.getElementById('form-expire').value,

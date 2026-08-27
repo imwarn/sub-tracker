@@ -9,6 +9,7 @@ import {
   ITEM_TYPES,
   REMIND_DAY_OPTIONS,
   STATUSES,
+  normalizeCategory,
 } from './constants.js';
 import { calcSuspendDate } from '../utils/date.js';
 
@@ -115,7 +116,7 @@ export function createItem(type, data) {
   // subscription
   return {
     ...base,
-    category: asString(data.category),
+    category: normalizeCategory(data.category),
     region: asString(data.region),
     subId: asString(data.subId),
     price: data.price === '' || data.price == null ? null : asString(data.price),
@@ -215,7 +216,8 @@ export function mergeUpdate(existing, data) {
   if (existing.type === 'subscription') {
     for (const key of ['category', 'region', 'subId', 'price', 'billing', 'billingMode', 'cycleDays', 'currency', 'autoRenew', 'remindDays', 'url']) {
       if (data[key] !== undefined) {
-        if (['category', 'region', 'subId', 'url'].includes(key)) updated[key] = asString(data[key]);
+        if (key === 'category') updated.category = normalizeCategory(data.category);
+        else if (['region', 'subId', 'url'].includes(key)) updated[key] = asString(data[key]);
         else if (key === 'price') updated[key] = data[key] === '' || data[key] == null ? null : asString(data[key]);
         else if (key === 'autoRenew') updated[key] = Boolean(data[key]);
         else if (key === 'remindDays') updated[key] = normalizeRemindDays(data[key]);

@@ -226,7 +226,7 @@ ${getStyles()}
               </div>
               <div class="w-40">
                 <label class="text-sm text-slate-400 mb-1 block">货币</label>
-                <select id="form-currency-esim" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
+                <input id="form-currency-esim" type="text" list="currency-datalist" placeholder="如 USD, CNY..." class="glass-input w-full px-3 py-3 rounded-xl text-sm uppercase" autocomplete="off">
               </div>
             </div>
           </div>
@@ -291,7 +291,7 @@ ${getStyles()}
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">货币</label>
-                <select id="form-currency-balance" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
+                <input id="form-currency-balance" type="text" list="currency-datalist" placeholder="如 CNY, HKD..." class="glass-input w-full px-3 py-3 rounded-xl text-sm uppercase" autocomplete="off">
               </div>
             </div>
           </div>
@@ -303,7 +303,7 @@ ${getStyles()}
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">货币</label>
-                <select id="form-currency" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
+                <input id="form-currency" type="text" list="currency-datalist" placeholder="搜索或输入货币 (如 USD, TRY, 美元)..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">计费周期</label>
@@ -332,6 +332,8 @@ ${getStyles()}
               </div>
             </div>
           </div>
+          <!-- Global Currency Datalist -->
+          <datalist id="currency-datalist"></datalist>
           <div id="field-url" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">服务链接</label>
             <input id="form-url" type="url" placeholder="https://..." class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -434,9 +436,17 @@ ${getStyles()}
       <div id="stab-content-region" class="space-y-4 hidden">
         <div>
           <div class="text-sm font-semibold text-white mb-1">常用区域 / 国家预设</div>
-          <div class="text-xs text-slate-400 mb-3">方便跨区订阅快速选填。支持输入代码、区域名与旗帜。</div>
+          <div class="text-xs text-slate-400 mb-3">方便跨区订阅快速选填。支持从全球国家列表中快速检索并添加。</div>
           <div id="settings-region-tags" class="flex flex-wrap gap-2 mb-4"></div>
         </div>
+        
+        <!-- Quick Country Search -->
+        <div class="bg-white/5 p-3 rounded-xl border border-white/10 mb-3">
+          <label class="text-xs text-slate-300 font-semibold mb-1.5 block"><i class="fa-solid fa-magnifying-glass mr-1 text-emerald-400"></i>全球国家/地区检索快速填充：</label>
+          <input id="settings-country-search" type="text" list="settings-country-datalist" placeholder="输入国家名称或代码检索 (如: 土耳其 / TR / 埃及 / 阿根廷 / 日本)..." oninput="onSelectCountryPreset(this.value)" class="glass-input w-full px-4 py-2.5 rounded-xl text-sm" autocomplete="off">
+          <datalist id="settings-country-datalist"></datalist>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
           <input id="settings-new-region-code" type="text" placeholder="代码(如 TR)" class="glass-input sm:col-span-3 px-4 py-2.5 rounded-xl text-sm uppercase">
           <input id="settings-new-region-name" type="text" placeholder="名称(如 土耳其)" class="glass-input sm:col-span-4 px-4 py-2.5 rounded-xl text-sm">

@@ -32,6 +32,27 @@ export const DEFAULT_CATEGORIES = [
   '其他',
 ];
 
+/**
+ * Mapping legacy category keys (e.g. from old select values) to canonical names
+ */
+export const CATEGORY_ALIASES = {
+  'AI': 'AI 服务',
+  'Streaming': '流媒体',
+  'VPN': 'VPN / 节点',
+  'Cloud': '云服务',
+  'Domain': '域名 / SSL',
+  'VPS': 'VPS / 服务器',
+  'Software': '软件订阅',
+  'Game': '游戏 / 娱乐',
+  'Other': '其他',
+};
+
+export function normalizeCategory(cat) {
+  if (!cat) return '';
+  const trimmed = String(cat).trim();
+  return CATEGORY_ALIASES[trimmed] || trimmed;
+}
+
 export const DEFAULT_REGIONS = [
   { code: 'CN', name: '中国大陆', flag: '🇨🇳' },
   { code: 'US', name: '美区', flag: '🇺🇸' },

@@ -244,9 +244,41 @@ export function getFlag(number) {
   return info ? info.iso : '';
 }
 
+export function isoToFlag(iso) {
+  if (!iso || typeof iso !== 'string' || iso.length !== 2) return '🌐';
+  const codePoints = iso.toUpperCase().split('').map(c => 127397 + c.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
+/**
+ * Get full list of all unique countries/regions with flags
+ */
+export function getAllCountries() {
+  const map = new Map();
+  // Special/popular naming overrides
+  map.set('CN', { code: 'CN', name: '中国大陆', flag: '🇨🇳' });
+  map.set('HK', { code: 'HK', name: '中国香港', flag: '🇭🇰' });
+  map.set('MO', { code: 'MO', name: '中国澳门', flag: '🇲🇴' });
+  map.set('TW', { code: 'TW', name: '中国台湾', flag: '🇹🇼' });
+  map.set('US', { code: 'US', name: '美国', flag: '🇺🇸' });
+  map.set('GB', { code: 'GB', name: '英国', flag: '🇬🇧' });
+
+  for (const info of Object.values(COUNTRY_MAP)) {
+    if (!map.has(info.code)) {
+      map.set(info.code, {
+        code: info.code,
+        name: info.name,
+        flag: isoToFlag(info.code),
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+}
+
 /**
  * Get the full COUNTRY_MAP (for frontend sync)
  */
 export function getCountryMap() {
   return COUNTRY_MAP;
 }
+

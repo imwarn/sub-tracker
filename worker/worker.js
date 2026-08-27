@@ -225,6 +225,22 @@ var DEFAULT_CATEGORIES = [
   "\u751F\u6D3B / \u8D2D\u7269",
   "\u5176\u4ED6"
 ];
+var CATEGORY_ALIASES = {
+  "AI": "AI \u670D\u52A1",
+  "Streaming": "\u6D41\u5A92\u4F53",
+  "VPN": "VPN / \u8282\u70B9",
+  "Cloud": "\u4E91\u670D\u52A1",
+  "Domain": "\u57DF\u540D / SSL",
+  "VPS": "VPS / \u670D\u52A1\u5668",
+  "Software": "\u8F6F\u4EF6\u8BA2\u9605",
+  "Game": "\u6E38\u620F / \u5A31\u4E50",
+  "Other": "\u5176\u4ED6"
+};
+function normalizeCategory(cat) {
+  if (!cat) return "";
+  const trimmed = String(cat).trim();
+  return CATEGORY_ALIASES[trimmed] || trimmed;
+}
 var DEFAULT_REGIONS = [
   { code: "CN", name: "\u4E2D\u56FD\u5927\u9646", flag: "\u{1F1E8}\u{1F1F3}" },
   { code: "US", name: "\u7F8E\u533A", flag: "\u{1F1FA}\u{1F1F8}" },
@@ -824,7 +840,7 @@ function createItem(type, data) {
   }
   return {
     ...base,
-    category: asString(data.category),
+    category: normalizeCategory(data.category),
     region: asString(data.region),
     subId: asString(data.subId),
     price: data.price === "" || data.price == null ? null : asString(data.price),
@@ -904,7 +920,8 @@ function mergeUpdate(existing, data) {
   if (existing.type === "subscription") {
     for (const key of ["category", "region", "subId", "price", "billing", "billingMode", "cycleDays", "currency", "autoRenew", "remindDays", "url"]) {
       if (data[key] !== void 0) {
-        if (["category", "region", "subId", "url"].includes(key)) updated[key] = asString(data[key]);
+        if (key === "category") updated.category = normalizeCategory(data.category);
+        else if (["region", "subId", "url"].includes(key)) updated[key] = asString(data[key]);
         else if (key === "price") updated[key] = data[key] === "" || data[key] == null ? null : asString(data[key]);
         else if (key === "autoRenew") updated[key] = Boolean(data[key]);
         else if (key === "remindDays") updated[key] = normalizeRemindDays(data[key]);
@@ -1574,6 +1591,30 @@ for (const code of Object.keys(COUNTRY_MAP)) {
   else if (code.length === 2) PREFIXES_2.push(code);
   else PREFIXES_1.push(code);
 }
+function isoToFlag(iso) {
+  if (!iso || typeof iso !== "string" || iso.length !== 2) return "\u{1F310}";
+  const codePoints = iso.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+function getAllCountries() {
+  const map = /* @__PURE__ */ new Map();
+  map.set("CN", { code: "CN", name: "\u4E2D\u56FD\u5927\u9646", flag: "\u{1F1E8}\u{1F1F3}" });
+  map.set("HK", { code: "HK", name: "\u4E2D\u56FD\u9999\u6E2F", flag: "\u{1F1ED}\u{1F1F0}" });
+  map.set("MO", { code: "MO", name: "\u4E2D\u56FD\u6FB3\u95E8", flag: "\u{1F1F2}\u{1F1F4}" });
+  map.set("TW", { code: "TW", name: "\u4E2D\u56FD\u53F0\u6E7E", flag: "\u{1F1F9}\u{1F1FC}" });
+  map.set("US", { code: "US", name: "\u7F8E\u56FD", flag: "\u{1F1FA}\u{1F1F8}" });
+  map.set("GB", { code: "GB", name: "\u82F1\u56FD", flag: "\u{1F1EC}\u{1F1E7}" });
+  for (const info of Object.values(COUNTRY_MAP)) {
+    if (!map.has(info.code)) {
+      map.set(info.code, {
+        code: info.code,
+        name: info.name,
+        flag: isoToFlag(info.code)
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+}
 function getCountryMap() {
   return COUNTRY_MAP;
 }
@@ -1849,6 +1890,7 @@ function getFrontendFlagMap() {
 }
 function getClientScript() {
   const flagMap = getFrontendFlagMap();
+  const allCountries = getAllCountries();
   const statsSrc = countUrgent.toString() + "\n" + sortItemsByPaused.toString();
   const qrScript = getQRCodeClientScript();
   return `${statsSrc}
@@ -1933,6 +1975,36 @@ const DEFAULT_REGIONS = ${JSON.stringify(DEFAULT_REGIONS)};
 const DEFAULT_EXCHANGE_RATES = ${JSON.stringify(DEFAULT_EXCHANGE_RATES)};
 const DEFAULT_REMIND_DAYS_CLIENT = ${JSON.stringify(DEFAULT_REMIND_DAYS)};
 const FLAG_MAP = ${JSON.stringify(flagMap)};
+const ALL_COUNTRIES = ${JSON.stringify(allCountries)};
+const CATEGORY_ALIASES = ${JSON.stringify(CATEGORY_ALIASES)};
+
+function normalizeCategory(cat) {
+  if (!cat) return '';
+  const trimmed = String(cat).trim();
+  return CATEGORY_ALIASES[trimmed] || trimmed;
+}
+
+function parseCurrencyCode(val, fallback = 'CNY') {
+  if (!val) return fallback;
+  const s = String(val).trim().toUpperCase();
+  if (/^[A-Z]{3}$/.test(s)) return s;
+
+  const match = s.match(/([A-Z]{3})/);
+  if (match && match[1]) {
+    const found = ISO_CURRENCIES.find(c => c.code === match[1]);
+    if (found) return found.code;
+  }
+
+  const lower = String(val).toLowerCase().trim();
+  const foundByName = ISO_CURRENCIES.find(c =>
+    c.name.toLowerCase() === lower ||
+    c.code.toLowerCase() === lower ||
+    (lower.length >= 2 && c.name.toLowerCase().includes(lower))
+  );
+  if (foundByName) return foundByName.code;
+
+  return fallback;
+}
 
 function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '\xA5'; }
 
@@ -2037,18 +2109,31 @@ async function loadSettings() {
   populateCurrencySelects();
   populateCategoryDatalist();
   populateRegionDatalist();
+  populateCurrencyDatalist();
+  populateSettingsCountryDatalist();
 }
 
 async function loadItems() {
   try {
     const res = await api('GET', '/api/items');
-    if (res.ok) { const data = await res.json(); if (Array.isArray(data)) allItems = data; }
-    else { console.error('loadItems failed:', res.status); }
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        allItems = data.map(item => {
+          if (item.category) item.category = normalizeCategory(item.category);
+          return item;
+        });
+      }
+    } else {
+      console.error('loadItems failed:', res.status);
+    }
   } catch (e) {
     console.error('loadItems error:', e);
   }
   populateCategoryDatalist();
   populateRegionDatalist();
+  populateCurrencyDatalist();
+  populateSettingsCountryDatalist();
   renderStats();
   renderAnalytics();
   renderItems();
@@ -2071,13 +2156,24 @@ function populateCurrencySelects() {
     baseSelect.innerHTML = optionsHTML;
     baseSelect.value = appSettings?.baseCurrency || 'CNY';
   }
+  populateCurrencyDatalist();
+}
+
+function populateCurrencyDatalist() {
+  const dl = document.getElementById('currency-datalist');
+  if (!dl) return;
+  dl.innerHTML = ISO_CURRENCIES.map(c =>
+    '<option value="'+c.code+'">'+c.flag+' '+c.code+' \xB7 '+c.name+' ('+c.symbol+')</option>'
+  ).join('');
 }
 
 function populateCategoryDatalist() {
   const dl = document.getElementById('category-datalist');
   if (!dl) return;
-  const set = new Set(appSettings?.categories || DEFAULT_CATEGORIES);
-  allItems.forEach(item => { if (item.category) set.add(item.category); });
+  const set = new Set((appSettings?.categories || DEFAULT_CATEGORIES).map(c => normalizeCategory(c)).filter(Boolean));
+  allItems.forEach(item => {
+    if (item.category) set.add(normalizeCategory(item.category));
+  });
   dl.innerHTML = Array.from(set).map(cat => '<option value="'+esc(cat)+'"></option>').join('');
 }
 
@@ -2086,9 +2182,35 @@ function populateRegionDatalist() {
   if (!dl) return;
   const list = appSettings?.regions || DEFAULT_REGIONS;
   const options = list.map(r =>
-    '<option value="'+r.code+'">'+(r.flag ? r.flag+' ' : '')+r.code+' - '+(r.name||'')+'</option>'
+    '<option value="'+r.code+'">'+(r.flag ? r.flag+' ' : '')+r.code+' \xB7 '+(r.name||'')+'</option>'
   );
   dl.innerHTML = options.join('');
+}
+
+function populateSettingsCountryDatalist() {
+  const dl = document.getElementById('settings-country-datalist');
+  if (!dl) return;
+  dl.innerHTML = ALL_COUNTRIES.map(c =>
+    '<option value="'+c.flag+' '+c.code+' \xB7 '+c.name+'">'+c.name+' ('+c.code+')</option>'
+  ).join('');
+}
+
+function onSelectCountryPreset(val) {
+  if (!val) return;
+  const trimmed = val.trim();
+  const found = ALL_COUNTRIES.find(c =>
+    val.includes(c.code) ||
+    c.name === trimmed ||
+    (trimmed.length >= 2 && c.name.includes(trimmed))
+  );
+  if (found) {
+    const codeEl = document.getElementById('settings-new-region-code');
+    const nameEl = document.getElementById('settings-new-region-name');
+    const flagEl = document.getElementById('settings-new-region-flag');
+    if (codeEl) codeEl.value = found.code;
+    if (nameEl) nameEl.value = found.name;
+    if (flagEl) flagEl.value = found.flag;
+  }
 }
 
 // ==================== STATS ====================
@@ -2285,15 +2407,22 @@ function getFilteredItems() {
     }
   }
   if (search) {
-    items = items.filter(i =>
-      (i.name||'').toLowerCase().includes(search) ||
-      (i.number||'').toLowerCase().includes(search) ||
-      (i.remark||'').toLowerCase().includes(search) ||
-      (i.category||'').toLowerCase().includes(search) ||
-      (i.region||'').toLowerCase().includes(search) ||
-      (i.subId||'').toLowerCase().includes(search) ||
-      (i.currency||'').toLowerCase().includes(search)
-    );
+    items = items.filter(i => {
+      const catNorm = normalizeCategory(i.category || '');
+      const catMatches = (i.category||'').toLowerCase().includes(search) ||
+                         catNorm.toLowerCase().includes(search) ||
+                         Object.entries(CATEGORY_ALIASES).some(([alias, name]) =>
+                           (alias.toLowerCase().includes(search) || name.toLowerCase().includes(search)) &&
+                           (catNorm === name || (i.category||'').toLowerCase() === alias.toLowerCase())
+                         );
+      return (i.name||'').toLowerCase().includes(search) ||
+        (i.number||'').toLowerCase().includes(search) ||
+        (i.remark||'').toLowerCase().includes(search) ||
+        catMatches ||
+        (i.region||'').toLowerCase().includes(search) ||
+        (i.subId||'').toLowerCase().includes(search) ||
+        (i.currency||'').toLowerCase().includes(search);
+    });
   }
   const sortBy = document.getElementById('sort-select')?.value || 'expire';
   return sortItemsByPaused([...items], sortBy);
@@ -2849,10 +2978,11 @@ function addCustomRegion() {
   const codeIn = document.getElementById('settings-new-region-code');
   const nameIn = document.getElementById('settings-new-region-name');
   const flagIn = document.getElementById('settings-new-region-flag');
+  const searchIn = document.getElementById('settings-country-search');
   const code = codeIn ? codeIn.value.trim().toUpperCase() : '';
   const name = nameIn ? nameIn.value.trim() : '';
-  const flag = flagIn ? flagIn.value.trim() : '\u{1F310}';
-  if (!code) { showToast('\u8BF7\u8F93\u5165\u533A\u57DF\u4EE3\u7801 (\u5982 TR, US)', 'error'); return; }
+  const flag = flagIn ? flagIn.value.trim() : '';
+  if (!code) { showToast('\u8BF7\u8F93\u5165\u533A\u57DF\u4EE3\u7801 (\u5982 TR, US) \u6216\u4ECE\u4E0A\u65B9\u641C\u7D22\u9009\u62E9', 'error'); return; }
 
   const existingIdx = editingRegions.findIndex(r => r.code === code);
   const entry = { code, name: name || code, flag: flag || isoToFlag(code) || '\u{1F310}' };
@@ -2862,6 +2992,7 @@ function addCustomRegion() {
   if (codeIn) codeIn.value = '';
   if (nameIn) nameIn.value = '';
   if (flagIn) flagIn.value = '';
+  if (searchIn) searchIn.value = '';
   renderRegionTags();
 }
 
@@ -2974,7 +3105,7 @@ function openModal(type, item) {
     document.getElementById('form-wid').value = item.wid || '';
     document.getElementById('form-balance-esim').value = item.balance == null ? '' : item.balance;
     document.getElementById('form-currency-esim').value = item.currency || baseCur;
-    document.getElementById('form-category').value = item.category || '';
+    document.getElementById('form-category').value = normalizeCategory(item.category || '');
     document.getElementById('form-region').value = item.region || '';
     document.getElementById('form-sub-id').value = item.subId || '';
     document.getElementById('form-expire').value = item.expireDate || '';
@@ -3033,10 +3164,13 @@ async function saveItem(e) {
   const id = document.getElementById('form-id').value;
   const type = document.getElementById('form-type').value;
 
-  let currency = 'CNY';
-  if (type === 'esim') currency = document.getElementById('form-currency-esim').value;
-  else if (type === 'balance') currency = document.getElementById('form-currency-balance').value;
-  else currency = document.getElementById('form-currency').value;
+  let rawCurrency = 'CNY';
+  if (type === 'esim') rawCurrency = document.getElementById('form-currency-esim').value;
+  else if (type === 'balance') rawCurrency = document.getElementById('form-currency-balance').value;
+  else rawCurrency = document.getElementById('form-currency').value;
+
+  const currency = parseCurrencyCode(rawCurrency, type === 'balance' ? 'CNY' : 'USD');
+  const category = normalizeCategory(document.getElementById('form-category').value.trim());
 
   const body = {
     type,
@@ -3047,8 +3181,8 @@ async function saveItem(e) {
     confirmationCode: document.getElementById('form-confirmation-code').value.trim(),
     wid: document.getElementById('form-wid').value.trim(),
     balance: type === 'esim' ? document.getElementById('form-balance-esim').value.trim() : document.getElementById('form-balance').value,
-    currency: (currency || 'CNY').toUpperCase().trim(),
-    category: document.getElementById('form-category').value.trim(),
+    currency,
+    category,
     region: document.getElementById('form-region').value.trim(),
     subId: document.getElementById('form-sub-id').value.trim(),
     expireDate: document.getElementById('form-expire').value,
@@ -3744,7 +3878,7 @@ ${getStyles()}
               </div>
               <div class="w-40">
                 <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-                <select id="form-currency-esim" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
+                <input id="form-currency-esim" type="text" list="currency-datalist" placeholder="\u5982 USD, CNY..." class="glass-input w-full px-3 py-3 rounded-xl text-sm uppercase" autocomplete="off">
               </div>
             </div>
           </div>
@@ -3809,7 +3943,7 @@ ${getStyles()}
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-                <select id="form-currency-balance" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
+                <input id="form-currency-balance" type="text" list="currency-datalist" placeholder="\u5982 CNY, HKD..." class="glass-input w-full px-3 py-3 rounded-xl text-sm uppercase" autocomplete="off">
               </div>
             </div>
           </div>
@@ -3821,7 +3955,7 @@ ${getStyles()}
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-                <select id="form-currency" class="glass-input w-full px-3 py-3 rounded-xl text-sm currency-select-target"></select>
+                <input id="form-currency" type="text" list="currency-datalist" placeholder="\u641C\u7D22\u6216\u8F93\u5165\u8D27\u5E01 (\u5982 USD, TRY, \u7F8E\u5143)..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
               </div>
               <div>
                 <label class="text-sm text-slate-400 mb-1 block">\u8BA1\u8D39\u5468\u671F</label>
@@ -3850,6 +3984,8 @@ ${getStyles()}
               </div>
             </div>
           </div>
+          <!-- Global Currency Datalist -->
+          <datalist id="currency-datalist"></datalist>
           <div id="field-url" class="hidden">
             <label class="text-sm text-slate-400 mb-1 block">\u670D\u52A1\u94FE\u63A5</label>
             <input id="form-url" type="url" placeholder="https://..." class="glass-input w-full px-4 py-3 rounded-xl text-sm">
@@ -3952,9 +4088,17 @@ ${getStyles()}
       <div id="stab-content-region" class="space-y-4 hidden">
         <div>
           <div class="text-sm font-semibold text-white mb-1">\u5E38\u7528\u533A\u57DF / \u56FD\u5BB6\u9884\u8BBE</div>
-          <div class="text-xs text-slate-400 mb-3">\u65B9\u4FBF\u8DE8\u533A\u8BA2\u9605\u5FEB\u901F\u9009\u586B\u3002\u652F\u6301\u8F93\u5165\u4EE3\u7801\u3001\u533A\u57DF\u540D\u4E0E\u65D7\u5E1C\u3002</div>
+          <div class="text-xs text-slate-400 mb-3">\u65B9\u4FBF\u8DE8\u533A\u8BA2\u9605\u5FEB\u901F\u9009\u586B\u3002\u652F\u6301\u4ECE\u5168\u7403\u56FD\u5BB6\u5217\u8868\u4E2D\u5FEB\u901F\u68C0\u7D22\u5E76\u6DFB\u52A0\u3002</div>
           <div id="settings-region-tags" class="flex flex-wrap gap-2 mb-4"></div>
         </div>
+        
+        <!-- Quick Country Search -->
+        <div class="bg-white/5 p-3 rounded-xl border border-white/10 mb-3">
+          <label class="text-xs text-slate-300 font-semibold mb-1.5 block"><i class="fa-solid fa-magnifying-glass mr-1 text-emerald-400"></i>\u5168\u7403\u56FD\u5BB6/\u5730\u533A\u68C0\u7D22\u5FEB\u901F\u586B\u5145\uFF1A</label>
+          <input id="settings-country-search" type="text" list="settings-country-datalist" placeholder="\u8F93\u5165\u56FD\u5BB6\u540D\u79F0\u6216\u4EE3\u7801\u68C0\u7D22 (\u5982: \u571F\u8033\u5176 / TR / \u57C3\u53CA / \u963F\u6839\u5EF7 / \u65E5\u672C)..." oninput="onSelectCountryPreset(this.value)" class="glass-input w-full px-4 py-2.5 rounded-xl text-sm" autocomplete="off">
+          <datalist id="settings-country-datalist"></datalist>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
           <input id="settings-new-region-code" type="text" placeholder="\u4EE3\u7801(\u5982 TR)" class="glass-input sm:col-span-3 px-4 py-2.5 rounded-xl text-sm uppercase">
           <input id="settings-new-region-name" type="text" placeholder="\u540D\u79F0(\u5982 \u571F\u8033\u5176)" class="glass-input sm:col-span-4 px-4 py-2.5 rounded-xl text-sm">

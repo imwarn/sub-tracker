@@ -133,12 +133,41 @@ test('handleSettings GET and PUT endpoints', async () => {
   assert.deepEqual(putData.categories, ['影音流媒体', 'AI 生产力', '海外保号卡']);
 });
 
-test('HTML template includes settings modal and menu entry', () => {
+test('normalizeCategory normalizes legacy English keys to Chinese display names', () => {
+  import('../src/data/constants.js').then(m => {
+    assert.equal(m.normalizeCategory('AI'), 'AI 服务');
+    assert.equal(m.normalizeCategory('Domain'), '域名 / SSL');
+    assert.equal(m.normalizeCategory('Streaming'), '流媒体');
+    assert.equal(m.normalizeCategory('VPN'), 'VPN / 节点');
+    assert.equal(m.normalizeCategory('Cloud'), '云服务');
+    assert.equal(m.normalizeCategory('VPS'), 'VPS / 服务器');
+    assert.equal(m.normalizeCategory('Software'), '软件订阅');
+    assert.equal(m.normalizeCategory('Game'), '游戏 / 娱乐');
+    assert.equal(m.normalizeCategory('Other'), '其他');
+    assert.equal(m.normalizeCategory('自定义分类'), '自定义分类');
+  });
+});
+
+test('getAllCountries returns worldwide list with codes, flags, and names', () => {
+  import('../src/utils/country.js').then(m => {
+    const list = m.getAllCountries();
+    assert.ok(list.length > 50);
+    const tr = list.find(c => c.code === 'TR');
+    assert.ok(tr);
+    assert.equal(tr.name, '土耳其');
+    assert.equal(tr.flag, '🇹🇷');
+  });
+});
+
+test('HTML template includes settings modal, menu entry, and searchable datalists', () => {
   const html = getHTML();
   assert.match(html, /id="settings-overlay"/);
   assert.match(html, /id="settings-base-currency"/);
   assert.match(html, /id="sync-rates-btn"/);
   assert.match(html, /id="settings-category-tags"/);
   assert.match(html, /id="settings-region-tags"/);
+  assert.match(html, /id="settings-country-datalist"/);
+  assert.match(html, /id="currency-datalist"/);
   assert.match(html, /openSettings\(\)/);
 });
+
