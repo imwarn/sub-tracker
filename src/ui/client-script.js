@@ -1209,8 +1209,38 @@ function openModal(type, item) {
 
   document.getElementById('form-type').value = type;
   document.getElementById('form-id').value = item ? item.id : '';
-  const typeLabel = type === 'esim' ? ' eSIM' : type === 'balance' ? ' 话费' : ' 订阅';
-  document.getElementById('modal-title').textContent = (item ? '编辑' : '添加') + typeLabel;
+  
+  const typeConfig = {
+    esim: {
+      label: 'eSIM 卡',
+      icon: '<i class="fa-solid fa-sim-card"></i>',
+      badgeCls: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+      subtitle: '记录号码、ICCID、激活参数与保号周期',
+    },
+    subscription: {
+      label: '订阅服务',
+      icon: '<i class="fa-solid fa-rotate"></i>',
+      badgeCls: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+      subtitle: '追踪订阅费用、计费周期与自动续费',
+    },
+    balance: {
+      label: '话费卡',
+      icon: '<i class="fa-solid fa-coins"></i>',
+      badgeCls: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      subtitle: '追踪卡内余额、月租与智能停机预测',
+    },
+  };
+  const cfg = typeConfig[type] || typeConfig.subscription;
+
+  document.getElementById('modal-title').textContent = (item ? '编辑 ' : '添加 ') + cfg.label;
+  const subEl = document.getElementById('modal-subtitle');
+  if (subEl) subEl.textContent = cfg.subtitle;
+  const iconBadge = document.getElementById('modal-icon-badge');
+  if (iconBadge) {
+    iconBadge.innerHTML = cfg.icon;
+    iconBadge.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm sm:text-base border ' + cfg.badgeCls;
+  }
+
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim' && type !== 'balance');
   document.getElementById('field-esim-activation').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-esim-balance').classList.toggle('hidden', type !== 'esim');
@@ -1221,8 +1251,8 @@ function openModal(type, item) {
   document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-balance').classList.toggle('hidden', type !== 'balance');
   
-  const expireField = document.getElementById('form-expire').closest('.space-y-4 > div') || document.getElementById('form-expire').parentElement;
-  const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
+  const expireField = document.getElementById('field-expire');
+  const cycleField = document.getElementById('field-cycle');
   if (expireField) expireField.classList.toggle('hidden', type === 'balance');
   if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-billing-mode').classList.toggle('hidden', type !== 'subscription');

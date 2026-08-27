@@ -3075,8 +3075,38 @@ function openModal(type, item) {
 
   document.getElementById('form-type').value = type;
   document.getElementById('form-id').value = item ? item.id : '';
-  const typeLabel = type === 'esim' ? ' eSIM' : type === 'balance' ? ' \u8BDD\u8D39' : ' \u8BA2\u9605';
-  document.getElementById('modal-title').textContent = (item ? '\u7F16\u8F91' : '\u6DFB\u52A0') + typeLabel;
+  
+  const typeConfig = {
+    esim: {
+      label: 'eSIM \u5361',
+      icon: '<i class="fa-solid fa-sim-card"></i>',
+      badgeCls: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+      subtitle: '\u8BB0\u5F55\u53F7\u7801\u3001ICCID\u3001\u6FC0\u6D3B\u53C2\u6570\u4E0E\u4FDD\u53F7\u5468\u671F',
+    },
+    subscription: {
+      label: '\u8BA2\u9605\u670D\u52A1',
+      icon: '<i class="fa-solid fa-rotate"></i>',
+      badgeCls: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+      subtitle: '\u8FFD\u8E2A\u8BA2\u9605\u8D39\u7528\u3001\u8BA1\u8D39\u5468\u671F\u4E0E\u81EA\u52A8\u7EED\u8D39',
+    },
+    balance: {
+      label: '\u8BDD\u8D39\u5361',
+      icon: '<i class="fa-solid fa-coins"></i>',
+      badgeCls: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      subtitle: '\u8FFD\u8E2A\u5361\u5185\u4F59\u989D\u3001\u6708\u79DF\u4E0E\u667A\u80FD\u505C\u673A\u9884\u6D4B',
+    },
+  };
+  const cfg = typeConfig[type] || typeConfig.subscription;
+
+  document.getElementById('modal-title').textContent = (item ? '\u7F16\u8F91 ' : '\u6DFB\u52A0 ') + cfg.label;
+  const subEl = document.getElementById('modal-subtitle');
+  if (subEl) subEl.textContent = cfg.subtitle;
+  const iconBadge = document.getElementById('modal-icon-badge');
+  if (iconBadge) {
+    iconBadge.innerHTML = cfg.icon;
+    iconBadge.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm sm:text-base border ' + cfg.badgeCls;
+  }
+
   document.getElementById('field-number').classList.toggle('hidden', type !== 'esim' && type !== 'balance');
   document.getElementById('field-esim-activation').classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-esim-balance').classList.toggle('hidden', type !== 'esim');
@@ -3087,8 +3117,8 @@ function openModal(type, item) {
   document.getElementById('field-url').classList.toggle('hidden', type !== 'subscription');
   document.getElementById('field-balance').classList.toggle('hidden', type !== 'balance');
   
-  const expireField = document.getElementById('form-expire').closest('.space-y-4 > div') || document.getElementById('form-expire').parentElement;
-  const cycleField = document.getElementById('form-cycle').closest('.space-y-4 > div') || document.getElementById('form-cycle').parentElement;
+  const expireField = document.getElementById('field-expire');
+  const cycleField = document.getElementById('field-cycle');
   if (expireField) expireField.classList.toggle('hidden', type === 'balance');
   if (cycleField) cycleField.classList.toggle('hidden', type !== 'esim');
   document.getElementById('field-billing-mode').classList.toggle('hidden', type !== 'subscription');
@@ -3639,6 +3669,9 @@ function getStyles() {
     .fab-btn:active { transform: scale(0.95); }
     .tag-badge { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:0.75rem; padding:0.35rem 0.75rem; display:inline-flex; align-items:center; gap:0.5rem; font-size:0.8125rem; }
     .tag-badge:hover { border-color:rgba(56,189,248,0.4); }
+    .remind-chip { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .remind-chip:hover { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.08); }
+    .remind-chip:has(input:checked) { border-color: rgba(56,189,248,0.5); background: rgba(56,189,248,0.18); color: #38bdf8; }
     .custom-dropdown-list { max-height:220px; overflow-y:auto; z-index:60; background:#0f172a; border:1px solid rgba(255,255,255,0.15); box-shadow:0 12px 32px rgba(0,0,0,0.5); }
     .custom-dropdown-item { padding:0.6rem 0.85rem; cursor:pointer; transition:background 0.15s; display:flex; align-items:center; justify-content:space-between; }
     .custom-dropdown-item:hover, .custom-dropdown-item.active { background:rgba(56,189,248,0.18); color:#38bdf8; }
@@ -3652,6 +3685,8 @@ function getStyles() {
       input, select, textarea { font-size: 16px !important; }
       /* Safe area insets for notched devices */
       body { padding-bottom: calc(env(safe-area-inset-bottom) + 1rem); }
+      .modal-overlay { padding: 0.5rem !important; align-items: flex-end !important; }
+      .modal-box { max-height: 92dvh !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
     }
 `;
 }
@@ -3823,303 +3858,413 @@ ${getStyles()}
   </div>
 
   <!-- ========== ITEM MODAL ========== -->
-  <div id="modal-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
-    <div class="glass rounded-2xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto fade-in">
-      <div class="flex justify-between items-center mb-6">
-        <h3 id="modal-title" class="text-xl font-bold text-white">\u6DFB\u52A0</h3>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+  <div id="modal-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-2 sm:p-4">
+    <div class="glass modal-box rounded-2xl md:rounded-3xl max-w-xl w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl border border-white/15 fade-in overflow-hidden">
+      
+      <!-- Modal Header (Fixed) -->
+      <div class="flex-shrink-0 px-5 py-4 sm:px-6 sm:py-4 border-b border-white/10 flex items-center justify-between bg-slate-900/40 backdrop-blur-md">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="modal-icon-badge" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center flex-shrink-0 text-sm sm:text-base">
+            <i class="fa-solid fa-layer-group"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 id="modal-title" class="text-base sm:text-lg font-bold text-white truncate">\u6DFB\u52A0</h3>
+            <p id="modal-subtitle" class="text-[11px] sm:text-xs text-slate-400 truncate">\u914D\u7F6E\u670D\u52A1\u8BE6\u60C5\u3001\u8D26\u671F\u4E0E\u63D0\u9192\u89C4\u5219</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors flex-shrink-0">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
       </div>
-      <form id="item-form" onsubmit="saveItem(event)">
+
+      <!-- Modal Body (Scrollable Form Content) -->
+      <form id="item-form" onsubmit="saveItem(event)" class="flex-1 flex flex-col min-h-0">
         <input type="hidden" id="form-id">
         <input type="hidden" id="form-type">
-        <div class="space-y-4">
-          <div>
-            <label class="text-sm text-slate-400 mb-1 block">\u540D\u79F0 *</label>
-            <input id="form-name" type="text" required placeholder="\u5982: T-Mobile eSIM / Netflix" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-          </div>
-          <div id="field-number" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">\u53F7\u7801</label>
-            <input id="form-number" type="text" placeholder="+861****8000" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-          </div>
-          <div id="field-esim-activation" class="hidden space-y-3">
-            <p class="text-xs text-amber-400/80">\u26A0\uFE0F \u4EE5\u4E0B\u4E3A\u654F\u611F\u6FC0\u6D3B\u4FE1\u606F\uFF0C\u4EC5\u672C\u5730/\u6362\u673A\u5907\u4EFD\u7528\uFF0C\u8BF7\u52FF\u6CC4\u9732</p>
+        
+        <div class="flex-1 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5 space-y-4">
+          
+          <!-- Section 1: Basic Info -->
+          <div class="space-y-3.5">
             <div>
-              <label class="text-sm text-slate-400 mb-1 block">SM-DP+ \u5730\u5740</label>
-              <input id="form-smdp" type="text" placeholder="\u5982: rsp.ultramobile.com" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-            </div>
-            <div>
-              <label class="text-sm text-slate-400 mb-1 block">\u6FC0\u6D3B\u7801 (Activation Code)</label>
-              <div class="relative">
-                <input id="form-activation-code" type="password" placeholder="\u6FC0\u6D3B\u7801" class="glass-input w-full pl-4 pr-10 py-3 rounded-xl text-sm font-mono" autocomplete="off">
-                <button type="button" onclick="togglePasswordVis('form-activation-code', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-                  <i class="fa-solid fa-eye-slash"></i>
-                </button>
-              </div>
-            </div>
-            <div>
-              <label class="text-sm text-slate-400 mb-1 block">\u786E\u8BA4\u7801 (Confirmation Code)</label>
-              <div class="relative">
-                <input id="form-confirmation-code" type="password" placeholder="\u786E\u8BA4\u7801 (\u53EF\u9009)" class="glass-input w-full pl-4 pr-10 py-3 rounded-xl text-sm font-mono" autocomplete="off">
-                <button type="button" onclick="togglePasswordVis('form-confirmation-code', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-                  <i class="fa-solid fa-eye-slash"></i>
-                </button>
-              </div>
-            </div>
-            <div>
-              <label class="text-sm text-slate-400 mb-1 block">WID / EID\uFF08eUICC \u6807\u8BC6\uFF0C\u53EF\u9009\uFF09</label>
-              <input id="form-wid" type="text" placeholder="32\u4F4D\u8BBE\u5907\u6807\u8BC6" class="glass-input w-full px-4 py-3 rounded-xl text-sm font-mono">
-            </div>
-          </div>
-          <div id="field-esim-balance" class="hidden space-y-3">
-            <div class="flex gap-3">
-              <div class="flex-1">
-                <label class="text-sm text-slate-400 mb-1 block">\u4F59\u989D\uFF08\u53EF\u9009\uFF09</label>
-                <input id="form-balance-esim" type="number" step="0.01" placeholder="\u4E0D\u586B\u8868\u793A\u4E0D\u8FFD\u8E2A\u4F59\u989D" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-              </div>
-              <div class="w-40">
-                <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-                <input id="form-currency-esim" type="text" list="currency-datalist" placeholder="\u5982 USD, CNY..." class="glass-input w-full px-3 py-3 rounded-xl text-sm uppercase" autocomplete="off">
-              </div>
-            </div>
-          </div>
-          <div id="field-category" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">\u5206\u7C7B (\u53EF\u9009\u62E9\u9884\u8BBE\u6216\u76F4\u63A5\u8F93\u5165)</label>
-            <input id="form-category" type="text" list="category-datalist" placeholder="\u9009\u62E9\u6216\u8F93\u5165\u5206\u7C7B\uFF0C\u5982: AI \u670D\u52A1 / \u6D41\u5A92\u4F53..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
-            <datalist id="category-datalist"></datalist>
-          </div>
-          <div id="field-region" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">\u8D26\u53F7\u533A\u57DF (\u53EF\u9009\u62E9\u9884\u8BBE\u6216\u76F4\u63A5\u8F93\u5165)</label>
-            <input id="form-region" type="text" list="region-datalist" placeholder="\u9009\u62E9\u6216\u8F93\u5165\u533A\u57DF\u4EE3\u7801/\u540D\u79F0\uFF0C\u5982: US / TR / \u5927\u9646..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
-            <datalist id="region-datalist"></datalist>
-          </div>
-          <div id="field-sub-id" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">\u8BA2\u9605 ID / \u8D26\u53F7</label>
-            <input id="form-sub-id" type="text" placeholder="\u8D26\u53F7\u90AE\u7BB1\u6216\u8BA2\u9605ID" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-          </div>
-          <div>
-            <label class="text-sm text-slate-400 mb-1 block">\u5230\u671F\u65E5\u671F *</label>
-            <input id="form-expire" type="date" min="2020-01-01" max="2035-12-31" class="glass-input w-full px-4 py-3 rounded-xl text-sm" lang="zh-CN">
-          </div>
-          <div>
-            <label class="text-sm text-slate-400 mb-1 block">\u4FDD\u53F7/\u7EED\u8D39\u5468\u671F (\u5929)</label>
-            <input id="form-cycle" type="number" min="1" placeholder="\u5982: 180" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-          </div>
-          <div>
-            <label class="text-sm text-slate-400 mb-2 block">\u63D0\u9192\u65F6\u95F4\uFF08\u53EF\u591A\u9009\uFF09</label>
-            <div class="flex flex-wrap gap-2" id="remind-checkboxes">
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" value="30" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">30\u5929\u524D</span>
+              <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                <span>\u540D\u79F0 <span class="text-red-400">*</span></span>
+                <span class="text-[11px] font-normal text-slate-400">\u5982: Netflix / Ultra Mobile / iCloud</span>
               </label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" value="15" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">15\u5929\u524D</span>
-              </label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" value="7" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">7\u5929\u524D</span>
-              </label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" value="3" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">3\u5929\u524D</span>
-              </label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" value="1" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">1\u5929\u524D</span>
-              </label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" value="0" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">\u5F53\u5929</span>
-              </label>
+              <input id="form-name" type="text" required placeholder="\u8F93\u5165\u670D\u52A1\u6216\u5361\u7247\u540D\u79F0" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm">
             </div>
-          </div>
-          <div id="field-balance" class="hidden">
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div>
-                <label class="text-sm text-slate-400 mb-1 block">\u5F53\u524D\u4F59\u989D *</label>
-                <input id="form-balance" type="number" step="0.01" min="0" placeholder="50.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+
+            <!-- Subscription Category & Region (2 Columns) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div id="field-category" class="hidden">
+                <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
+                  <i class="fa-solid fa-layer-group text-sky-400 text-xs"></i>
+                  <span>\u5206\u7C7B\u9884\u8BBE / \u8F93\u5165</span>
+                </label>
+                <input id="form-category" type="text" list="category-datalist" placeholder="\u9009\u62E9\u6216\u8F93\u5165\u5206\u7C7B..." class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm" autocomplete="off">
+                <datalist id="category-datalist"></datalist>
               </div>
-              <div>
-                <label class="text-sm text-slate-400 mb-1 block">\u6708\u79DF *</label>
-                <input id="form-monthly-fee" type="number" step="0.01" min="0" placeholder="18.00" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-              </div>
-              <div>
-                <label class="text-sm text-slate-400 mb-1 block">\u6263\u8D39\u65E5 *</label>
-                <input id="form-billing-day" type="number" min="1" max="28" placeholder="5" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-              </div>
-              <div>
-                <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-                <input id="form-currency-balance" type="text" list="currency-datalist" placeholder="\u5982 CNY, HKD..." class="glass-input w-full px-3 py-3 rounded-xl text-sm uppercase" autocomplete="off">
+              
+              <div id="field-region" class="hidden">
+                <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
+                  <i class="fa-solid fa-globe text-emerald-400 text-xs"></i>
+                  <span>\u8D26\u53F7\u533A\u57DF / \u56FD\u5BB6</span>
+                </label>
+                <input id="form-region" type="text" list="region-datalist" placeholder="\u5982: US / TR / \u5927\u9646..." class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm" autocomplete="off">
+                <datalist id="region-datalist"></datalist>
               </div>
             </div>
+
+            <!-- Phone Number (eSIM & Balance) -->
+            <div id="field-number" class="hidden">
+              <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-phone text-cyan-400 text-xs"></i>
+                <span>\u624B\u673A\u53F7\u7801</span>
+              </label>
+              <input id="form-number" type="text" placeholder="+861****8000 / +1234567890" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm font-mono">
+            </div>
+
+            <!-- Subscription ID / Account -->
+            <div id="field-sub-id" class="hidden">
+              <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-user-tag text-purple-400 text-xs"></i>
+                <span>\u8BA2\u9605\u8D26\u53F7 / \u90AE\u7BB1 (\u53EF\u9009)</span>
+              </label>
+              <input id="form-sub-id" type="text" placeholder="\u8D26\u53F7\u90AE\u7BB1\u6216\u8BA2\u9605\u552F\u4E00\u8BC6\u522B\u7801" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm">
+            </div>
           </div>
-          <div id="field-price" class="hidden">
+
+          <!-- Section 2: Subscription Price & Billing -->
+          <div id="field-price" class="hidden bg-white/5 p-3.5 sm:p-4 rounded-2xl border border-white/10 space-y-3.5">
+            <div class="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-receipt text-xs"></i> \u8D39\u7528\u4E0E\u8BA1\u8D39\u5468\u671F
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label class="text-sm text-slate-400 mb-1 block">\u8D39\u7528</label>
-                <input id="form-price" type="number" step="0.01" min="0" placeholder="9.99" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                <label class="text-xs text-slate-400 mb-1 block">\u4EF7\u683C / \u8D39\u7528</label>
+                <input id="form-price" type="number" step="0.01" min="0" placeholder="9.99" class="glass-input w-full px-3 py-2 rounded-xl text-sm font-mono">
               </div>
               <div>
-                <label class="text-sm text-slate-400 mb-1 block">\u8D27\u5E01</label>
-                <input id="form-currency" type="text" list="currency-datalist" placeholder="\u641C\u7D22\u6216\u8F93\u5165\u8D27\u5E01 (\u5982 USD, TRY, \u7F8E\u5143)..." class="glass-input w-full px-4 py-3 rounded-xl text-sm" autocomplete="off">
+                <label class="text-xs text-slate-400 mb-1 block">\u8D27\u5E01\u5E01\u79CD</label>
+                <input id="form-currency" type="text" list="currency-datalist" placeholder="\u641C\u7D22 (\u5982 USD, CNY)..." class="glass-input w-full px-3 py-2 rounded-xl text-sm uppercase" autocomplete="off">
               </div>
               <div>
-                <label class="text-sm text-slate-400 mb-1 block">\u8BA1\u8D39\u5468\u671F</label>
-                <select id="form-billing" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                <label class="text-xs text-slate-400 mb-1 block">\u5468\u671F\u7C7B\u578B</label>
+                <select id="form-billing" class="glass-input w-full px-3 py-2 rounded-xl text-sm">
                   <option value="monthly">\u6708\u4ED8</option>
                   <option value="yearly">\u5E74\u4ED8</option>
                   <option value="once">\u4E00\u6B21\u6027</option>
                 </select>
               </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-white/5">
               <div id="field-billing-mode">
-                <label class="text-sm text-slate-400 mb-1 block">\u8BA1\u8D39\u65B9\u5F0F</label>
-                <select id="form-billing-mode" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-                  <option value="natural">\u81EA\u7136\u6708/\u5E74</option>
+                <label class="text-xs text-slate-400 mb-1 block">\u8BA1\u8D39\u65B9\u5F0F</label>
+                <select id="form-billing-mode" class="glass-input w-full px-3 py-2 rounded-xl text-sm">
+                  <option value="natural">\u81EA\u7136\u6708 / \u5E74</option>
                   <option value="fixed">\u56FA\u5B9A\u5929\u6570</option>
                 </select>
               </div>
               <div id="field-cycle-days" class="hidden">
-                <label class="text-sm text-slate-400 mb-1 block">\u56FA\u5B9A\u5929\u6570</label>
-                <input id="form-cycle-days" type="number" min="1" placeholder="\u9ED8\u8BA430\u5929" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
+                <label class="text-xs text-slate-400 mb-1 block">\u56FA\u5B9A\u5929\u6570 (\u5929)</label>
+                <input id="form-cycle-days" type="number" min="1" placeholder="\u9ED8\u8BA430\u5929" class="glass-input w-full px-3 py-2 rounded-xl text-sm font-mono">
               </div>
-              <div class="flex items-center gap-2 pt-6">
-                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-                  <input type="checkbox" id="form-auto-renew" class="rounded accent-sky-500">
-                  <span>\u81EA\u52A8\u7EED\u8D39 (\u5230\u671F\u514D\u624B\u52A8\u7EED\u671F)</span>
+              <div class="sm:col-span-2 flex items-center justify-between pt-1">
+                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                  <input type="checkbox" id="form-auto-renew" class="rounded accent-sky-500 w-4 h-4">
+                  <span>\u81EA\u52A8\u7EED\u8D39 <span class="text-slate-400 text-[11px]">(\u5230\u671F\u514D\u624B\u52A8\u7EED\u671F\uFF0C\u7CFB\u7EDF\u6309\u5468\u671F\u987A\u5EF6)</span></span>
                 </label>
               </div>
             </div>
           </div>
+
+          <!-- Section 3: eSIM Specific Balance & Activation -->
+          <div id="field-esim-balance" class="hidden bg-white/5 p-3.5 sm:p-4 rounded-2xl border border-white/10">
+            <div class="text-xs font-bold text-cyan-300 flex items-center gap-1.5 mb-3">
+              <i class="fa-solid fa-wallet text-xs"></i> \u4F59\u989D\u8FFD\u8E2A (\u53EF\u9009)
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">\u5F53\u524D\u4F59\u989D</label>
+                <input id="form-balance-esim" type="number" step="0.01" placeholder="\u4E0D\u586B\u8868\u793A\u4E0D\u8FFD\u8E2A\u4F59\u989D" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm font-mono">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">\u8D27\u5E01</label>
+                <input id="form-currency-esim" type="text" list="currency-datalist" placeholder="\u5982 USD, CNY..." class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm uppercase" autocomplete="off">
+              </div>
+            </div>
+          </div>
+
+          <div id="field-esim-activation" class="hidden bg-cyan-950/20 p-3.5 sm:p-4 rounded-2xl border border-cyan-500/20 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-qrcode"></i> eSIM \u6FC0\u6D3B\u53C2\u6570 (\u652F\u6301\u626B\u7801\u5B89\u88C5)
+              </span>
+              <span class="text-[10px] text-amber-400/90 font-medium">\u{1F512} \u654F\u611F\u4FE1\u606F\u52A0\u5BC6</span>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 mb-1 block">SM-DP+ \u5730\u5740</label>
+              <input id="form-smdp" type="text" placeholder="\u5982: rsp.truphone.com" class="glass-input w-full px-3.5 py-2 rounded-xl text-xs font-mono">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">\u6FC0\u6D3B\u7801 (Matching ID)</label>
+                <div class="relative">
+                  <input id="form-activation-code" type="password" placeholder="\u6FC0\u6D3B\u7801" class="glass-input w-full pl-3 pr-8 py-2 rounded-xl text-xs font-mono" autocomplete="off">
+                  <button type="button" onclick="togglePasswordVis('form-activation-code', this)" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-eye-slash text-xs"></i>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">\u786E\u8BA4\u7801 (Confirmation Code)</label>
+                <div class="relative">
+                  <input id="form-confirmation-code" type="password" placeholder="\u53EF\u9009\u786E\u8BA4\u7801" class="glass-input w-full pl-3 pr-8 py-2 rounded-xl text-xs font-mono" autocomplete="off">
+                  <button type="button" onclick="togglePasswordVis('form-confirmation-code', this)" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-eye-slash text-xs"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 mb-1 block">EID / WID (\u53EF\u9009\u8BBE\u5907\u6807\u8BC6)</label>
+              <input id="form-wid" type="text" placeholder="32\u4F4D EID" class="glass-input w-full px-3.5 py-2 rounded-xl text-xs font-mono">
+            </div>
+          </div>
+
+          <!-- Section 4: Balance Mode Details -->
+          <div id="field-balance" class="hidden bg-amber-950/20 p-3.5 sm:p-4 rounded-2xl border border-amber-500/20 space-y-3">
+            <div class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-coins text-xs"></i> \u8BDD\u8D39\u4E0E\u505C\u673A\u9884\u6D4B\u89C4\u5219
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">\u5F53\u524D\u4F59\u989D *</label>
+                <input id="form-balance" type="number" step="0.01" min="0" placeholder="50.00" class="glass-input w-full px-3 py-2 rounded-xl text-sm font-mono">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">\u6708\u79DF *</label>
+                <input id="form-monthly-fee" type="number" step="0.01" min="0" placeholder="18.00" class="glass-input w-full px-3 py-2 rounded-xl text-sm font-mono">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">\u6263\u8D39\u65E5 (1-28) *</label>
+                <input id="form-billing-day" type="number" min="1" max="28" placeholder="5" class="glass-input w-full px-3 py-2 rounded-xl text-sm font-mono">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">\u8D27\u5E01</label>
+                <input id="form-currency-balance" type="text" list="currency-datalist" placeholder="\u5982 CNY, HKD..." class="glass-input w-full px-3 py-2 rounded-xl text-sm uppercase" autocomplete="off">
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 5: Dates & Reminders -->
+          <div class="bg-white/5 p-3.5 sm:p-4 rounded-2xl border border-white/10 space-y-3.5">
+            <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <i class="fa-regular fa-calendar-check text-sky-400 text-xs"></i> \u5468\u671F\u4E0E\u63D0\u9192\u914D\u7F6E
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div id="field-expire">
+                <label class="text-xs text-slate-400 mb-1 block">\u5230\u671F\u65E5\u671F <span class="text-red-400">*</span></label>
+                <input id="form-expire" type="date" min="2020-01-01" max="2035-12-31" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm" lang="zh-CN">
+              </div>
+              <div id="field-cycle">
+                <label class="text-xs text-slate-400 mb-1 block">\u4FDD\u53F7 / \u7EED\u8D39\u5468\u671F (\u5929)</label>
+                <input id="form-cycle" type="number" min="1" placeholder="\u5982: 180" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm font-mono">
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs text-slate-400 mb-2 block">\u63D0\u524D\u63D0\u9192\u65F6\u95F4 (\u652F\u6301\u591A\u9009)</label>
+              <div class="flex flex-wrap gap-2" id="remind-checkboxes">
+                <label class="remind-chip flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs cursor-pointer select-none">
+                  <input type="checkbox" value="30" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">30\u5929\u524D</span>
+                </label>
+                <label class="remind-chip flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs cursor-pointer select-none">
+                  <input type="checkbox" value="15" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">15\u5929\u524D</span>
+                </label>
+                <label class="remind-chip flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs cursor-pointer select-none">
+                  <input type="checkbox" value="7" class="remind-day rounded accent-sky-500"> <span class="text-slate-300">7\u5929\u524D</span>
+                </label>
+                <label class="remind-chip flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs cursor-pointer select-none">
+                  <input type="checkbox" value="3" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">3\u5929\u524D</span>
+                </label>
+                <label class="remind-chip flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs cursor-pointer select-none">
+                  <input type="checkbox" value="1" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">1\u5929\u524D</span>
+                </label>
+                <label class="remind-chip flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs cursor-pointer select-none">
+                  <input type="checkbox" value="0" class="remind-day rounded accent-sky-500" checked> <span class="text-slate-300">\u5F53\u5929</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 6: URLs & Remarks & Status -->
+          <div class="space-y-3.5">
+            <div id="field-url" class="hidden">
+              <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-link text-sky-400 text-xs"></i>
+                <span>\u670D\u52A1\u94FE\u63A5 (\u5B98\u7F51 / \u63A7\u5236\u53F0)</span>
+              </label>
+              <input id="form-url" type="url" placeholder="https://example.com" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="sm:col-span-2">
+                <label class="text-xs text-slate-400 mb-1.5 block">\u5907\u6CE8\u4FE1\u606F (\u53EF\u9009)</label>
+                <input id="form-remark" type="text" placeholder="\u8BB0\u5F55\u5957\u9910\u8BF4\u660E\u3001PIN/PUK\u3001\u7EED\u8D39\u89C4\u5219..." class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">\u72B6\u6001</label>
+                <select id="form-status" class="glass-input w-full px-3 py-2.5 rounded-xl text-sm">
+                  <option value="active">\u{1F7E2} \u542F\u7528\u4E2D</option>
+                  <option value="paused">\u23F8\uFE0F \u5DF2\u6682\u505C</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           <!-- Global Currency Datalist -->
           <datalist id="currency-datalist"></datalist>
-          <div id="field-url" class="hidden">
-            <label class="text-sm text-slate-400 mb-1 block">\u670D\u52A1\u94FE\u63A5</label>
-            <input id="form-url" type="url" placeholder="https://..." class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-          </div>
-          <div>
-            <label class="text-sm text-slate-400 mb-1 block">\u5907\u6CE8</label>
-            <textarea id="form-remark" rows="2" placeholder="\u53EF\u9009\u5907\u6CE8..." class="glass-input w-full px-4 py-3 rounded-xl text-sm resize-none"></textarea>
-          </div>
-          <div>
-            <label class="text-sm text-slate-400 mb-1 block">\u72B6\u6001</label>
-            <select id="form-status" class="glass-input w-full px-4 py-3 rounded-xl text-sm">
-              <option value="active">\u542F\u7528</option>
-              <option value="paused">\u6682\u505C</option>
-            </select>
-          </div>
         </div>
-        <div class="flex gap-3 mt-6">
-          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white"><i class="fa-solid fa-check mr-1"></i>\u4FDD\u5B58</button>
-          <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">\u53D6\u6D88</button>
+
+        <!-- Modal Footer (Fixed) -->
+        <div class="flex-shrink-0 px-5 py-4 sm:px-6 sm:py-4 border-t border-white/10 bg-slate-900/60 backdrop-blur-md flex items-center gap-3">
+          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-sky-500/20 active:scale-[0.98] transition-transform">
+            <i class="fa-solid fa-check"></i>
+            <span>\u4FDD\u5B58</span>
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl font-semibold text-slate-300 text-sm border border-white/10 hover:bg-white/5 active:scale-[0.98] transition-all">
+            \u53D6\u6D88
+          </button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- ========== SETTINGS MODAL ========== -->
-  <div id="settings-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4">
-    <div class="glass rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[88vh] overflow-y-auto fade-in">
-      <div class="flex justify-between items-center mb-6">
-        <h3 class="text-xl font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-sliders text-violet-400"></i> \u504F\u597D\u4E0E\u9884\u8BBE\u7BA1\u7406
-        </h3>
-        <button onclick="closeSettings()" class="text-slate-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <!-- Settings Tabs -->
-      <div class="flex flex-wrap gap-2 mb-5 border-b border-white/10 pb-3">
-        <button onclick="setSettingsTab('currency')" id="stab-btn-currency" class="settings-tab-btn tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all">
-          <i class="fa-solid fa-coins mr-1.5 text-amber-400"></i>\u8D27\u5E01\u4E0E\u6C47\u7387
-        </button>
-        <button onclick="setSettingsTab('category')" id="stab-btn-category" class="settings-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
-          <i class="fa-solid fa-layer-group mr-1.5 text-sky-400"></i>\u9884\u8BBE\u5206\u7C7B
-        </button>
-        <button onclick="setSettingsTab('region')" id="stab-btn-region" class="settings-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
-          <i class="fa-solid fa-globe mr-1.5 text-emerald-400"></i>\u9884\u8BBE\u533A\u57DF
+  <div id="settings-overlay" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-2 sm:p-4">
+    <div class="glass modal-box rounded-2xl md:rounded-3xl max-w-2xl w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl border border-white/15 fade-in overflow-hidden">
+      
+      <!-- Settings Header (Fixed) -->
+      <div class="flex-shrink-0 px-5 py-4 sm:px-6 sm:py-4 border-b border-white/10 flex items-center justify-between bg-slate-900/40 backdrop-blur-md">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-violet-500/20 text-violet-400 border border-violet-500/30 flex items-center justify-center flex-shrink-0 text-sm sm:text-base">
+            <i class="fa-solid fa-sliders"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-base sm:text-lg font-bold text-white truncate">\u504F\u597D\u4E0E\u9884\u8BBE\u7BA1\u7406</h3>
+            <p class="text-[11px] sm:text-xs text-slate-400 truncate">\u914D\u7F6E\u8D27\u5E01\u6C47\u7387\u3001\u5E38\u7528\u5206\u7C7B\u4E0E\u8D26\u53F7\u533A\u57DF</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeSettings()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors flex-shrink-0">
+          <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
 
-      <!-- Tab 1: Currency & Rates -->
-      <div id="stab-content-currency" class="space-y-4">
-        <div class="bg-white/5 rounded-xl p-4 border border-white/10">
-          <label class="text-sm font-semibold text-white mb-1.5 block">\u7EDF\u8BA1\u57FA\u51C6\u8D27\u5E01 (Base Currency)</label>
-          <p class="text-xs text-slate-400 mb-3">\u5168\u5E01\u79CD\u603B\u652F\u51FA\u6298\u7B97\u65F6\uFF0C\u6240\u6709\u5916\u5E01\u5747\u6309\u6B64\u57FA\u51C6\u5E01\u79CD\u8FDB\u884C\u6298\u7B97</p>
-          <select id="settings-base-currency" onchange="onBaseCurrencyChange()" class="glass-input w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-sky-300"></select>
+      <!-- Settings Tabs & Scrollable Content -->
+      <div class="flex-1 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5 space-y-4">
+        <!-- Settings Tabs -->
+        <div class="flex flex-wrap gap-2 pb-2 border-b border-white/10">
+          <button onclick="setSettingsTab('currency')" id="stab-btn-currency" class="settings-tab-btn tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all">
+            <i class="fa-solid fa-coins mr-1.5 text-amber-400"></i>\u8D27\u5E01\u4E0E\u6C47\u7387
+          </button>
+          <button onclick="setSettingsTab('category')" id="stab-btn-category" class="settings-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+            <i class="fa-solid fa-layer-group mr-1.5 text-sky-400"></i>\u9884\u8BBE\u5206\u7C7B
+          </button>
+          <button onclick="setSettingsTab('region')" id="stab-btn-region" class="settings-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+            <i class="fa-solid fa-globe mr-1.5 text-emerald-400"></i>\u9884\u8BBE\u533A\u57DF
+          </button>
         </div>
 
-        <div class="flex items-center justify-between gap-2 flex-wrap pt-1">
+        <!-- Tab 1: Currency & Rates -->
+        <div id="stab-content-currency" class="space-y-4">
+          <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+            <label class="text-sm font-semibold text-white mb-1.5 block">\u7EDF\u8BA1\u57FA\u51C6\u8D27\u5E01 (Base Currency)</label>
+            <p class="text-xs text-slate-400 mb-3">\u5168\u5E01\u79CD\u603B\u652F\u51FA\u6298\u7B97\u65F6\uFF0C\u6240\u6709\u5916\u5E01\u5747\u6309\u6B64\u57FA\u51C6\u5E01\u79CD\u8FDB\u884C\u6298\u7B97</p>
+            <select id="settings-base-currency" onchange="onBaseCurrencyChange()" class="glass-input w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-sky-300"></select>
+          </div>
+
+          <div class="flex items-center justify-between gap-2 flex-wrap pt-1">
+            <div>
+              <div class="text-sm font-semibold text-white">\u5404\u5E01\u79CD\u6C47\u7387\u7BA1\u7406 (1 \u5916\u5E01 = X \u57FA\u51C6\u8D27\u5E01)</div>
+              <div class="text-xs text-slate-400">\u652F\u6301\u4E00\u952E\u540C\u6B65\u6700\u65B0\u516C\u7F51\u5B9E\u65F6\u6C47\u7387\uFF0C\u4E5F\u53EF\u9488\u5BF9\u7279\u5B9A\u6E20\u9053\u624B\u52A8\u5FAE\u8C03</div>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="syncLiveRates()" id="sync-rates-btn" class="px-3 py-1.5 rounded-xl text-xs font-bold text-sky-300 border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 transition-colors flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate mr-1"></i>\u540C\u6B65\u5B9E\u65F6\u6C47\u7387
+              </button>
+              <button type="button" onclick="resetDefaultRates()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-400 border border-white/10 hover:bg-white/5 transition-colors">
+                \u6062\u590D\u9ED8\u8BA4
+              </button>
+            </div>
+          </div>
+
+          <div class="relative">
+            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+            <input id="settings-rate-search" type="text" placeholder="\u641C\u7D22\u8D27\u5E01\u4EE3\u7801 (\u5982 USD)\u3001\u4E2D\u6587\u540D (\u5982 \u7F8E\u5143)\u3001\u7B26\u53F7..." oninput="filterRateList()" class="glass-input w-full pl-9 pr-3 py-2 rounded-xl text-xs">
+          </div>
+
+          <div id="settings-rate-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Tab 2: Categories -->
+        <div id="stab-content-category" class="space-y-4 hidden">
           <div>
-            <div class="text-sm font-semibold text-white">\u5404\u5E01\u79CD\u6C47\u7387\u7BA1\u7406 (1 \u5916\u5E01 = X \u57FA\u51C6\u8D27\u5E01)</div>
-            <div class="text-xs text-slate-400">\u652F\u6301\u4E00\u952E\u540C\u6B65\u6700\u65B0\u516C\u7F51\u5B9E\u65F6\u6C47\u7387\uFF0C\u4E5F\u53EF\u9488\u5BF9\u7279\u5B9A\u6E20\u9053\u624B\u52A8\u5FAE\u8C03</div>
+            <div class="text-sm font-semibold text-white mb-1">\u5E38\u7528\u5206\u7C7B\u9884\u8BBE</div>
+            <div class="text-xs text-slate-400 mb-3">\u5728\u5F55\u5165\u8BA2\u9605\u670D\u52A1\u65F6\u4F5C\u4E3A\u4E0B\u62C9\u5EFA\u8BAE\u63D0\u4F9B\u3002\u652F\u6301\u968F\u65F6\u589E\u5220\u81EA\u5B9A\u4E49\u5206\u7C7B\u3002</div>
+            <div id="settings-category-tags" class="flex flex-wrap gap-2 mb-4"></div>
           </div>
           <div class="flex gap-2">
-            <button type="button" onclick="syncLiveRates()" id="sync-rates-btn" class="px-3 py-1.5 rounded-xl text-xs font-bold text-sky-300 border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 transition-colors flex items-center gap-1.5">
-              <i class="fa-solid fa-rotate mr-1"></i>\u540C\u6B65\u5B9E\u65F6\u6C47\u7387
+            <input id="settings-new-category" type="text" placeholder="\u8F93\u5165\u65B0\u5206\u7C7B\u540D\u79F0 (\u5982: \u6E38\u620F\u5185\u8D2D / \u4F1A\u5458)..." class="glass-input flex-1 px-4 py-2.5 rounded-xl text-sm" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomCategory();}">
+            <button type="button" onclick="addCustomCategory()" class="btn-primary px-4 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-1.5 flex-shrink-0">
+              <i class="fa-solid fa-plus"></i> \u6DFB\u52A0
             </button>
-            <button type="button" onclick="resetDefaultRates()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-400 border border-white/10 hover:bg-white/5 transition-colors">
-              \u6062\u590D\u9ED8\u8BA4
+          </div>
+          <div class="pt-2">
+            <button type="button" onclick="resetDefaultCategories()" class="text-xs text-slate-400 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
+              \u6062\u590D\u9ED8\u8BA4\u9884\u8BBE\u5206\u7C7B
             </button>
           </div>
         </div>
 
-        <div class="relative">
-          <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
-          <input id="settings-rate-search" type="text" placeholder="\u641C\u7D22\u8D27\u5E01\u4EE3\u7801 (\u5982 USD)\u3001\u4E2D\u6587\u540D (\u5982 \u7F8E\u5143)\u3001\u7B26\u53F7..." oninput="filterRateList()" class="glass-input w-full pl-9 pr-3 py-2 rounded-xl text-xs">
-        </div>
+        <!-- Tab 3: Regions -->
+        <div id="stab-content-region" class="space-y-4 hidden">
+          <div>
+            <div class="text-sm font-semibold text-white mb-1">\u5E38\u7528\u533A\u57DF / \u56FD\u5BB6\u9884\u8BBE</div>
+            <div class="text-xs text-slate-400 mb-3">\u65B9\u4FBF\u8DE8\u533A\u8BA2\u9605\u5FEB\u901F\u9009\u586B\u3002\u652F\u6301\u4ECE\u5168\u7403\u56FD\u5BB6\u5217\u8868\u4E2D\u5FEB\u901F\u68C0\u7D22\u5E76\u6DFB\u52A0\u3002</div>
+            <div id="settings-region-tags" class="flex flex-wrap gap-2 mb-4"></div>
+          </div>
+          
+          <!-- Quick Country Search -->
+          <div class="bg-white/5 p-3 rounded-xl border border-white/10 mb-3">
+            <label class="text-xs text-slate-300 font-semibold mb-1.5 block"><i class="fa-solid fa-magnifying-glass mr-1 text-emerald-400"></i>\u5168\u7403\u56FD\u5BB6/\u5730\u533A\u68C0\u7D22\u5FEB\u901F\u586B\u5145\uFF1A</label>
+            <input id="settings-country-search" type="text" list="settings-country-datalist" placeholder="\u8F93\u5165\u56FD\u5BB6\u540D\u79F0\u6216\u4EE3\u7801\u68C0\u7D22 (\u5982: \u571F\u8033\u5176 / TR / \u57C3\u53CA / \u963F\u6839\u5EF7 / \u65E5\u672C)..." oninput="onSelectCountryPreset(this.value)" class="glass-input w-full px-4 py-2.5 rounded-xl text-sm" autocomplete="off">
+            <datalist id="settings-country-datalist"></datalist>
+          </div>
 
-        <div id="settings-rate-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto pr-1"></div>
-      </div>
-
-      <!-- Tab 2: Categories -->
-      <div id="stab-content-category" class="space-y-4 hidden">
-        <div>
-          <div class="text-sm font-semibold text-white mb-1">\u5E38\u7528\u5206\u7C7B\u9884\u8BBE</div>
-          <div class="text-xs text-slate-400 mb-3">\u5728\u5F55\u5165\u8BA2\u9605\u670D\u52A1\u65F6\u4F5C\u4E3A\u4E0B\u62C9\u5EFA\u8BAE\u63D0\u4F9B\u3002\u652F\u6301\u968F\u65F6\u589E\u5220\u81EA\u5B9A\u4E49\u5206\u7C7B\u3002</div>
-          <div id="settings-category-tags" class="flex flex-wrap gap-2 mb-4"></div>
-        </div>
-        <div class="flex gap-2">
-          <input id="settings-new-category" type="text" placeholder="\u8F93\u5165\u65B0\u5206\u7C7B\u540D\u79F0 (\u5982: \u6E38\u620F\u5185\u8D2D / \u4F1A\u5458)..." class="glass-input flex-1 px-4 py-2.5 rounded-xl text-sm" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomCategory();}">
-          <button type="button" onclick="addCustomCategory()" class="btn-primary px-4 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-1.5 flex-shrink-0">
-            <i class="fa-solid fa-plus"></i> \u6DFB\u52A0
-          </button>
-        </div>
-        <div class="pt-2">
-          <button type="button" onclick="resetDefaultCategories()" class="text-xs text-slate-400 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
-            \u6062\u590D\u9ED8\u8BA4\u9884\u8BBE\u5206\u7C7B
-          </button>
-        </div>
-      </div>
-
-      <!-- Tab 3: Regions -->
-      <div id="stab-content-region" class="space-y-4 hidden">
-        <div>
-          <div class="text-sm font-semibold text-white mb-1">\u5E38\u7528\u533A\u57DF / \u56FD\u5BB6\u9884\u8BBE</div>
-          <div class="text-xs text-slate-400 mb-3">\u65B9\u4FBF\u8DE8\u533A\u8BA2\u9605\u5FEB\u901F\u9009\u586B\u3002\u652F\u6301\u4ECE\u5168\u7403\u56FD\u5BB6\u5217\u8868\u4E2D\u5FEB\u901F\u68C0\u7D22\u5E76\u6DFB\u52A0\u3002</div>
-          <div id="settings-region-tags" class="flex flex-wrap gap-2 mb-4"></div>
-        </div>
-        
-        <!-- Quick Country Search -->
-        <div class="bg-white/5 p-3 rounded-xl border border-white/10 mb-3">
-          <label class="text-xs text-slate-300 font-semibold mb-1.5 block"><i class="fa-solid fa-magnifying-glass mr-1 text-emerald-400"></i>\u5168\u7403\u56FD\u5BB6/\u5730\u533A\u68C0\u7D22\u5FEB\u901F\u586B\u5145\uFF1A</label>
-          <input id="settings-country-search" type="text" list="settings-country-datalist" placeholder="\u8F93\u5165\u56FD\u5BB6\u540D\u79F0\u6216\u4EE3\u7801\u68C0\u7D22 (\u5982: \u571F\u8033\u5176 / TR / \u57C3\u53CA / \u963F\u6839\u5EF7 / \u65E5\u672C)..." oninput="onSelectCountryPreset(this.value)" class="glass-input w-full px-4 py-2.5 rounded-xl text-sm" autocomplete="off">
-          <datalist id="settings-country-datalist"></datalist>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
-          <input id="settings-new-region-code" type="text" placeholder="\u4EE3\u7801(\u5982 TR)" class="glass-input sm:col-span-3 px-4 py-2.5 rounded-xl text-sm uppercase">
-          <input id="settings-new-region-name" type="text" placeholder="\u540D\u79F0(\u5982 \u571F\u8033\u5176)" class="glass-input sm:col-span-4 px-4 py-2.5 rounded-xl text-sm">
-          <input id="settings-new-region-flag" type="text" placeholder="\u65D7\u5E1C(\u5982 \u{1F1F9}\u{1F1F7})" class="glass-input sm:col-span-2 px-4 py-2.5 rounded-xl text-sm text-center">
-          <button type="button" onclick="addCustomRegion()" class="btn-primary sm:col-span-3 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-plus"></i> \u6DFB\u52A0\u533A\u57DF
-          </button>
-        </div>
-        <div class="pt-2">
-          <button type="button" onclick="resetDefaultRegions()" class="text-xs text-slate-400 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
-            \u6062\u590D\u9ED8\u8BA4\u9884\u8BBE\u533A\u57DF
-          </button>
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+            <input id="settings-new-region-code" type="text" placeholder="\u4EE3\u7801(\u5982 TR)" class="glass-input sm:col-span-3 px-4 py-2.5 rounded-xl text-sm uppercase">
+            <input id="settings-new-region-name" type="text" placeholder="\u540D\u79F0(\u5982 \u571F\u8033\u5176)" class="glass-input sm:col-span-4 px-4 py-2.5 rounded-xl text-sm">
+            <input id="settings-new-region-flag" type="text" placeholder="\u65D7\u5E1C(\u5982 \u{1F1F9}\u{1F1F7})" class="glass-input sm:col-span-2 px-4 py-2.5 rounded-xl text-sm text-center">
+            <button type="button" onclick="addCustomRegion()" class="btn-primary sm:col-span-3 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> \u6DFB\u52A0\u533A\u57DF
+            </button>
+          </div>
+          <div class="pt-2">
+            <button type="button" onclick="resetDefaultRegions()" class="text-xs text-slate-400 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
+              \u6062\u590D\u9ED8\u8BA4\u9884\u8BBE\u533A\u57DF
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Footer -->
-      <div class="flex gap-3 mt-6 pt-4 border-t border-white/10">
-        <button type="button" onclick="saveSettingsToServer()" id="save-settings-btn" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white flex items-center justify-center gap-1.5">
+      <!-- Settings Footer (Fixed) -->
+      <div class="flex-shrink-0 px-5 py-4 sm:px-6 sm:py-4 border-t border-white/10 bg-slate-900/60 backdrop-blur-md flex gap-3">
+        <button type="button" onclick="saveSettingsToServer()" id="save-settings-btn" class="btn-primary flex-1 py-3 rounded-xl font-bold text-white flex items-center justify-center gap-1.5 shadow-lg shadow-sky-500/20 active:scale-[0.98] transition-transform">
           <i class="fa-solid fa-floppy-disk"></i> \u4FDD\u5B58\u8BBE\u7F6E
         </button>
-        <button type="button" onclick="closeSettings()" class="flex-1 py-3 rounded-xl font-bold text-slate-300 border border-white/10 hover:bg-white/5 transition-colors">
+        <button type="button" onclick="closeSettings()" class="flex-1 py-3 rounded-xl font-semibold text-slate-300 border border-white/10 hover:bg-white/5 active:scale-[0.98] transition-all">
           \u53D6\u6D88
         </button>
       </div>
