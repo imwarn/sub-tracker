@@ -14,7 +14,7 @@ const OTP_SEND_COOLDOWN_KEY = 'admin_auth_send_cooldown';
 export async function handleAuth(request, env, path) {
   // CORS preflight
   if (request.method === 'OPTIONS') {
-    return corsPreFlight(request);
+    return corsPreFlight(request, env);
   }
 
   // POST /api/auth/send - Send OTP via configured notification channel
@@ -135,7 +135,7 @@ async function sendOTP(request, env) {
   const detail = failure?.message ? `（${failure.message}）` : '';
   return errorResponse(
     `${channelLabel(channel)} 验证码发送失败${detail}，请检查 ${channelRequirements(channel)} 配置`,
-    500, null, env
+    500, request, env
   );
 }
 

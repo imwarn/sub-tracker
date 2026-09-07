@@ -15,19 +15,34 @@ function buildCorsHeaders(request, env = null) {
   let origin = '';
   try { origin = request?.headers?.get('Origin') || ''; } catch {}
 
+  let allowOrigin = '';
   if (allowed) {
     const origins = allowed.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
     // If origin matches one of the allowed origins, echo it; otherwise use the first allowed origin
-    origin = origins.includes(origin) ? origin : origins[0];
+    allowOrigin = origins.includes(origin) ? origin : origins[0];
   } else if (!origin) {
-    origin = '*';
+    allowOrigin = '*';
+  } else {
+    // When ALLOWED_ORIGIN is not configured and Origin header is present:
+    // Only allow if Origin matches the request's own origin (same-origin request)
+    try {
+      if (request?.url) {
+        const reqUrl = new URL(request.url);
+        if (reqUrl.origin === origin) {
+          allowOrigin = origin;
+        }
+      }
+    } catch {}
   }
 
-  return {
-    'Access-Control-Allow-Origin': origin,
+  const headers = {
     'Access-Control-Allow-Methods': CORS_METHODS,
     'Access-Control-Allow-Headers': CORS_REQUEST_HEADERS,
   };
+  if (allowOrigin) {
+    headers['Access-Control-Allow-Origin'] = allowOrigin;
+  }
+  return headers;
 }
 
 const SECURITY_HEADERS = {

@@ -37,10 +37,17 @@ function createIco(images) {
   return Buffer.concat([header, entries, ...images.map((image) => image.buffer)]);
 }
 
-async function renderPng(svg, size) {
+async function renderPng(svg, size, options = {}) {
   return await sharp(svg)
     .resize(size, size, { fit: 'contain' })
-    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .png({
+      compressionLevel: 9,
+      adaptiveFiltering: true,
+      palette: true,
+      quality: 85,
+      colours: 256,
+      ...options,
+    })
     .toBuffer();
 }
 

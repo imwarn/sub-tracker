@@ -46,7 +46,7 @@ async function recordHistory(env, action, item, details = {}) {
 }
 
 export async function handleItems(request, env, path) {
-  if (request.method === 'OPTIONS') return corsPreFlight(request);
+  if (request.method === 'OPTIONS') return corsPreFlight(request, env);
 
   // Auth check for all item routes
   const authErr = await requireAuth(request, env);
@@ -54,12 +54,12 @@ export async function handleItems(request, env, path) {
 
   // GET /api/items/export/json
   if (path === '/api/items/export/json' && request.method === 'GET') {
-    return await exportJSON(env);
+    return await exportJSON(request, env);
   }
 
   // GET /api/items/export/csv
   if (path === '/api/items/export/csv' && request.method === 'GET') {
-    return await exportCSV(env);
+    return await exportCSV(request, env);
   }
 
   // POST /api/items/import/json
@@ -80,7 +80,7 @@ export async function handleItems(request, env, path) {
   // POST /api/items/recompute — recompute predictedSuspendDate for all balance items
   // (recovers stale dates poisoned by the old `<=` billing-day boundary bug).
   if (path === '/api/items/recompute' && request.method === 'POST') {
-    return await recomputeBalances(env);
+    return await recomputeBalances(request, env);
   }
 
   // Route with ID: /api/items/:id[/action]
@@ -94,11 +94,11 @@ export async function handleItems(request, env, path) {
     }
 
     if (request.method === 'DELETE' && action === '') {
-      return await deleteExistingItem(env, id);
+      return await deleteExistingItem(request, env, id);
     }
 
     if (request.method === 'POST' && action === '/renew') {
-      return await renewItem(env, id, request);
+      return await renewItem(request, env, id);
     }
 
     if (request.method === 'POST' && action === '/recharge') {
@@ -106,14 +106,14 @@ export async function handleItems(request, env, path) {
     }
 
     if (request.method === 'POST' && action === '/test-notify') {
-      return await testNotify(env, id);
+      return await testNotify(request, env, id);
     }
   }
 
   return null;
 }
 
-async function recomputeBalances(env) {
+async function recomputeBalances(request, env) {
   try {
     const items = await getAllItems(env.DB);
     let fixed = 0;
@@ -130,9 +130,9 @@ async function recomputeBalances(env) {
         fixed++;
       }
     }
-    return successResponse({ scanned: items.length, fixed }, null, env);
+    return successResponse({ scanned: items.length, fixed }, request, env);
   } catch (e) {
-    return errorResponse(e.message || '重算失败', 400, null, env);
+    return errorResponse(e.message || '重算失败', 400, request, env);
   }
 }
 
@@ -187,14 +187,14 @@ async function updateExistingItem(request, env, id) {
   }
 }
 
-async function deleteExistingItem(env, id) {
+async function deleteExistingItem(request, env, id) {
   const deleted = await deleteItem(env.DB, id);
-  if (!deleted) return errorResponse('未找到记录', 404, null, env);
+  if (!deleted) return errorResponse('未找到记录', 404, request, env);
   await recordHistory(env, 'delete', deleted);
-  return successResponse(null, null, env);
+  return successResponse(null, request, env);
 }
 
-async function renewItem(env, id, request) {
+async function renewItem(request, env, id) {
   try {
     // now override for deterministic testing (injected via request header)
     const now = request?.headers?.get?.('x-test-now')
@@ -251,7 +251,7 @@ async function renewItem(env, id, request) {
       return updated;
     });
 
-    if (!result) return errorResponse('未找到记录', 404, null, env);
+    if (!result) return errorResponse('未找到记录', 404, request, env);
     const historyDetails = { newExpireDate: result.expireDate };
     if (result.type === 'esim' && balanceDelta !== null) {
       historyDetails.balanceDelta = balanceDelta;
@@ -261,9 +261,9 @@ async function renewItem(env, id, request) {
     await recordHistory(env, 'renew', result, historyDetails);
     const resp = { newExpireDate: result.expireDate };
     if (result.type === 'esim' && balanceDelta !== null) resp.newBalance = result.balance;
-    return successResponse(resp, null, env);
+    return successResponse(resp, request, env);
   } catch (e) {
-    return errorResponse(e.message || '续期失败', 400, null, env);
+    return errorResponse(e.message || '续期失败', 400, request, env);
   }
 }
 
@@ -306,7 +306,7 @@ async function rechargeItem(request, env, id) {
 
 // ==================== EXPORT / IMPORT ====================
 
-async function exportJSON(env) {
+async function exportJSON(request, env) {
   const items = await getAllItems(env.DB);
   const exportData = {
     version: '1.0.0',
@@ -319,11 +319,11 @@ async function exportJSON(env) {
     JSON.stringify(exportData, null, 2),
     'application/json',
     `sub-tracker-${new Date().toISOString().split('T')[0]}.json`,
-    null, env
+    request, env
   );
 }
 
-async function exportCSV(env) {
+async function exportCSV(request, env) {
   const items = await getAllItems(env.DB);
   const headers = ['ID', '类型', '名称', '号码', '分类', '到期日期', '周期(天)', '费用/余额', '货币', '自动续费/月租', '扣费日', '状态', '备注'];
 
@@ -360,7 +360,7 @@ async function exportCSV(env) {
     csv,
     'text/csv; charset=utf-8',
     `sub-tracker-${new Date().toISOString().split('T')[0]}.csv`,
-    null, env
+    request, env
   );
 }
 
@@ -439,13 +439,13 @@ async function importJSON(request, env) {
   }
 }
 
-async function testNotify(env, id) {
+async function testNotify(request, env, id) {
   const item = await getItemById(env.DB, id);
-  if (!item) return errorResponse('未找到记录', 404, null, env);
+  if (!item) return errorResponse('未找到记录', 404, request, env);
 
   const channels = await getConfiguredNotificationChannels(env);
   if (!channels.length) {
-    return errorResponse('未配置通知渠道。请至少配置 Telegram、Bark、企业微信或 Webhook 中的一种', 400, null, env);
+    return errorResponse('未配置通知渠道。请至少配置 Telegram、Bark、企业微信或 Webhook 中的一种', 400, request, env);
   }
 
   if (item.type === 'balance') {
@@ -467,8 +467,8 @@ async function testNotify(env, id) {
       '<i>这是一条测试通知，确认通知功能正常。</i>',
     ].filter(Boolean).join('\n');
     const results = await sendNotifications(env, msg, { title: 'Sub-Tracker 测试通知' });
-    if (results.some(r => r.ok)) return successResponse({ channels: results }, null, env);
-    return errorResponse('发送失败，请检查通知配置', 400, null, env);
+    if (results.some(r => r.ok)) return successResponse({ channels: results }, request, env);
+    return errorResponse('发送失败，请检查通知配置', 400, request, env);
   }
 
   const diff = daysUntil(item.expireDate);
@@ -490,6 +490,6 @@ async function testNotify(env, id) {
   ].filter(Boolean).join('\n');
 
   const results = await sendNotifications(env, msg, { title: 'Sub-Tracker 测试通知' });
-  if (results.some(r => r.ok)) return successResponse({ channels: results }, null, env);
-  return errorResponse('发送失败，请检查通知配置', 400, null, env);
+  if (results.some(r => r.ok)) return successResponse({ channels: results }, request, env);
+  return errorResponse('发送失败，请检查通知配置', 400, request, env);
 }
