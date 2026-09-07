@@ -17,6 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function build() {
   try {
     await generateIcons();
+    const isMinify = process.env.MINIFY === 'true';
     await esbuild.build({
       entryPoints: [path.join(__dirname, '..', 'src', 'index.js')],
       bundle: true,
@@ -24,10 +25,10 @@ async function build() {
       format: 'esm',
       target: 'es2022',
       platform: 'browser',
-      minify: false, // Keep readable for debugging
+      minify: isMinify, // Keep readable for debugging by default, set MINIFY=true for production
       sourcemap: false,
     });
-    console.log('✅ Build successful → worker/worker.js');
+    console.log(`✅ Build successful → worker/worker.js${isMinify ? ' (minified)' : ''}`);
   } catch (err) {
     console.error('❌ Build failed:', err.message);
     process.exit(1);
