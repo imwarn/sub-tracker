@@ -27,7 +27,8 @@ export function getClientScript() {
   const statsSrc = countUrgent.toString() + '\n' + sortItemsByPaused.toString();
   const qrScript = getQRCodeClientScript();
 
-  return `${statsSrc}
+  return `var __name = typeof __name === 'function' ? __name : function(target, value) { return target; };
+${statsSrc}
 ${qrScript}
 
 let TOKEN = localStorage.getItem('token') || '';
@@ -265,13 +266,17 @@ async function loadItems() {
   } catch (e) {
     console.error('loadItems error:', e);
   }
-  populateCategoryDatalist();
-  populateRegionDatalist();
-  populateCurrencyDatalist();
-  populateSettingsCountryDatalist();
-  renderStats();
-  renderAnalytics();
-  renderItems();
+  try {
+    populateCategoryDatalist();
+    populateRegionDatalist();
+    populateCurrencyDatalist();
+    populateSettingsCountryDatalist();
+    renderStats();
+    renderAnalytics();
+    renderItems();
+  } catch (err) {
+    console.error('Render error in loadItems:', err);
+  }
 }
 
 function populateCurrencySelects() {
@@ -591,33 +596,42 @@ function getFilteredItems() {
 }
 
 function renderItems() {
-  const items = getFilteredItems();
-  const container = document.getElementById('content-area');
-  const empty = document.getElementById('empty-state');
+  try {
+    const items = getFilteredItems();
+    const container = document.getElementById('content-area');
+    const empty = document.getElementById('empty-state');
+    if (!container) return;
 
-  if (allItems.length === 0) {
-    container.innerHTML = '';
-    empty.classList.remove('hidden');
-    return;
+    if (allItems.length === 0) {
+      container.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    if (items.length === 0) {
+      container.innerHTML = '<div class="text-center py-16 text-slate-500"><i class="fa-solid fa-filter text-4xl mb-3 opacity-30"></i><p>没有匹配的记录</p></div>';
+      return;
+    }
+
+    if (currentView === 'grid') container.innerHTML = renderGrid(items);
+    else if (currentView === 'list') container.innerHTML = renderList(items);
+    else if (currentView === 'calendar') container.innerHTML = renderCalendar(items);
+  } catch (err) {
+    console.error('renderItems error:', err);
   }
-  empty.classList.add('hidden');
-
-  if (items.length === 0) {
-    container.innerHTML = '<div class="text-center py-16 text-slate-500"><i class="fa-solid fa-filter text-4xl mb-3 opacity-30"></i><p>没有匹配的记录</p></div>';
-    return;
-  }
-
-  if (currentView === 'grid') container.innerHTML = renderGrid(items);
-  else if (currentView === 'list') container.innerHTML = renderList(items);
-  else if (currentView === 'calendar') container.innerHTML = renderCalendar(items);
 }
 
 function getDaysRemaining(item) {
   const targetDate = item.type === 'balance' ? item.predictedSuspendDate : item.expireDate;
   if (!targetDate) return 999;
   const today = new Date(); today.setHours(0,0,0,0);
-  const exp = new Date(targetDate + 'T00:00:00');
-  return Math.ceil((exp - today) / 86400000);
+  const dateStr = typeof targetDate === 'string' && targetDate.length === 10
+    ? targetDate + 'T00:00:00'
+    : targetDate;
+  const exp = new Date(dateStr);
+  const diff = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+  return isNaN(diff) ? 999 : diff;
 }
 
 function getStatusBadge(item) {

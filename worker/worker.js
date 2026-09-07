@@ -1630,7 +1630,7 @@ function countUrgent(items, now = /* @__PURE__ */ new Date()) {
     const dateStr = i.type === "balance" ? i.predictedSuspendDate : i.expireDate;
     if (!dateStr) continue;
     const diff = Math.ceil((/* @__PURE__ */ new Date(dateStr + "T00:00:00") - base) / DAY_MS);
-    if (diff <= 15) count++;
+    if (!isNaN(diff) && diff <= 15) count++;
   }
   return count;
 }
@@ -1638,7 +1638,6 @@ function sortItemsByPaused(items, sortBy = "expire", now = /* @__PURE__ */ new D
   const DAY_MS = 864e5;
   const base = new Date(now);
   base.setHours(0, 0, 0, 0);
-  const diffOf = (dateStr) => dateStr ? Math.ceil((/* @__PURE__ */ new Date(dateStr + "T00:00:00") - base) / DAY_MS) : 9999;
   items.sort((a, b) => {
     const ap = a.status === "paused" ? 1 : 0;
     const bp = b.status === "paused" ? 1 : 0;
@@ -1649,9 +1648,11 @@ function sortItemsByPaused(items, sortBy = "expire", now = /* @__PURE__ */ new D
       const pb = b.type === "balance" ? b.monthlyFee || 0 : parseFloat(b.price) || 0;
       return pb - pa;
     }
-    const da = a.type === "balance" ? a.predictedSuspendDate ? diffOf(a.predictedSuspendDate) : 9999 : a.expireDate ? diffOf(a.expireDate) : 9999;
-    const db = b.type === "balance" ? b.predictedSuspendDate ? diffOf(b.predictedSuspendDate) : 9999 : b.expireDate ? diffOf(b.expireDate) : 9999;
-    return da - db;
+    const dateA = a.type === "balance" ? a.predictedSuspendDate : a.expireDate;
+    const dateB = b.type === "balance" ? b.predictedSuspendDate : b.expireDate;
+    const da = dateA ? Math.ceil((/* @__PURE__ */ new Date(dateA + "T00:00:00") - base) / DAY_MS) : 9999;
+    const db = dateB ? Math.ceil((/* @__PURE__ */ new Date(dateB + "T00:00:00") - base) / DAY_MS) : 9999;
+    return (isNaN(da) ? 9999 : da) - (isNaN(db) ? 9999 : db);
   });
   return items;
 }
@@ -1893,7 +1894,8 @@ function getClientScript() {
   const allCountries = getAllCountries();
   const statsSrc = countUrgent.toString() + "\n" + sortItemsByPaused.toString();
   const qrScript = getQRCodeClientScript();
-  return `${statsSrc}
+  return `var __name = typeof __name === 'function' ? __name : function(target, value) { return target; };
+${statsSrc}
 ${qrScript}
 
 let TOKEN = localStorage.getItem('token') || '';
@@ -2131,13 +2133,17 @@ async function loadItems() {
   } catch (e) {
     console.error('loadItems error:', e);
   }
-  populateCategoryDatalist();
-  populateRegionDatalist();
-  populateCurrencyDatalist();
-  populateSettingsCountryDatalist();
-  renderStats();
-  renderAnalytics();
-  renderItems();
+  try {
+    populateCategoryDatalist();
+    populateRegionDatalist();
+    populateCurrencyDatalist();
+    populateSettingsCountryDatalist();
+    renderStats();
+    renderAnalytics();
+    renderItems();
+  } catch (err) {
+    console.error('Render error in loadItems:', err);
+  }
 }
 
 function populateCurrencySelects() {
@@ -2457,33 +2463,42 @@ function getFilteredItems() {
 }
 
 function renderItems() {
-  const items = getFilteredItems();
-  const container = document.getElementById('content-area');
-  const empty = document.getElementById('empty-state');
+  try {
+    const items = getFilteredItems();
+    const container = document.getElementById('content-area');
+    const empty = document.getElementById('empty-state');
+    if (!container) return;
 
-  if (allItems.length === 0) {
-    container.innerHTML = '';
-    empty.classList.remove('hidden');
-    return;
+    if (allItems.length === 0) {
+      container.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    if (items.length === 0) {
+      container.innerHTML = '<div class="text-center py-16 text-slate-500"><i class="fa-solid fa-filter text-4xl mb-3 opacity-30"></i><p>\u6CA1\u6709\u5339\u914D\u7684\u8BB0\u5F55</p></div>';
+      return;
+    }
+
+    if (currentView === 'grid') container.innerHTML = renderGrid(items);
+    else if (currentView === 'list') container.innerHTML = renderList(items);
+    else if (currentView === 'calendar') container.innerHTML = renderCalendar(items);
+  } catch (err) {
+    console.error('renderItems error:', err);
   }
-  empty.classList.add('hidden');
-
-  if (items.length === 0) {
-    container.innerHTML = '<div class="text-center py-16 text-slate-500"><i class="fa-solid fa-filter text-4xl mb-3 opacity-30"></i><p>\u6CA1\u6709\u5339\u914D\u7684\u8BB0\u5F55</p></div>';
-    return;
-  }
-
-  if (currentView === 'grid') container.innerHTML = renderGrid(items);
-  else if (currentView === 'list') container.innerHTML = renderList(items);
-  else if (currentView === 'calendar') container.innerHTML = renderCalendar(items);
 }
 
 function getDaysRemaining(item) {
   const targetDate = item.type === 'balance' ? item.predictedSuspendDate : item.expireDate;
   if (!targetDate) return 999;
   const today = new Date(); today.setHours(0,0,0,0);
-  const exp = new Date(targetDate + 'T00:00:00');
-  return Math.ceil((exp - today) / 86400000);
+  const dateStr = typeof targetDate === 'string' && targetDate.length === 10
+    ? targetDate + 'T00:00:00'
+    : targetDate;
+  const exp = new Date(dateStr);
+  const diff = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+  return isNaN(diff) ? 999 : diff;
 }
 
 function getStatusBadge(item) {

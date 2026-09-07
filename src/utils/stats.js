@@ -29,7 +29,7 @@ export function countUrgent(items, now = new Date()) {
     const dateStr = i.type === 'balance' ? i.predictedSuspendDate : i.expireDate;
     if (!dateStr) continue;
     const diff = Math.ceil((new Date(dateStr + 'T00:00:00') - base) / DAY_MS);
-    if (diff <= 15) count++;
+    if (!isNaN(diff) && diff <= 15) count++;
   }
   return count;
 }
@@ -38,8 +38,6 @@ export function sortItemsByPaused(items, sortBy = 'expire', now = new Date()) {
   const DAY_MS = 86400000;
   const base = new Date(now);
   base.setHours(0, 0, 0, 0);
-  const diffOf = (dateStr) =>
-    dateStr ? Math.ceil((new Date(dateStr + 'T00:00:00') - base) / DAY_MS) : 9999;
   items.sort((a, b) => {
     // paused sinks to bottom
     const ap = a.status === 'paused' ? 1 : 0;
@@ -53,13 +51,11 @@ export function sortItemsByPaused(items, sortBy = 'expire', now = new Date()) {
       return pb - pa; // high to low
     }
     // default: by expiry date, nearest first
-    const da = a.type === 'balance'
-      ? (a.predictedSuspendDate ? diffOf(a.predictedSuspendDate) : 9999)
-      : (a.expireDate ? diffOf(a.expireDate) : 9999);
-    const db = b.type === 'balance'
-      ? (b.predictedSuspendDate ? diffOf(b.predictedSuspendDate) : 9999)
-      : (b.expireDate ? diffOf(b.expireDate) : 9999);
-    return da - db;
+    const dateA = a.type === 'balance' ? a.predictedSuspendDate : a.expireDate;
+    const dateB = b.type === 'balance' ? b.predictedSuspendDate : b.expireDate;
+    const da = dateA ? Math.ceil((new Date(dateA + 'T00:00:00') - base) / DAY_MS) : 9999;
+    const db = dateB ? Math.ceil((new Date(dateB + 'T00:00:00') - base) / DAY_MS) : 9999;
+    return (isNaN(da) ? 9999 : da) - (isNaN(db) ? 9999 : db);
   });
   return items;
 }
