@@ -1907,6 +1907,7 @@ let currentView = 'grid';
 let calYear, calMonth;
 let currentLpaString = '';
 let _renderTimer = null;
+let analyticsDetailsOpen = null;
 function debouncedRender() { clearTimeout(_renderTimer); _renderTimer = setTimeout(renderItems, 300); }
 
 function showToast(msg, type = 'info') {
@@ -2269,11 +2270,11 @@ function renderStats() {
     { label:'\u6708\u5EA6\u603B\u652F\u51FA (\u6298\u7B97)', value:currSym(baseCur) + Math.round(convertedMonthly), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
   ];
 
-  document.getElementById('stats-bar').innerHTML = stats.map(s =>
-    '<div class="glass-card rounded-xl p-4' + (s.filter ? ' cursor-pointer' : '') + '"' +
+  document.getElementById('stats-bar').innerHTML = stats.map((s, idx) =>
+    '<div class="glass-card rounded-xl p-4' + (s.filter ? ' cursor-pointer' : '') + (idx === 4 ? ' col-span-2 sm:col-span-1' : '') + '"' +
     (s.filter ? ' onclick="setFilter(\\''+s.filter+'\\')" role="button" tabindex="0" aria-label="\u7B5B\u9009'+s.label+'"' : '') + '><div class="flex items-center gap-3">' +
-    '<div class="'+s.bg+' w-10 h-10 rounded-lg flex items-center justify-center"><i class="fa-solid '+s.icon+' '+s.color+'"></i></div>' +
-    '<div><div class="text-xs text-slate-400">'+s.label+'</div><div class="text-xl font-bold text-white">'+s.value+'</div></div>' +
+    '<div class="'+s.bg+' w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid '+s.icon+' '+s.color+'"></i></div>' +
+    '<div class="min-w-0"><div class="text-xs text-slate-400 truncate">'+s.label+'</div><div class="text-xl font-bold text-white truncate">'+s.value+'</div></div>' +
     '</div></div>'
   ).join('');
 }
@@ -2286,6 +2287,22 @@ function addMoney(bucket, currency, amount) {
 function fmtMoney(currency, amount) {
   const value = Math.abs(amount) >= 100 ? amount.toFixed(0) : amount.toFixed(2);
   return currSym(currency) + value + ' ' + currency;
+}
+
+function toggleAnalyticsDetails() {
+  analyticsDetailsOpen = !analyticsDetailsOpen;
+  const detailsEl = document.getElementById('analytics-details');
+  const textEl = document.getElementById('analytics-toggle-text');
+  const iconEl = document.getElementById('analytics-toggle-icon');
+  if (detailsEl) {
+    detailsEl.classList.toggle('hidden', !analyticsDetailsOpen);
+  }
+  if (textEl) {
+    textEl.textContent = analyticsDetailsOpen ? '\u6536\u8D77\u660E\u7EC6' : '\u652F\u51FA\u660E\u7EC6';
+  }
+  if (iconEl) {
+    iconEl.className = 'fa-solid ' + (analyticsDetailsOpen ? 'fa-chevron-up' : 'fa-chevron-down');
+  }
 }
 
 function renderAnalytics() {
@@ -2347,18 +2364,29 @@ function renderAnalytics() {
       '</div>'
     ).join('');
 
+  if (analyticsDetailsOpen === null) {
+    analyticsDetailsOpen = (typeof window !== 'undefined' && window.innerWidth >= 640);
+  }
+  const isHidden = !analyticsDetailsOpen;
+
   panel.innerHTML =
     '<div class="glass rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-sky-950/40 to-slate-900/40 border border-sky-500/20">' +
       '<div>' +
         '<div class="text-xs text-sky-400 font-semibold mb-0.5"><i class="fa-solid fa-calculator mr-1"></i>\u5168\u5E01\u79CD\u6C47\u7387\u6298\u7B97\u603B\u652F\u51FA (\u57FA\u51C6: '+baseCur+')</div>' +
         '<div class="text-xl sm:text-2xl font-bold text-white">'+currSym(baseCur) + totalMonthly.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u6708</span></div>' +
       '</div>' +
-      '<div class="sm:text-right sm:border-l sm:border-white/10 sm:pl-6">' +
-        '<div class="text-xs text-slate-400 mb-0.5">\u6298\u7B97\u5E74\u5EA6\u603B\u9884\u7B97</div>' +
-        '<div class="text-base sm:text-lg font-bold text-emerald-400">'+currSym(baseCur) + totalYearly.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u5E74</span></div>' +
+      '<div class="flex items-center justify-between sm:justify-end gap-3 sm:border-l sm:border-white/10 sm:pl-6">' +
+        '<div>' +
+          '<div class="text-xs text-slate-400 mb-0.5">\u6298\u7B97\u5E74\u5EA6\u603B\u9884\u7B97</div>' +
+          '<div class="text-base sm:text-lg font-bold text-emerald-400">'+currSym(baseCur) + totalYearly.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ \u5E74</span></div>' +
+        '</div>' +
+        '<button type="button" onclick="toggleAnalyticsDetails()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-sky-300 hover:text-white bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-all flex items-center gap-1.5 flex-shrink-0" id="analytics-toggle-btn" title="\u5207\u6362\u6536\u652F\u660E\u7EC6\u5C55\u793A">' +
+          '<span id="analytics-toggle-text">' + (analyticsDetailsOpen ? '\u6536\u8D77\u660E\u7EC6' : '\u652F\u51FA\u660E\u7EC6') + '</span>' +
+          '<i id="analytics-toggle-icon" class="fa-solid ' + (analyticsDetailsOpen ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i>' +
+        '</button>' +
       '</div>' +
     '</div>' +
-    '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
+    '<div id="analytics-details" class="grid grid-cols-1 lg:grid-cols-2 gap-4 ' + (isHidden ? 'hidden' : '') + '">' +
       '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-chart-simple text-emerald-400 mr-2"></i>\u6309\u539F\u59CB\u5E01\u79CD\u7EDF\u8BA1</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'+currencyHTML+'</div></div>' +
       '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-layer-group text-violet-400 mr-2"></i>\u6309\u5206\u7C7B\u652F\u51FA\u7EDF\u8BA1</div>'+categoryRows+'</div>' +
     '</div>';
@@ -2561,16 +2589,16 @@ function renderGrid(items) {
 
 function renderList(items) {
   return '<div class="glass rounded-2xl overflow-hidden">' +
-    '<div class="overflow-x-auto"><table class="w-full text-left text-sm">' +
+    '<div class="overflow-x-auto"><table class="w-full text-left text-sm min-w-[340px] sm:min-w-full">' +
       '<thead class="text-xs text-slate-400 uppercase bg-white/5 border-b border-white/10">' +
         '<tr>' +
-          '<th class="px-4 py-3">\u540D\u79F0 / \u7C7B\u578B</th>' +
-          '<th class="px-4 py-3">\u53F7\u7801 / \u8D26\u53F7</th>' +
-          '<th class="px-4 py-3">\u5206\u7C7B / \u533A\u57DF</th>' +
-          '<th class="px-4 py-3">\u5230\u671F/\u505C\u673A\u65E5</th>' +
-          '<th class="px-4 py-3">\u8D39\u7528 / \u4F59\u989D</th>' +
-          '<th class="px-4 py-3">\u72B6\u6001</th>' +
-          '<th class="px-4 py-3 text-right">\u64CD\u4F5C</th>' +
+          '<th class="px-3 sm:px-4 py-3">\u540D\u79F0 / \u7C7B\u578B</th>' +
+          '<th class="px-3 sm:px-4 py-3 hidden md:table-cell">\u53F7\u7801 / \u8D26\u53F7</th>' +
+          '<th class="px-3 sm:px-4 py-3 hidden sm:table-cell">\u5206\u7C7B / \u533A\u57DF</th>' +
+          '<th class="px-3 sm:px-4 py-3">\u5230\u671F/\u505C\u673A\u65E5</th>' +
+          '<th class="px-3 sm:px-4 py-3">\u8D39\u7528 / \u4F59\u989D</th>' +
+          '<th class="px-3 sm:px-4 py-3">\u72B6\u6001</th>' +
+          '<th class="px-3 sm:px-4 py-3 text-right">\u64CD\u4F5C</th>' +
         '</tr>' +
       '</thead>' +
       '<tbody class="divide-y divide-white/5">' +
@@ -2589,29 +2617,32 @@ function renderList(items) {
 
           let priceOrBal = '-';
           if (isSub && item.price) priceOrBal = '<span class="font-bold text-emerald-400">' + sym + item.price + (item.billing==='yearly'?'/\u5E74':'/\u6708') + '</span>';
-          else if (isBal) priceOrBal = '<span class="font-bold text-amber-300">' + sym + (item.balance ?? 0) + '</span> (\u6708\u79DF ' + sym + (item.monthlyFee||0) + ')';
+          else if (isBal) priceOrBal = '<span class="font-bold text-amber-300">' + sym + (item.balance ?? 0) + '</span><span class="hidden sm:inline text-xs text-slate-400"> (\u6708\u79DF ' + sym + (item.monthlyFee||0) + ')</span>';
           else if (isEsim && item.balance != null) priceOrBal = sym + item.balance;
 
+          const metaSub = [item.category ? esc(item.category) : '', item.region ? esc(item.region) : '', item.number || item.subId ? esc(item.number || item.subId) : ''].filter(Boolean).join(' \xB7 ');
+
           return '<tr class="list-row ' + (item.status === 'paused' ? 'opacity-50' : '') + '">' +
-            '<td class="px-4 py-3">' +
-              '<div class="font-bold text-white flex items-center gap-1.5">' +
+            '<td class="px-3 sm:px-4 py-3">' +
+              '<div class="font-bold text-white flex items-center gap-1.5 flex-wrap">' +
                 (flag ? '<span>' + flag + '</span>' : '') +
-                '<span>' + esc(item.name) + '</span>' +
+                '<span class="truncate max-w-[130px] sm:max-w-none">' + esc(item.name) + '</span>' +
                 typeBadge +
               '</div>' +
+              (metaSub ? '<div class="text-[11px] text-slate-400 mt-0.5 sm:hidden truncate max-w-[160px]">' + metaSub + '</div>' : '') +
             '</td>' +
-            '<td class="px-4 py-3 font-mono text-xs text-slate-300">' + esc(item.number || item.subId || '-') + '</td>' +
-            '<td class="px-4 py-3 text-xs text-slate-300">' + esc(item.category || '-') + (item.region ? ' ('+esc(item.region)+')' : '') + '</td>' +
-            '<td class="px-4 py-3 font-mono text-xs text-slate-200">' + (isBal ? item.predictedSuspendDate || '-' : item.expireDate || '-') + '</td>' +
-            '<td class="px-4 py-3 text-xs">' + priceOrBal + '</td>' +
-            '<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ' + badge.cls + '">' + badge.text + '</span></td>' +
-            '<td class="px-4 py-3 text-right">' +
+            '<td class="px-3 sm:px-4 py-3 font-mono text-xs text-slate-300 hidden md:table-cell">' + esc(item.number || item.subId || '-') + '</td>' +
+            '<td class="px-3 sm:px-4 py-3 text-xs text-slate-300 hidden sm:table-cell">' + esc(item.category || '-') + (item.region ? ' ('+esc(item.region)+')' : '') + '</td>' +
+            '<td class="px-3 sm:px-4 py-3 font-mono text-xs text-slate-200 whitespace-nowrap">' + (isBal ? item.predictedSuspendDate || '-' : item.expireDate || '-') + '</td>' +
+            '<td class="px-3 sm:px-4 py-3 text-xs whitespace-nowrap">' + priceOrBal + '</td>' +
+            '<td class="px-3 sm:px-4 py-3 whitespace-nowrap"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ' + badge.cls + '">' + badge.text + '</span></td>' +
+            '<td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap">' +
               '<div class="flex items-center justify-end gap-1">' +
-                (!isBal ? '<button onclick="renewItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-sky-400 hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
-                (isBal ? '<button onclick="openRechargeModal(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-amber-400 hover:bg-amber-500/10" title="\u5145\u503C"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
-                (isEsim && (item.smDp || item.activationCode) ? '<button onclick="showQrCode(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-cyan-400 hover:bg-cyan-500/10" title="\u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '') +
-                '<button onclick="editItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-slate-400 hover:text-white" title="\u7F16\u8F91"><i class="fa-solid fa-pen"></i></button>' +
-                '<button onclick="deleteItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-red-400 hover:bg-red-500/10" title="\u5220\u9664"><i class="fa-solid fa-trash"></i></button>' +
+                (!isBal ? '<button onclick="renewItem(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-sky-400 hover:bg-sky-500/10" title="\u7EED\u671F"><i class="fa-solid fa-rotate"></i></button>' : '') +
+                (isBal ? '<button onclick="openRechargeModal(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-amber-400 hover:bg-amber-500/10" title="\u5145\u503C"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
+                (isEsim && (item.smDp || item.activationCode) ? '<button onclick="showQrCode(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-cyan-400 hover:bg-cyan-500/10" title="\u4E8C\u7EF4\u7801"><i class="fa-solid fa-qrcode"></i></button>' : '') +
+                '<button onclick="editItem(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-slate-400 hover:text-white" title="\u7F16\u8F91"><i class="fa-solid fa-pen"></i></button>' +
+                '<button onclick="deleteItem(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-red-400 hover:bg-red-500/10" title="\u5220\u9664"><i class="fa-solid fa-trash"></i></button>' +
               '</div>' +
             '</td>' +
           '</tr>';
@@ -3635,6 +3666,7 @@ function getStyles() {
       background-size: 400% 400%;
       animation: gradient 20s ease infinite;
       min-height: 100vh;
+      min-height: 100dvh;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
     @keyframes gradient { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
@@ -3683,10 +3715,13 @@ function getStyles() {
       .glass-card .btn-touch { min-height:36px; min-width:36px; }
       /* Prevent iOS zoom on input focus (font < 16px triggers zoom) */
       input, select, textarea { font-size: 16px !important; }
-      /* Safe area insets for notched devices */
-      body { padding-bottom: calc(env(safe-area-inset-bottom) + 1rem); }
+      /* Safe area insets & ample bottom clearance for mobile FAB and browser toolbar */
+      body { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6.5rem) !important; }
+      .fab-container { bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem) !important; }
       .modal-overlay { padding: 0.5rem !important; align-items: flex-end !important; }
       .modal-box { max-height: 92dvh !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+      .scrollbar-none::-webkit-scrollbar { display: none; }
+      .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
     }
 `;
 }
@@ -3739,7 +3774,7 @@ ${getStyles()}
   </div>
 
   <!-- ========== DASHBOARD ========== -->
-  <div id="dashboard-view" class="hidden max-w-6xl mx-auto p-4 md:p-8">
+  <div id="dashboard-view" class="hidden max-w-6xl mx-auto p-4 md:p-8 pb-28 sm:pb-8">
     <!-- Header -->
     <div class="glass rounded-2xl p-5 sm:p-6 mb-6">
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
@@ -3776,37 +3811,39 @@ ${getStyles()}
     <div id="analytics-panel" class="mb-6"></div>
 
     <!-- View toggle + Filter -->
-    <div class="flex flex-wrap items-center gap-3 mb-6">
-      <div class="flex gap-2 flex-wrap basis-0 grow">
-        <button onclick="setFilter('all')" data-filter="all" class="filter-tab tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div class="flex gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none flex-nowrap sm:flex-wrap">
+        <button onclick="setFilter('all')" data-filter="all" class="filter-tab tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all whitespace-nowrap flex-shrink-0">
           <i class="fa-solid fa-globe mr-1"></i>\u5168\u90E8
         </button>
-        <button onclick="setFilter('esim')" data-filter="esim" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+        <button onclick="setFilter('esim')" data-filter="esim" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap flex-shrink-0">
           <i class="fa-solid fa-sim-card mr-1"></i>eSIM
         </button>
-        <button onclick="setFilter('subscription')" data-filter="subscription" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+        <button onclick="setFilter('subscription')" data-filter="subscription" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap flex-shrink-0">
           <i class="fa-solid fa-credit-card mr-1"></i>\u8BA2\u9605
         </button>
-        <button onclick="setFilter('balance')" data-filter="balance" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+        <button onclick="setFilter('balance')" data-filter="balance" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap flex-shrink-0">
           <i class="fa-solid fa-wallet mr-1"></i>\u8BDD\u8D39
         </button>
       </div>
-      <div class="flex gap-1 glass rounded-lg p-1 flex-shrink-0">
-        <button onclick="setView('grid')" data-view="grid" class="view-tab tab-active px-3 py-1.5 rounded-md text-xs transition-all" title="\u5361\u7247\u89C6\u56FE">
-          <i class="fa-solid fa-grip"></i>
-        </button>
-        <button onclick="setView('list')" data-view="list" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="\u5217\u8868\u89C6\u56FE">
-          <i class="fa-solid fa-list"></i>
-        </button>
-        <button onclick="setView('calendar')" data-view="calendar" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="\u65E5\u5386\u89C6\u56FE">
-          <i class="fa-solid fa-calendar"></i>
-        </button>
+      <div class="flex items-center justify-between sm:justify-end gap-2 flex-shrink-0">
+        <div class="flex gap-1 glass rounded-lg p-1 flex-shrink-0">
+          <button onclick="setView('grid')" data-view="grid" class="view-tab tab-active px-3 py-1.5 rounded-md text-xs transition-all" title="\u5361\u7247\u89C6\u56FE">
+            <i class="fa-solid fa-grip"></i>
+          </button>
+          <button onclick="setView('list')" data-view="list" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="\u5217\u8868\u89C6\u56FE">
+            <i class="fa-solid fa-list"></i>
+          </button>
+          <button onclick="setView('calendar')" data-view="calendar" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="\u65E5\u5386\u89C6\u56FE">
+            <i class="fa-solid fa-calendar"></i>
+          </button>
+        </div>
+        <select id="sort-select" onchange="renderItems()" class="glass-input px-3 py-1.5 rounded-lg text-xs flex-shrink-0">
+          <option value="expire">\u6309\u5230\u671F\u65E5</option>
+          <option value="name">\u6309\u540D\u79F0</option>
+          <option value="price">\u6309\u8D39\u7528</option>
+        </select>
       </div>
-      <select id="sort-select" onchange="renderItems()" class="glass-input px-3 py-1.5 rounded-lg text-xs flex-shrink-0">
-        <option value="expire">\u6309\u5230\u671F\u65E5</option>
-        <option value="name">\u6309\u540D\u79F0</option>
-        <option value="price">\u6309\u8D39\u7528</option>
-      </select>
     </div>
 
     <!-- Search -->
@@ -3839,7 +3876,7 @@ ${getStyles()}
     </div>
 
     <!-- Mobile Floating Action Button (FAB) -->
-    <div class="fixed right-4 bottom-6 sm:hidden z-40">
+    <div class="fab-container fixed right-4 bottom-6 sm:hidden z-40">
       <div id="fab-menu" class="hidden flex flex-col gap-2 mb-3 items-end fade-in">
         <button onclick="openModal('esim');toggleFab();" class="glass bg-cyan-600/90 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-cyan-400/30">
           <i class="fa-solid fa-sim-card"></i> eSIM \u5361

@@ -52,7 +52,7 @@ ${getStyles()}
   </div>
 
   <!-- ========== DASHBOARD ========== -->
-  <div id="dashboard-view" class="hidden max-w-6xl mx-auto p-4 md:p-8">
+  <div id="dashboard-view" class="hidden max-w-6xl mx-auto p-4 md:p-8 pb-28 sm:pb-8">
     <!-- Header -->
     <div class="glass rounded-2xl p-5 sm:p-6 mb-6">
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
@@ -89,37 +89,39 @@ ${getStyles()}
     <div id="analytics-panel" class="mb-6"></div>
 
     <!-- View toggle + Filter -->
-    <div class="flex flex-wrap items-center gap-3 mb-6">
-      <div class="flex gap-2 flex-wrap basis-0 grow">
-        <button onclick="setFilter('all')" data-filter="all" class="filter-tab tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div class="flex gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none flex-nowrap sm:flex-wrap">
+        <button onclick="setFilter('all')" data-filter="all" class="filter-tab tab-active px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all whitespace-nowrap flex-shrink-0">
           <i class="fa-solid fa-globe mr-1"></i>全部
         </button>
-        <button onclick="setFilter('esim')" data-filter="esim" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+        <button onclick="setFilter('esim')" data-filter="esim" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap flex-shrink-0">
           <i class="fa-solid fa-sim-card mr-1"></i>eSIM
         </button>
-        <button onclick="setFilter('subscription')" data-filter="subscription" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+        <button onclick="setFilter('subscription')" data-filter="subscription" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap flex-shrink-0">
           <i class="fa-solid fa-credit-card mr-1"></i>订阅
         </button>
-        <button onclick="setFilter('balance')" data-filter="balance" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5">
+        <button onclick="setFilter('balance')" data-filter="balance" class="filter-tab px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent transition-all text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap flex-shrink-0">
           <i class="fa-solid fa-wallet mr-1"></i>话费
         </button>
       </div>
-      <div class="flex gap-1 glass rounded-lg p-1 flex-shrink-0">
-        <button onclick="setView('grid')" data-view="grid" class="view-tab tab-active px-3 py-1.5 rounded-md text-xs transition-all" title="卡片视图">
-          <i class="fa-solid fa-grip"></i>
-        </button>
-        <button onclick="setView('list')" data-view="list" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="列表视图">
-          <i class="fa-solid fa-list"></i>
-        </button>
-        <button onclick="setView('calendar')" data-view="calendar" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="日历视图">
-          <i class="fa-solid fa-calendar"></i>
-        </button>
+      <div class="flex items-center justify-between sm:justify-end gap-2 flex-shrink-0">
+        <div class="flex gap-1 glass rounded-lg p-1 flex-shrink-0">
+          <button onclick="setView('grid')" data-view="grid" class="view-tab tab-active px-3 py-1.5 rounded-md text-xs transition-all" title="卡片视图">
+            <i class="fa-solid fa-grip"></i>
+          </button>
+          <button onclick="setView('list')" data-view="list" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="列表视图">
+            <i class="fa-solid fa-list"></i>
+          </button>
+          <button onclick="setView('calendar')" data-view="calendar" class="view-tab px-3 py-1.5 rounded-md text-xs transition-all text-slate-400" title="日历视图">
+            <i class="fa-solid fa-calendar"></i>
+          </button>
+        </div>
+        <select id="sort-select" onchange="renderItems()" class="glass-input px-3 py-1.5 rounded-lg text-xs flex-shrink-0">
+          <option value="expire">按到期日</option>
+          <option value="name">按名称</option>
+          <option value="price">按费用</option>
+        </select>
       </div>
-      <select id="sort-select" onchange="renderItems()" class="glass-input px-3 py-1.5 rounded-lg text-xs flex-shrink-0">
-        <option value="expire">按到期日</option>
-        <option value="name">按名称</option>
-        <option value="price">按费用</option>
-      </select>
     </div>
 
     <!-- Search -->
@@ -152,7 +154,7 @@ ${getStyles()}
     </div>
 
     <!-- Mobile Floating Action Button (FAB) -->
-    <div class="fixed right-4 bottom-6 sm:hidden z-40">
+    <div class="fab-container fixed right-4 bottom-6 sm:hidden z-40">
       <div id="fab-menu" class="hidden flex flex-col gap-2 mb-3 items-end fade-in">
         <button onclick="openModal('esim');toggleFab();" class="glass bg-cyan-600/90 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 border border-cyan-400/30">
           <i class="fa-solid fa-sim-card"></i> eSIM 卡

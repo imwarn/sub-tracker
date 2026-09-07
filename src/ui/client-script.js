@@ -41,6 +41,7 @@ let currentView = 'grid';
 let calYear, calMonth;
 let currentLpaString = '';
 let _renderTimer = null;
+let analyticsDetailsOpen = null;
 function debouncedRender() { clearTimeout(_renderTimer); _renderTimer = setTimeout(renderItems, 300); }
 
 function showToast(msg, type = 'info') {
@@ -403,11 +404,11 @@ function renderStats() {
     { label:'月度总支出 (折算)', value:currSym(baseCur) + Math.round(convertedMonthly), icon:'fa-coins', color:'text-emerald-400', bg:'bg-emerald-500/10' },
   ];
 
-  document.getElementById('stats-bar').innerHTML = stats.map(s =>
-    '<div class="glass-card rounded-xl p-4' + (s.filter ? ' cursor-pointer' : '') + '"' +
+  document.getElementById('stats-bar').innerHTML = stats.map((s, idx) =>
+    '<div class="glass-card rounded-xl p-4' + (s.filter ? ' cursor-pointer' : '') + (idx === 4 ? ' col-span-2 sm:col-span-1' : '') + '"' +
     (s.filter ? ' onclick="setFilter(\\''+s.filter+'\\')" role="button" tabindex="0" aria-label="筛选'+s.label+'"' : '') + '><div class="flex items-center gap-3">' +
-    '<div class="'+s.bg+' w-10 h-10 rounded-lg flex items-center justify-center"><i class="fa-solid '+s.icon+' '+s.color+'"></i></div>' +
-    '<div><div class="text-xs text-slate-400">'+s.label+'</div><div class="text-xl font-bold text-white">'+s.value+'</div></div>' +
+    '<div class="'+s.bg+' w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid '+s.icon+' '+s.color+'"></i></div>' +
+    '<div class="min-w-0"><div class="text-xs text-slate-400 truncate">'+s.label+'</div><div class="text-xl font-bold text-white truncate">'+s.value+'</div></div>' +
     '</div></div>'
   ).join('');
 }
@@ -420,6 +421,22 @@ function addMoney(bucket, currency, amount) {
 function fmtMoney(currency, amount) {
   const value = Math.abs(amount) >= 100 ? amount.toFixed(0) : amount.toFixed(2);
   return currSym(currency) + value + ' ' + currency;
+}
+
+function toggleAnalyticsDetails() {
+  analyticsDetailsOpen = !analyticsDetailsOpen;
+  const detailsEl = document.getElementById('analytics-details');
+  const textEl = document.getElementById('analytics-toggle-text');
+  const iconEl = document.getElementById('analytics-toggle-icon');
+  if (detailsEl) {
+    detailsEl.classList.toggle('hidden', !analyticsDetailsOpen);
+  }
+  if (textEl) {
+    textEl.textContent = analyticsDetailsOpen ? '收起明细' : '支出明细';
+  }
+  if (iconEl) {
+    iconEl.className = 'fa-solid ' + (analyticsDetailsOpen ? 'fa-chevron-up' : 'fa-chevron-down');
+  }
 }
 
 function renderAnalytics() {
@@ -481,18 +498,29 @@ function renderAnalytics() {
       '</div>'
     ).join('');
 
+  if (analyticsDetailsOpen === null) {
+    analyticsDetailsOpen = (typeof window !== 'undefined' && window.innerWidth >= 640);
+  }
+  const isHidden = !analyticsDetailsOpen;
+
   panel.innerHTML =
     '<div class="glass rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-sky-950/40 to-slate-900/40 border border-sky-500/20">' +
       '<div>' +
         '<div class="text-xs text-sky-400 font-semibold mb-0.5"><i class="fa-solid fa-calculator mr-1"></i>全币种汇率折算总支出 (基准: '+baseCur+')</div>' +
         '<div class="text-xl sm:text-2xl font-bold text-white">'+currSym(baseCur) + totalMonthly.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ 月</span></div>' +
       '</div>' +
-      '<div class="sm:text-right sm:border-l sm:border-white/10 sm:pl-6">' +
-        '<div class="text-xs text-slate-400 mb-0.5">折算年度总预算</div>' +
-        '<div class="text-base sm:text-lg font-bold text-emerald-400">'+currSym(baseCur) + totalYearly.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ 年</span></div>' +
+      '<div class="flex items-center justify-between sm:justify-end gap-3 sm:border-l sm:border-white/10 sm:pl-6">' +
+        '<div>' +
+          '<div class="text-xs text-slate-400 mb-0.5">折算年度总预算</div>' +
+          '<div class="text-base sm:text-lg font-bold text-emerald-400">'+currSym(baseCur) + totalYearly.toFixed(2) + ' <span class="text-xs text-slate-400 font-normal">/ 年</span></div>' +
+        '</div>' +
+        '<button type="button" onclick="toggleAnalyticsDetails()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-sky-300 hover:text-white bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-all flex items-center gap-1.5 flex-shrink-0" id="analytics-toggle-btn" title="切换收支明细展示">' +
+          '<span id="analytics-toggle-text">' + (analyticsDetailsOpen ? '收起明细' : '支出明细') + '</span>' +
+          '<i id="analytics-toggle-icon" class="fa-solid ' + (analyticsDetailsOpen ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i>' +
+        '</button>' +
       '</div>' +
     '</div>' +
-    '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
+    '<div id="analytics-details" class="grid grid-cols-1 lg:grid-cols-2 gap-4 ' + (isHidden ? 'hidden' : '') + '">' +
       '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-chart-simple text-emerald-400 mr-2"></i>按原始币种统计</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'+currencyHTML+'</div></div>' +
       '<div class="glass rounded-xl p-4"><div class="text-sm font-semibold text-slate-300 mb-3"><i class="fa-solid fa-layer-group text-violet-400 mr-2"></i>按分类支出统计</div>'+categoryRows+'</div>' +
     '</div>';
@@ -695,16 +723,16 @@ function renderGrid(items) {
 
 function renderList(items) {
   return '<div class="glass rounded-2xl overflow-hidden">' +
-    '<div class="overflow-x-auto"><table class="w-full text-left text-sm">' +
+    '<div class="overflow-x-auto"><table class="w-full text-left text-sm min-w-[340px] sm:min-w-full">' +
       '<thead class="text-xs text-slate-400 uppercase bg-white/5 border-b border-white/10">' +
         '<tr>' +
-          '<th class="px-4 py-3">名称 / 类型</th>' +
-          '<th class="px-4 py-3">号码 / 账号</th>' +
-          '<th class="px-4 py-3">分类 / 区域</th>' +
-          '<th class="px-4 py-3">到期/停机日</th>' +
-          '<th class="px-4 py-3">费用 / 余额</th>' +
-          '<th class="px-4 py-3">状态</th>' +
-          '<th class="px-4 py-3 text-right">操作</th>' +
+          '<th class="px-3 sm:px-4 py-3">名称 / 类型</th>' +
+          '<th class="px-3 sm:px-4 py-3 hidden md:table-cell">号码 / 账号</th>' +
+          '<th class="px-3 sm:px-4 py-3 hidden sm:table-cell">分类 / 区域</th>' +
+          '<th class="px-3 sm:px-4 py-3">到期/停机日</th>' +
+          '<th class="px-3 sm:px-4 py-3">费用 / 余额</th>' +
+          '<th class="px-3 sm:px-4 py-3">状态</th>' +
+          '<th class="px-3 sm:px-4 py-3 text-right">操作</th>' +
         '</tr>' +
       '</thead>' +
       '<tbody class="divide-y divide-white/5">' +
@@ -723,29 +751,32 @@ function renderList(items) {
 
           let priceOrBal = '-';
           if (isSub && item.price) priceOrBal = '<span class="font-bold text-emerald-400">' + sym + item.price + (item.billing==='yearly'?'/年':'/月') + '</span>';
-          else if (isBal) priceOrBal = '<span class="font-bold text-amber-300">' + sym + (item.balance ?? 0) + '</span> (月租 ' + sym + (item.monthlyFee||0) + ')';
+          else if (isBal) priceOrBal = '<span class="font-bold text-amber-300">' + sym + (item.balance ?? 0) + '</span><span class="hidden sm:inline text-xs text-slate-400"> (月租 ' + sym + (item.monthlyFee||0) + ')</span>';
           else if (isEsim && item.balance != null) priceOrBal = sym + item.balance;
 
+          const metaSub = [item.category ? esc(item.category) : '', item.region ? esc(item.region) : '', item.number || item.subId ? esc(item.number || item.subId) : ''].filter(Boolean).join(' · ');
+
           return '<tr class="list-row ' + (item.status === 'paused' ? 'opacity-50' : '') + '">' +
-            '<td class="px-4 py-3">' +
-              '<div class="font-bold text-white flex items-center gap-1.5">' +
+            '<td class="px-3 sm:px-4 py-3">' +
+              '<div class="font-bold text-white flex items-center gap-1.5 flex-wrap">' +
                 (flag ? '<span>' + flag + '</span>' : '') +
-                '<span>' + esc(item.name) + '</span>' +
+                '<span class="truncate max-w-[130px] sm:max-w-none">' + esc(item.name) + '</span>' +
                 typeBadge +
               '</div>' +
+              (metaSub ? '<div class="text-[11px] text-slate-400 mt-0.5 sm:hidden truncate max-w-[160px]">' + metaSub + '</div>' : '') +
             '</td>' +
-            '<td class="px-4 py-3 font-mono text-xs text-slate-300">' + esc(item.number || item.subId || '-') + '</td>' +
-            '<td class="px-4 py-3 text-xs text-slate-300">' + esc(item.category || '-') + (item.region ? ' ('+esc(item.region)+')' : '') + '</td>' +
-            '<td class="px-4 py-3 font-mono text-xs text-slate-200">' + (isBal ? item.predictedSuspendDate || '-' : item.expireDate || '-') + '</td>' +
-            '<td class="px-4 py-3 text-xs">' + priceOrBal + '</td>' +
-            '<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ' + badge.cls + '">' + badge.text + '</span></td>' +
-            '<td class="px-4 py-3 text-right">' +
+            '<td class="px-3 sm:px-4 py-3 font-mono text-xs text-slate-300 hidden md:table-cell">' + esc(item.number || item.subId || '-') + '</td>' +
+            '<td class="px-3 sm:px-4 py-3 text-xs text-slate-300 hidden sm:table-cell">' + esc(item.category || '-') + (item.region ? ' ('+esc(item.region)+')' : '') + '</td>' +
+            '<td class="px-3 sm:px-4 py-3 font-mono text-xs text-slate-200 whitespace-nowrap">' + (isBal ? item.predictedSuspendDate || '-' : item.expireDate || '-') + '</td>' +
+            '<td class="px-3 sm:px-4 py-3 text-xs whitespace-nowrap">' + priceOrBal + '</td>' +
+            '<td class="px-3 sm:px-4 py-3 whitespace-nowrap"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ' + badge.cls + '">' + badge.text + '</span></td>' +
+            '<td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap">' +
               '<div class="flex items-center justify-end gap-1">' +
-                (!isBal ? '<button onclick="renewItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-sky-400 hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
-                (isBal ? '<button onclick="openRechargeModal(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-amber-400 hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
-                (isEsim && (item.smDp || item.activationCode) ? '<button onclick="showQrCode(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-cyan-400 hover:bg-cyan-500/10" title="二维码"><i class="fa-solid fa-qrcode"></i></button>' : '') +
-                '<button onclick="editItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-slate-400 hover:text-white" title="编辑"><i class="fa-solid fa-pen"></i></button>' +
-                '<button onclick="deleteItem(\\'' + item.id + '\\')" class="px-2 py-1 rounded text-xs text-red-400 hover:bg-red-500/10" title="删除"><i class="fa-solid fa-trash"></i></button>' +
+                (!isBal ? '<button onclick="renewItem(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-sky-400 hover:bg-sky-500/10" title="续期"><i class="fa-solid fa-rotate"></i></button>' : '') +
+                (isBal ? '<button onclick="openRechargeModal(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-amber-400 hover:bg-amber-500/10" title="充值"><i class="fa-solid fa-plus-circle"></i></button>' : '') +
+                (isEsim && (item.smDp || item.activationCode) ? '<button onclick="showQrCode(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-cyan-400 hover:bg-cyan-500/10" title="二维码"><i class="fa-solid fa-qrcode"></i></button>' : '') +
+                '<button onclick="editItem(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-slate-400 hover:text-white" title="编辑"><i class="fa-solid fa-pen"></i></button>' +
+                '<button onclick="deleteItem(\\'' + item.id + '\\')" class="btn-touch px-2 py-1 rounded text-xs text-red-400 hover:bg-red-500/10" title="删除"><i class="fa-solid fa-trash"></i></button>' +
               '</div>' +
             '</td>' +
           '</tr>';

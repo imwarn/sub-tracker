@@ -9,6 +9,7 @@ export function getStyles() {
       background-size: 400% 400%;
       animation: gradient 20s ease infinite;
       min-height: 100vh;
+      min-height: 100dvh;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
     @keyframes gradient { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
@@ -57,10 +58,13 @@ export function getStyles() {
       .glass-card .btn-touch { min-height:36px; min-width:36px; }
       /* Prevent iOS zoom on input focus (font < 16px triggers zoom) */
       input, select, textarea { font-size: 16px !important; }
-      /* Safe area insets for notched devices */
-      body { padding-bottom: calc(env(safe-area-inset-bottom) + 1rem); }
+      /* Safe area insets & ample bottom clearance for mobile FAB and browser toolbar */
+      body { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6.5rem) !important; }
+      .fab-container { bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem) !important; }
       .modal-overlay { padding: 0.5rem !important; align-items: flex-end !important; }
       .modal-box { max-height: 92dvh !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+      .scrollbar-none::-webkit-scrollbar { display: none; }
+      .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
     }
 `;
 }
