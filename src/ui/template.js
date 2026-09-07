@@ -5,8 +5,15 @@
 import { getClientScript } from './client-script.js';
 import { getStyles } from './styles.js';
 
+let cachedHTML = null;
+
+export function clearHTMLCache() {
+  cachedHTML = null;
+}
+
 export function getHTML() {
-  return `<!DOCTYPE html>
+  if (cachedHTML) return cachedHTML;
+  cachedHTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -20,7 +27,6 @@ export function getHTML() {
   <link rel="apple-touch-icon" href="/icon-192.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
 ${getStyles()}
   </style>
@@ -731,4 +737,5 @@ ${getClientScript()}
 </script>
 </body>
 </html>`;
+  return cachedHTML;
 }

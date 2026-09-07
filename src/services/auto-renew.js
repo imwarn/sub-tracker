@@ -4,7 +4,7 @@
  * Called by the daily Cron trigger alongside checkReminders and autoDeduct.
  */
 
-import { getAllItems, updateItem, addHistory } from '../data/store.js';
+import { getAllItems, saveAllItems, addHistory } from '../data/store.js';
 import { addBillingPeriod, todayString } from '../utils/date.js';
 import { sendNotifications } from './notify.js';
 import { escapeTelegramHTML } from './telegram.js';
@@ -21,8 +21,11 @@ export async function autoRenewSubscriptions(env, now = new Date()) {
   if (!items.length) return;
 
   const today = todayString(now);
+  let changed = false;
+  const renewedItems = [];
 
-  for (const item of items) {
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     if (item.type !== 'subscription') continue;
     if (item.status !== 'active') continue;
     if (!item.autoRenew) continue;
@@ -35,42 +38,52 @@ export async function autoRenewSubscriptions(env, now = new Date()) {
       const baseDate = item.expireDate;
       const newExpireDate = addBillingPeriod(baseDate, item.billing, mode, item.cycleDays);
 
-      const updated = await updateItem(env.DB, item.id, existing => ({
-        ...existing,
+      items[i] = {
+        ...item,
         expireDate: newExpireDate,
-      }));
+      };
+      changed = true;
+      renewedItems.push({
+        item: items[i],
+        baseDate,
+        newExpireDate,
+      });
+    }
+  }
 
-      if (updated) {
-        await addHistory(env.DB, {
-          action: 'renew',
-          itemId: item.id,
-          itemName: item.name,
-          itemType: 'subscription',
-          details: {
-            oldExpireDate: baseDate,
-            newExpireDate,
-            auto: true,
-          },
-        }).catch(() => {});
+  if (changed) {
+    await saveAllItems(env.DB, items);
 
-        const sym = currSym(item.currency);
-        const priceText = item.price ? `\n💰 续费金额: ${sym}${item.price}` : '';
-        const msg = [
-          `🔄 <b>【Sub-Tracker 订阅自动续费】</b>`,
-          '',
-          `📦 订阅名称: ${tg(item.name)}`,
-          item.category ? `🏷️ 分类: ${tg(item.category)}` : '',
-          priceText,
-          `📅 上期到期: ${baseDate}`,
-          `🎉 新到期日: <b>${newExpireDate}</b>`,
-          item.remark ? `📝 备注: ${tg(item.remark)}` : '',
-          '',
-          '<i>系统已根据设置自动顺延下一个计费周期。</i>',
-        ].filter(Boolean).join('\n');
+    for (const { item, baseDate, newExpireDate } of renewedItems) {
+      await addHistory(env.DB, {
+        action: 'renew',
+        itemId: item.id,
+        itemName: item.name,
+        itemType: 'subscription',
+        details: {
+          oldExpireDate: baseDate,
+          newExpireDate,
+          auto: true,
+        },
+      }).catch(() => {});
 
-        await sendNotifications(env, msg, { title: 'Sub-Tracker 自动续费' }).catch(() => {});
-        console.log(`Auto-renewed subscription "${item.name}" (${baseDate} → ${newExpireDate})`);
-      }
+      const sym = currSym(item.currency);
+      const priceText = item.price ? `\n💰 续费金额: ${sym}${item.price}` : '';
+      const msg = [
+        `🔄 <b>【Sub-Tracker 订阅自动续费】</b>`,
+        '',
+        `📦 订阅名称: ${tg(item.name)}`,
+        item.category ? `🏷️ 分类: ${tg(item.category)}` : '',
+        priceText,
+        `📅 上期到期: ${baseDate}`,
+        `🎉 新到期日: <b>${newExpireDate}</b>`,
+        item.remark ? `📝 备注: ${tg(item.remark)}` : '',
+        '',
+        '<i>系统已根据设置自动顺延下一个计费周期。</i>',
+      ].filter(Boolean).join('\n');
+
+      await sendNotifications(env, msg, { title: 'Sub-Tracker 自动续费' }).catch(() => {});
+      console.log(`Auto-renewed subscription "${item.name}" (${baseDate} → ${newExpireDate})`);
     }
   }
 }

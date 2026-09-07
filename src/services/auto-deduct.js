@@ -4,7 +4,7 @@
  * Called by the daily Cron trigger alongside checkReminders.
  */
 
-import { getAllItems, updateItem, addHistory } from '../data/store.js';
+import { getAllItems, saveAllItems, addHistory } from '../data/store.js';
 import { calcSuspendDate, todayString } from '../utils/date.js';
 import { sendNotifications } from './notify.js';
 import { escapeTelegramHTML } from './telegram.js';
@@ -16,14 +16,17 @@ function currSym(code) { return CURRENCY_SYMBOLS[code] || code || '¥'; }
 /**
  * Run auto-deduction for balance items whose billingDay matches today.
  */
-export async function autoDeduct(env) {
+export async function autoDeduct(env, now = new Date()) {
   const items = await getAllItems(env.DB);
   if (!items.length) return;
 
-  const today = todayString(); // "YYYY-MM-DD"
+  const today = todayString(now); // "YYYY-MM-DD"
   const todayDay = parseInt(today.split('-')[2], 10); // day of month
+  let changed = false;
+  const deductedItems = [];
 
-  for (const item of items) {
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     if (item.type !== 'balance') continue;
     if (item.status !== 'active') continue;
     if (!item.monthlyFee || item.monthlyFee <= 0) continue;
@@ -55,19 +58,30 @@ export async function autoDeduct(env) {
         '',
         '请尽快充值，避免停机！',
       ].filter(Boolean).join('\n');
-      await sendNotifications(env, msg);
+      await sendNotifications(env, msg).catch(() => {});
     }
 
     // Deduct
-    const newSuspendDate = calcSuspendDate(newBalance, fee, item.billingDay);
-    const updated = await updateItem(env.DB, item.id, existing => ({
-      ...existing,
+    const newSuspendDate = calcSuspendDate(newBalance, fee, item.billingDay, now);
+    items[i] = {
+      ...item,
       balance: newBalance,
       predictedSuspendDate: newSuspendDate,
       lastDeductDate: today,
-    }));
+    };
+    changed = true;
+    deductedItems.push({
+      item: items[i],
+      fee,
+      oldBalance,
+      newBalance,
+    });
+  }
 
-    if (updated) {
+  if (changed) {
+    await saveAllItems(env.DB, items);
+
+    for (const { item, fee, oldBalance, newBalance } of deductedItems) {
       await addHistory(env.DB, {
         action: 'deduct',
         itemId: item.id,

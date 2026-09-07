@@ -3742,8 +3742,10 @@ function getStyles() {
 }
 
 // src/ui/template.js
+var cachedHTML = null;
 function getHTML() {
-  return `<!DOCTYPE html>
+  if (cachedHTML) return cachedHTML;
+  cachedHTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -3757,7 +3759,6 @@ function getHTML() {
   <link rel="apple-touch-icon" href="/icon-192.png">
   <script src="https://cdn.tailwindcss.com"><\/script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
 ${getStyles()}
   </style>
@@ -4468,6 +4469,7 @@ ${getClientScript()}
 <\/script>
 </body>
 </html>`;
+  return cachedHTML;
 }
 
 // src/ui/brand-assets.js
@@ -4748,12 +4750,15 @@ function tg3(s) {
 function currSym2(code) {
   return CURRENCY_SYMBOLS[code] || code || "\xA5";
 }
-async function autoDeduct(env) {
+async function autoDeduct(env, now = /* @__PURE__ */ new Date()) {
   const items = await getAllItems(env.DB);
   if (!items.length) return;
-  const today = todayString();
+  const today = todayString(now);
   const todayDay = parseInt(today.split("-")[2], 10);
-  for (const item of items) {
+  let changed = false;
+  const deductedItems = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     if (item.type !== "balance") continue;
     if (item.status !== "active") continue;
     if (!item.monthlyFee || item.monthlyFee <= 0) continue;
@@ -4778,16 +4783,27 @@ async function autoDeduct(env) {
         "",
         "\u8BF7\u5C3D\u5FEB\u5145\u503C\uFF0C\u907F\u514D\u505C\u673A\uFF01"
       ].filter(Boolean).join("\n");
-      await sendNotifications(env, msg);
+      await sendNotifications(env, msg).catch(() => {
+      });
     }
-    const newSuspendDate = calcSuspendDate(newBalance, fee, item.billingDay);
-    const updated = await updateItem(env.DB, item.id, (existing) => ({
-      ...existing,
+    const newSuspendDate = calcSuspendDate(newBalance, fee, item.billingDay, now);
+    items[i] = {
+      ...item,
       balance: newBalance,
       predictedSuspendDate: newSuspendDate,
       lastDeductDate: today
-    }));
-    if (updated) {
+    };
+    changed = true;
+    deductedItems.push({
+      item: items[i],
+      fee,
+      oldBalance,
+      newBalance
+    });
+  }
+  if (changed) {
+    await saveAllItems(env.DB, items);
+    for (const { item, fee, oldBalance, newBalance } of deductedItems) {
       await addHistory(env.DB, {
         action: "deduct",
         itemId: item.id,
@@ -4816,7 +4832,10 @@ async function autoRenewSubscriptions(env, now = /* @__PURE__ */ new Date()) {
   const items = await getAllItems(env.DB);
   if (!items.length) return;
   const today = todayString(now);
-  for (const item of items) {
+  let changed = false;
+  const renewedItems = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     if (item.type !== "subscription") continue;
     if (item.status !== "active") continue;
     if (!item.autoRenew) continue;
@@ -4826,42 +4845,51 @@ async function autoRenewSubscriptions(env, now = /* @__PURE__ */ new Date()) {
       const mode = item.billingMode || "natural";
       const baseDate = item.expireDate;
       const newExpireDate = addBillingPeriod(baseDate, item.billing, mode, item.cycleDays);
-      const updated = await updateItem(env.DB, item.id, (existing) => ({
-        ...existing,
+      items[i] = {
+        ...item,
         expireDate: newExpireDate
-      }));
-      if (updated) {
-        await addHistory(env.DB, {
-          action: "renew",
-          itemId: item.id,
-          itemName: item.name,
-          itemType: "subscription",
-          details: {
-            oldExpireDate: baseDate,
-            newExpireDate,
-            auto: true
-          }
-        }).catch(() => {
-        });
-        const sym = currSym3(item.currency);
-        const priceText = item.price ? `
+      };
+      changed = true;
+      renewedItems.push({
+        item: items[i],
+        baseDate,
+        newExpireDate
+      });
+    }
+  }
+  if (changed) {
+    await saveAllItems(env.DB, items);
+    for (const { item, baseDate, newExpireDate } of renewedItems) {
+      await addHistory(env.DB, {
+        action: "renew",
+        itemId: item.id,
+        itemName: item.name,
+        itemType: "subscription",
+        details: {
+          oldExpireDate: baseDate,
+          newExpireDate,
+          auto: true
+        }
+      }).catch(() => {
+      });
+      const sym = currSym3(item.currency);
+      const priceText = item.price ? `
 \u{1F4B0} \u7EED\u8D39\u91D1\u989D: ${sym}${item.price}` : "";
-        const msg = [
-          `\u{1F504} <b>\u3010Sub-Tracker \u8BA2\u9605\u81EA\u52A8\u7EED\u8D39\u3011</b>`,
-          "",
-          `\u{1F4E6} \u8BA2\u9605\u540D\u79F0: ${tg4(item.name)}`,
-          item.category ? `\u{1F3F7}\uFE0F \u5206\u7C7B: ${tg4(item.category)}` : "",
-          priceText,
-          `\u{1F4C5} \u4E0A\u671F\u5230\u671F: ${baseDate}`,
-          `\u{1F389} \u65B0\u5230\u671F\u65E5: <b>${newExpireDate}</b>`,
-          item.remark ? `\u{1F4DD} \u5907\u6CE8: ${tg4(item.remark)}` : "",
-          "",
-          "<i>\u7CFB\u7EDF\u5DF2\u6839\u636E\u8BBE\u7F6E\u81EA\u52A8\u987A\u5EF6\u4E0B\u4E00\u4E2A\u8BA1\u8D39\u5468\u671F\u3002</i>"
-        ].filter(Boolean).join("\n");
-        await sendNotifications(env, msg, { title: "Sub-Tracker \u81EA\u52A8\u7EED\u8D39" }).catch(() => {
-        });
-        console.log(`Auto-renewed subscription "${item.name}" (${baseDate} \u2192 ${newExpireDate})`);
-      }
+      const msg = [
+        `\u{1F504} <b>\u3010Sub-Tracker \u8BA2\u9605\u81EA\u52A8\u7EED\u8D39\u3011</b>`,
+        "",
+        `\u{1F4E6} \u8BA2\u9605\u540D\u79F0: ${tg4(item.name)}`,
+        item.category ? `\u{1F3F7}\uFE0F \u5206\u7C7B: ${tg4(item.category)}` : "",
+        priceText,
+        `\u{1F4C5} \u4E0A\u671F\u5230\u671F: ${baseDate}`,
+        `\u{1F389} \u65B0\u5230\u671F\u65E5: <b>${newExpireDate}</b>`,
+        item.remark ? `\u{1F4DD} \u5907\u6CE8: ${tg4(item.remark)}` : "",
+        "",
+        "<i>\u7CFB\u7EDF\u5DF2\u6839\u636E\u8BBE\u7F6E\u81EA\u52A8\u987A\u5EF6\u4E0B\u4E00\u4E2A\u8BA1\u8D39\u5468\u671F\u3002</i>"
+      ].filter(Boolean).join("\n");
+      await sendNotifications(env, msg, { title: "Sub-Tracker \u81EA\u52A8\u7EED\u8D39" }).catch(() => {
+      });
+      console.log(`Auto-renewed subscription "${item.name}" (${baseDate} \u2192 ${newExpireDate})`);
     }
   }
 }
